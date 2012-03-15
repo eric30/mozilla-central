@@ -49,6 +49,7 @@
 #include "jsfriendapi.h"
 #include "mozilla/dom/workers/Workers.h"
 #include "mozilla/ipc/Ril.h"
+#include "mozilla/ipc/DBusThread.h"
 #include "nsContentUtils.h"
 #include "nsServiceManagerUtils.h"
 #include "nsThreadUtils.h"
@@ -67,6 +68,7 @@ NS_DEFINE_CID(kWifiWorkerCID, NS_WIFIWORKER_CID);
 
 // Doesn't carry a reference, we're owned by services.
 SystemWorkerManager *gInstance = nsnull;
+DBusThread* gDBusThread = nsnull;
 
 class ConnectWorkerToRIL : public WorkerTask
 {
@@ -230,6 +232,9 @@ SystemWorkerManager::Init()
   rv = InitWifi(cx);
   NS_ENSURE_SUCCESS(rv, rv);
 
+  rv = InitBluetooth(cx);
+  NS_ENSURE_SUCCESS(rv, rv);
+
   nsCOMPtr<nsIObserverService> obs =
     do_GetService(NS_OBSERVERSERVICE_CONTRACTID);
   if (!obs) {
@@ -251,6 +256,11 @@ SystemWorkerManager::Shutdown()
   mShutdown = true;
 
   StopRil();
+
+  if(gDBusThread) {
+    gDBusThread->stopEventLoop();
+    gDBusThread = nsnull;
+  }
 
   mRILWorker = nsnull;
   nsCOMPtr<nsIWifi> wifi(do_QueryInterface(mWifiWorker));
@@ -361,6 +371,18 @@ SystemWorkerManager::InitWifi(JSContext *cx)
   NS_ENSURE_TRUE(worker, NS_ERROR_FAILURE);
 
   mWifiWorker = worker;
+  return NS_OK;
+}
+
+nsresult
+SystemWorkerManager::InitBluetooth(JSContext *cx)
+{
+  // nsCOMPtr<nsIWorkerHolder> worker = do_CreateInstance(kWifiWorkerCID);
+  // NS_ENSURE_TRUE(worker, NS_ERROR_FAILURE);
+
+  // mWifiWorker = worker;
+  gDBusThread = new DBusThread();
+  gDBusThread->startEventLoop();
   return NS_OK;
 }
 
