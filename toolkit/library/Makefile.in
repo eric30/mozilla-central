@@ -403,6 +403,7 @@ OS_LIBS += \
   -lcamera_client \
   -lbinder \
   -lsensorservice \
+	-ldbus \
   $(NULL)
 endif
 
