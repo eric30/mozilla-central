@@ -56,7 +56,6 @@
 #include "nsRadioInterfaceLayer.h"
 #include "WifiWorker.h"
 
-
 USING_WORKERS_NAMESPACE
 using namespace mozilla::dom::gonk;
 using namespace mozilla::ipc;
@@ -384,6 +383,18 @@ SystemWorkerManager::InitBluetooth(JSContext *cx)
   // mWifiWorker = worker;
   gDBusThread = new DBusThread();
   gDBusThread->startEventLoop();
+  return NS_OK;
+}
+
+nsresult
+SystemWorkerManager::SetBluetoothAdapter(DBusEventHandler* adapter) {
+  if(!gDBusThread) {
+    printf("No thread no bluetooth!!!!\n");
+    return NS_ERROR_FAILURE;
+  }
+  printf("SEtting up bluetooth adapter!!!!\n");
+  adapter->HandleEvent(NULL);
+  gDBusThread->SetBluetoothAdapter(adapter);
   return NS_OK;
 }
 

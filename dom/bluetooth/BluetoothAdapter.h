@@ -8,16 +8,19 @@
 #define mozilla_dom_bluetooth_bluetoothadapter_h__
 
 #include "BluetoothCommon.h"
+#include "mozilla/ipc/DBusEventHandler.h"
 #include "nsDOMEventTargetHelper.h"
 #include "nsIDOMBluetoothAdapter.h"
 #include "nsIDOMDOMRequest.h"
 
+class DBusMessage;
 class nsIEventTarget;
 
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothAdapter : public nsDOMEventTargetHelper
                        , public nsIDOMBluetoothAdapter
+                       , public mozilla::ipc::DBusEventHandler
 {
 public:
   NS_DECL_ISUPPORTS
@@ -31,6 +34,8 @@ public:
   BluetoothAdapter(nsPIDOMWindow*);
 
   inline void SetEnabledInternal(bool aEnabled) {mEnabled = aEnabled;}
+
+  virtual nsresult HandleEvent(DBusMessage* msg);
 
 protected:
   bool mEnabled;

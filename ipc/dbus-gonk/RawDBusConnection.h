@@ -121,7 +121,6 @@ public:
   //   return false;
   // }
 
-	virtual void EventFilter(DBusMessage* msg) = 0;
 protected:
   DBusConnection* mConnection;  
 };

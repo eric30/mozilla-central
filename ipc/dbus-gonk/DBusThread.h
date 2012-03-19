@@ -9,6 +9,8 @@
 
 #include "RawDBusConnection.h"
 #include "pthread.h"
+#include "nsAutoPtr.h"
+#include "DBusEventHandler.h"
 
 struct DBusMessage;
 struct DBusWatch;
@@ -19,28 +21,29 @@ namespace ipc {
 
 class DBusThread : protected RawDBusConnection {
 public:
-	DBusThread();
-	~DBusThread();
-	bool setUpEventLoop();
-	bool startEventLoop();
-	void stopEventLoop();
-	bool isEventLoopRunning();
-	void EventFilter(DBusMessage* msg);
+  DBusThread();
+  ~DBusThread();
+  bool setUpEventLoop();
+  bool startEventLoop();
+  void stopEventLoop();
+  bool isEventLoopRunning();
+  void SetBluetoothAdapter(DBusEventHandler* m);
   static void* eventLoop(void* ptr);
-	/* protects the thread */
-	pthread_mutex_t thread_mutex;
-	pthread_t thread;
-	/* our comms socket */
-	/* mem for the list of sockets to listen to */
-	struct pollfd *pollData;
-	int pollMemberCount;
-	int pollDataSize;
-	/* mem for matching set of dbus watch ptrs */
-	DBusWatch **watchData;
-	/* pair of sockets for event loop control, Reader and Writer */
-	int controlFdR;
-	int controlFdW;
-	bool running;
+  /* protects the thread */
+  pthread_mutex_t thread_mutex;
+  pthread_t thread;
+  /* our comms socket */
+  /* mem for the list of sockets to listen to */
+  struct pollfd *pollData;
+  int pollMemberCount;
+  int pollDataSize;
+  /* mem for matching set of dbus watch ptrs */
+  DBusWatch **watchData;
+  /* pair of sockets for event loop control, Reader and Writer */
+  int controlFdR;
+  int controlFdW;
+  bool running;
+  DBusEventHandler* mEventHandler;
 };
 
 }

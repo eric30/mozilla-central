@@ -57,6 +57,7 @@ EXPORTS_NAMESPACES = mozilla/ipc
 EXPORTS_mozilla/ipc = \
   RawDBusConnection.h \
   DBusThread.h \
+	DBusEventHandler.h \
   $(NULL)
 
 CPPSRCS += \
