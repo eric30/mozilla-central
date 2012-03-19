@@ -48,6 +48,7 @@
 #include "nsDOMEventTargetHelper.h"
 #include "nsStringGlue.h"
 #include "nsTArray.h"
+#include "mozilla/ipc/DBusEventHandler.h"
 
 class nsIWorkerHolder;
 
@@ -72,6 +73,8 @@ public:
   static nsIInterfaceRequestor*
   GetInterfaceRequestor();
 
+  nsresult SetBluetoothAdapter(mozilla::ipc::DBusEventHandler* adapter);
+  
 private:
   SystemWorkerManager();
   ~SystemWorkerManager();

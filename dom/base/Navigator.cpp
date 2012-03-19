@@ -86,6 +86,7 @@
 #ifdef MOZ_B2G_BT
 #include "nsIDOMBluetoothAdapter.h"
 #include "BluetoothAdapter.h"
+#include "SystemWorkerManager.h"
 #endif
 
 // This should not be in the namespace.
@@ -1190,9 +1191,12 @@ Navigator::GetMozBluetooth(nsIDOMBluetoothAdapter** aBluetooth)
     nsCOMPtr<nsPIDOMWindow> window = do_QueryReferent(mWindow);
     NS_ENSURE_TRUE(window, NS_ERROR_FAILURE);
 
-    mBluetooth = new bluetooth::BluetoothAdapter(window);
+    mozilla::dom::bluetooth::BluetoothAdapter* a = new bluetooth::BluetoothAdapter(window);
+    mBluetooth = a;
 
     bluetooth = mBluetooth;
+    nsRefPtr<mozilla::dom::gonk::SystemWorkerManager> s = mozilla::dom::gonk::SystemWorkerManager::FactoryCreate();
+    s->SetBluetoothAdapter(a);
   }
 
   bluetooth.forget(aBluetooth);

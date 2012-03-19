@@ -248,3 +248,11 @@ BluetoothAdapter::GetEnabled(bool* aEnabled)
   return NS_OK; 
 }
 
+
+nsresult
+BluetoothAdapter::HandleEvent(DBusMessage* msg) {
+  printf("Woohoo I'm an event handler!\n");
+  return NS_OK;
+}
+
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, powered)
