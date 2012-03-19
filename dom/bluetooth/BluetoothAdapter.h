@@ -9,6 +9,7 @@
 
 #include "BluetoothCommon.h"
 #include "mozilla/ipc/DBusEventHandler.h"
+#include "mozilla/ipc/RawDBusConnection.h"
 #include "nsDOMEventTargetHelper.h"
 #include "nsIDOMBluetoothAdapter.h"
 #include "nsIDOMDOMRequest.h"
@@ -21,6 +22,7 @@ BEGIN_BLUETOOTH_NAMESPACE
 class BluetoothAdapter : public nsDOMEventTargetHelper
                        , public nsIDOMBluetoothAdapter
                        , public mozilla::ipc::DBusEventHandler
+                       , public mozilla::ipc::RawDBusConnection
 {
 public:
   NS_DECL_ISUPPORTS
@@ -38,10 +40,27 @@ public:
   virtual nsresult HandleEvent(DBusMessage* msg);
 
 protected:
+  void GetProperties();
+  void GetAdapterPath();
+  bool mPower;
+  bool mDiscoverable;
+  PRUint32 mClass;
+  nsString mAddress;
+  nsString mName;
+  bool mPairable;
+  PRUint32 mPairableTimeout;
+  PRUint32 mDiscoverableTimeout;
+  bool mDiscovering;
+  const char* mAdapterPath;
   bool mEnabled;
 
   NS_DECL_EVENT_HANDLER(enabled)
-
+  NS_DECL_EVENT_HANDLER(propertychanged)
+  NS_DECL_EVENT_HANDLER(devicefound)
+  NS_DECL_EVENT_HANDLER(devicedisappeared)
+  NS_DECL_EVENT_HANDLER(devicecreated)
+  NS_DECL_EVENT_HANDLER(deviceremoved)
+  NS_DECL_EVENT_HANDLER(powered)
 private:
   nsCOMPtr<nsIEventTarget> mToggleBtThread;
 };
