@@ -283,6 +283,28 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow *aWindow)
   BindToOwner(aWindow);
 }
 
+nsresult
+BluetoothAdapter::RunAdapterFunction(const char* function_name) {
+  DBusMessage *msg, *reply;
+  DBusError err;
+  dbus_error_init(&err);
+  GetAdapterPath();
+  reply = dbus_func_args(mAdapterPath,
+                         DBUS_ADAPTER_IFACE, function_name,
+                         DBUS_TYPE_INVALID);
+  if (!reply) {
+    if (dbus_error_is_set(&err)) {
+      //LOG_AND_FREE_DBUS_ERROR(&err);
+      printf("Error!\n");
+    } else
+      printf("DBus reply is NULL in function %s\n", __FUNCTION__);
+    return NS_ERROR_FAILURE;
+  }
+
+  return NS_OK;
+
+}
+
 NS_IMETHODIMP
 BluetoothAdapter::SetEnabled(bool aEnabled, nsIDOMDOMRequest** aDomRequest)
 {
@@ -472,6 +494,7 @@ failed:
 
 void 
 BluetoothAdapter::GetProperties() {
+
   DBusMessage *msg, *reply;
   DBusError err;
   dbus_error_init(&err);
@@ -644,30 +667,12 @@ BluetoothAdapter::GetDiscovering(bool* aDiscovering)
 
 NS_IMETHODIMP
 BluetoothAdapter::StartDiscovery() {
-  // GError* error = NULL;
-
-  // if (!dbus_g_proxy_call(mAdapterProxy, "StartDiscovery", &error, G_TYPE_INVALID,
-  //                        G_TYPE_INVALID)) {
-  //   g_printerr("Error: %s\n", error->message);
-  //   g_error_free(error);
-  //   return NS_ERROR_FAILURE;
-  // }
-
-  return NS_OK;
+  return RunAdapterFunction("StartDiscovery");
 }
 
 NS_IMETHODIMP
 BluetoothAdapter::StopDiscovery() {
-  // GError* error = NULL;
-
-  // if (!dbus_g_proxy_call(mAdapterProxy, "StopDiscovery", &error, G_TYPE_INVALID,
-  //                        G_TYPE_INVALID)) {
-  //   g_printerr("Error: %s\n", error->message);
-  //   g_error_free(error);
-  //   return NS_ERROR_FAILURE;
-  // }
-
-  return NS_OK;
+  return RunAdapterFunction("StopDiscovery");
 }
 
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, propertychanged)
