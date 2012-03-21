@@ -42,6 +42,7 @@ public:
 protected:
   void GetProperties();
   void GetAdapterPath();
+  nsresult RunAdapterFunction(const char* function_name);
   bool mPower;
   bool mDiscoverable;
   PRUint32 mClass;
