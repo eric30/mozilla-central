@@ -653,6 +653,56 @@ BluetoothAdapter::GetProperties() {
   printf("Adapter properties got\n");
 }
 
+void
+append_variant(DBusMessageIter *iter, int type, void *val)
+{
+  DBusMessageIter value_iter;
+  char var_type[2] = {(char)type, '\0'};
+  dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, var_type, &value_iter);
+  dbus_message_iter_append_basic(&value_iter, type, val);
+  dbus_message_iter_close_container(iter, &value_iter);
+}
+
+bool
+BluetoothAdapter::SetProperty(char* propertyName, int type, void* value)
+{
+  DBusMessage *reply, *msg;
+  DBusMessageIter iter;
+  DBusError err;
+  bool result = true;
+
+   /* Initialization */
+  dbus_error_init(&err);
+  GetAdapterPath();
+
+  /* Compose the command */
+  msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, mAdapterPath,
+      DBUS_ADAPTER_IFACE, "SetProperty");
+
+  if (msg == NULL) {
+    printf("[ERIC] SerProperty : Error on creating new method call msg");
+    result = false;
+    goto done;
+  }
+
+  dbus_message_append_args(msg, DBUS_TYPE_STRING, &propertyName, DBUS_TYPE_INVALID);
+  dbus_message_iter_init_append(msg, &iter);
+  append_variant(&iter, type, value);
+
+  /* Send the command. */
+  reply = dbus_connection_send_with_reply_and_block(mConnection, msg, -1, &err);
+  dbus_message_unref(msg);
+
+  if (!reply || dbus_error_is_set(&err)) {
+    printf("[ERIC] SetProperty : Send SetProperty Command error");
+    result = false;
+    goto done;
+  }
+
+done:
+  return result;
+}
+
 NS_IMETHODIMP
 BluetoothAdapter::GetDiscoverable(bool* aDiscoverable)
 {
@@ -663,8 +713,19 @@ BluetoothAdapter::GetDiscoverable(bool* aDiscoverable)
 NS_IMETHODIMP
 BluetoothAdapter::SetDiscoverable(const bool aDiscoverable)
 {
-  if(mDiscoverable == aDiscoverable) return NS_OK;
-  // setProperty(mAdapterProxy,"Discoverable", aDiscoverable);  
+  char* propertyName = "Discoverable";
+  int value = aDiscoverable ? 1 : 0;
+
+  if(mDiscoverable != aDiscoverable) {
+    if (SetProperty(propertyName, DBUS_TYPE_BOOLEAN, (void*)&value)) {
+      printf("[ERIC] Discoverable is on");
+    } else {
+      printf("[ERIC] Set Discoverable failed");
+    }
+  }
+
+  mDiscoverable = aDiscoverable;
+
   return NS_OK;
 }
 

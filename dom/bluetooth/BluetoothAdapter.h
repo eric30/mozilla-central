@@ -40,9 +40,9 @@ public:
 
   nsresult FireDeviceFound();
   virtual nsresult HandleEvent(DBusMessage* msg);
-
 protected:
   void GetProperties();
+  bool SetProperty(char* propertyName, int type, void* value);
   void GetAdapterPath();
   nsresult RunAdapterFunction(const char* function_name);
   bool mPower;
