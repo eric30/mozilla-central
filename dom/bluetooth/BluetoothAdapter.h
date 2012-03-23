@@ -11,6 +11,7 @@
 #include "nsIDOMBluetoothAdapter.h"
 #include "nsIDOMDOMRequest.h"
 #include "BluetoothCommon.h"
+#include "BluetoothDevice.h"
 #include "mozilla/ipc/DBusEventHandler.h"
 #include "mozilla/ipc/RawDBusConnection.h"
 
@@ -37,6 +38,7 @@ public:
 
   inline void SetEnabledInternal(bool aEnabled) {mEnabled = aEnabled;}
 
+  nsresult FireDeviceFound();
   virtual nsresult HandleEvent(DBusMessage* msg);
 
 protected:
