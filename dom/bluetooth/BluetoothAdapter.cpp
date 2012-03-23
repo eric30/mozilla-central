@@ -14,6 +14,7 @@
 #include "mozilla/Util.h"
 #include <dlfcn.h>
 #include "dbus/dbus.h"
+#include "BluetoothProperties.h"
 
 #define BLUEZ_DBUS_BASE_PATH      "/org/bluez"
 #define BLUEZ_DBUS_BASE_IFC       "org.bluez"
@@ -347,26 +348,142 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg) {
     printf("Null message, ignoring\n");
   }
   printf("Handling an event!\n");
-  // if (dbus_message_is_signal(msg,
-  //                            "org.bluez.Adapter",
-  //                            "DeviceFound")) {
-  //     char *c_address;
-  //     DBusMessageIter iter;
-  //     jobjectArray str_array = NULL;
-  //     if (dbus_message_iter_init(msg, &iter)) {
-  //         dbus_message_iter_get_basic(&iter, &c_address);
-  //         if (dbus_message_iter_next(&iter))
-  //             str_array =
-  //                 parse_remote_device_properties(env, &iter);
-  //     }
-  //     if (str_array != NULL) {
-  //         env->CallVoidMethod(dbt->me,
-  //                             method_onDeviceFound,
-  //                             env->NewStringUTF(c_address),
-  //                             str_array);
-  //     } else
-  //         LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
-  //     goto success;
+   if (dbus_message_is_signal(msg,
+                              "org.bluez.Adapter",
+                              "DeviceFound")) {
+       char *c_address;
+       DBusMessageIter iter, dict_entry, dict, prop_value, array_value;
+       if (dbus_message_iter_init(msg, &iter)) {
+
+         dbus_message_iter_get_basic(&iter, &c_address);
+         printf("BD Address : %s\n", c_address);
+
+         if (!dbus_message_iter_next(&iter))
+         {
+           printf("Process to next failed");
+         }
+
+         // Now, parse an array
+         int type = dbus_message_iter_get_arg_type(&iter);
+
+         if (type != DBUS_TYPE_ARRAY)
+         {
+           printf("type = %d, not DUBS_TYPE_ARRAY\n", type);
+           goto success;
+         }
+
+         dbus_message_iter_recurse(&iter, &dict);
+         
+         do
+         {
+           type = dbus_message_iter_get_arg_type(&dict);
+           if (type != DBUS_TYPE_DICT_ENTRY)
+           {
+             printf("Type = %d error 2 @ BluetoothAdapter.cpp\n", type);
+             goto success;
+           }
+
+           dbus_message_iter_recurse(&dict, &dict_entry);
+
+           // Start to get property
+           type = dbus_message_iter_get_arg_type(&dict_entry);
+           if (type != DBUS_TYPE_STRING)
+           {
+             printf("Type = %d error 3 @ BluetoothAdapter.cpp\n", type);
+             break;
+           }
+           else
+           { 
+             // Get first property: BD Address  
+             char* property_name;
+             dbus_message_iter_get_basic(&dict_entry, &property_name);
+             printf("[ERIC] Property Name:%s, ", property_name);
+
+             if (dbus_message_iter_next(&dict_entry))
+             {
+               if (dbus_message_iter_get_arg_type(&dict_entry) == DBUS_TYPE_VARIANT) {
+                 int targetType = -1;
+
+                 for (int i = 0;i < sizeof(remote_device_properties) / sizeof(BluetoothProperties);++i)
+                 {
+                   if (!strncmp(property_name, remote_device_properties[i].mPropertyName, strlen(property_name)))
+                   {
+                     targetType = remote_device_properties[i].mType;
+                     break;
+                   }
+                 }
+
+                 if (targetType == -1)
+                 {
+                   printf("[ERIC] No matching type!");
+                   break;
+                 }
+
+                 dbus_message_iter_recurse(&dict_entry, &prop_value);
+
+                 int value, array_type;
+                 char* str;
+
+                 switch(targetType)
+                 {
+                   case DBUS_TYPE_STRING:
+                   case DBUS_TYPE_OBJECT_PATH:
+                     dbus_message_iter_get_basic(&prop_value, &str);
+                     printf("Value : %s\n", str);
+                     break;
+ 
+                   case DBUS_TYPE_UINT32:
+                   case DBUS_TYPE_INT16:
+                   case DBUS_TYPE_BOOLEAN:
+                     dbus_message_iter_get_basic(&prop_value, &value);
+                     printf("Value : %d\n", value);
+                     break;
+/*
+                   case DBUS_TYPE_ARRAY:
+                     dbus_message_iter_recurse(&prop_value, &array_value);
+                     array_type = dbus_message_iter_get_arg_type(&array_value);
+
+                     if (array_type == DBUS_TYPE_OBJECT_PATH ||
+                         array_type == DBUS_TYPE_STRING) {
+                       int len = 0;
+
+                       do {
+                         ++len;
+                       } while (dbus_message_iter_get_arg_type(&array_value));
+
+                       char** temp = (char**)malloc(sizeof(char *) * len);
+
+                       len = 0;
+                       do {
+                         dbus_message_iter_get_basic(&array_value, &temp[len]);
+                         printf("Value : %s\n", temp[len]);
+
+                         ++len;
+                       } while(dbus_message_iter_next(&array_value));
+                     }
+                     break;
+                     */
+
+                   default:
+                     printf("What's this type? %d", targetType);
+                     break;
+                 }
+
+               } else {
+                 printf("[ERIC] not variant item\n");
+                 break;
+               }
+             }
+             else
+             {
+               printf("[ERIC] no next item\n");
+               break;
+             }
+           }
+         } while (dbus_message_iter_next(&dict));
+       }
+      goto success;
+   } else 
   // } else if (dbus_message_is_signal(msg,
   //                                  "org.bluez.Adapter",
   //                                  "DeviceDisappeared")) {
@@ -431,6 +548,10 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg) {
     printf("Got a property changed message!\n");
     GetProperties();
   }
+success:
+
+  printf("NOW Done");
+
   return NS_OK;
 }
 
