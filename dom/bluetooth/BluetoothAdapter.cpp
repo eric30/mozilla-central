@@ -8,6 +8,7 @@
 
 #include "nsDOMClassInfo.h"
 #include "nsDOMEvent.h"
+#include "nsString.h"
 #include "nsThreadUtils.h"
 #include "nsXPCOMCIDInternal.h"
 #include "mozilla/LazyIdleThread.h"
@@ -256,11 +257,13 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(BluetoothAdapter)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(BluetoothAdapter, 
                                                   nsDOMEventTargetHelper)
   NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(enabled)
+NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicefound)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothAdapter, 
                                                 nsDOMEventTargetHelper)
   NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(enabled)
+NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicefound)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(BluetoothAdapter)
@@ -357,6 +360,8 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg) {
 
          dbus_message_iter_get_basic(&iter, &c_address);
          printf("BD Address : %s\n", c_address);
+
+         FireDeviceFound();
 
          if (!dbus_message_iter_next(&iter))
          {
@@ -794,6 +799,24 @@ BluetoothAdapter::StartDiscovery() {
 NS_IMETHODIMP
 BluetoothAdapter::StopDiscovery() {
   return RunAdapterFunction("StopDiscovery");
+}
+
+nsresult
+BluetoothAdapter::FireDeviceFound()
+{
+  //TODO: Now Gaia/Settings still cannot receive this onDeviceFound event, need debug.
+  nsRefPtr<nsDOMEvent> event = new nsDOMEvent(nsnull, nsnull);
+  nsresult rv = event->InitEvent(NS_LITERAL_STRING("devicefound"), false, false);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  rv = event->SetTrusted(true);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  bool dummy;
+  rv = DispatchEvent(event, &dummy);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  return NS_OK;
 }
 
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, propertychanged)
