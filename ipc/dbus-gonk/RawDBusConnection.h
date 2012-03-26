@@ -60,6 +60,28 @@ public:
     int first_arg_type,
     ...);
 
+  bool dbus_func_args_async_valist(
+      int timeout_ms,
+      void (*user_cb)(DBusMessage *,
+        void *,
+        void*),
+      void *user,
+      const char *path,
+      const char *ifc,
+      const char *func,
+      int first_arg_type,
+      va_list args);
+
+  bool dbus_func_args_async(
+      int timeout_ms,
+      void (*reply)(DBusMessage *, void *, void*),
+      void *user,
+      const char *path,
+      const char *ifc,
+      const char *func,
+      int first_arg_type,
+      ...);
+
   int32_t dbus_returns_int32(DBusMessage *reply);
   uint32_t dbus_returns_uint32(DBusMessage *reply);
   // std::string dbus_returns_string(DBusMessage *reply);
