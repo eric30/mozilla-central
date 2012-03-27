@@ -9,7 +9,6 @@
 
 #include <string.h>
 #include <stdint.h>
-//#include <dbus/dbus.h>
 #include <stdio.h>
 #include <string>
 #include <stdlib.h>
