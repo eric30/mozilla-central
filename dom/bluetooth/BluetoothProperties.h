@@ -1,12 +1,16 @@
-#ifndef _BLUETOOTH_PROPERTIES_H_
-#define _BLUETOOTH_PROPERTIES_H_
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+#ifndef mozilla_dom_bluetooth_bluetoothproperties_h__
+#define mozilla_dom_bluetooth_bluetoothproperties_h__
+
+#include <dbus/dbus.h>
 
 typedef union {
   char *str_val;
   int int_val;
   char **array_val;
 } property_value;
-
 
 class BluetoothProperties {
   public:
