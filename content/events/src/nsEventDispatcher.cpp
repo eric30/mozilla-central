@@ -55,6 +55,7 @@
 #include "nsDOMTouchEvent.h"
 #include "nsDOMStorage.h"
 #include "sampler.h"
+#include "nsIDOMBluetoothEvent.h"
 
 #define NS_TARGET_CHAIN_FORCE_CONTENT_DISPATCH  (1 << 0)
 #define NS_TARGET_CHAIN_WANTS_WILL_HANDLE_EVENT (1 << 1)
@@ -920,7 +921,5 @@ nsEventDispatcher::CreateEvent(nsPresContext* aPresContext,
     NS_ADDREF(*aDOMEvent = static_cast<nsDOMEvent*>(new nsDOMStorageEvent()));
     return NS_OK;
   }
-    
-
   return NS_ERROR_DOM_NOT_SUPPORTED_ERR;
 }

@@ -20,12 +20,14 @@ include $(topsrcdir)/dom/dom-config.mk
 CPPSRCS = \
   BluetoothAdapter.cpp \
   BluetoothDevice.cpp \
+  BluetoothEvent.cpp \
   $(NULL)
 
 XPIDLSRCS = \
   nsIDOMNavigatorBluetooth.idl \
   nsIDOMBluetoothAdapter.idl \
   nsIDOMBluetoothDevice.idl \
+  nsIDOMBluetoothEvent.idl \
   $(NULL)
 
 ifneq (gonk,$(MOZ_WIDGET_TOOLKIT))
