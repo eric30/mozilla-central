@@ -38,7 +38,7 @@ public:
 
   inline void SetEnabledInternal(bool aEnabled) {mEnabled = aEnabled;}
 
-  nsresult FireDeviceFound();
+  nsresult FireDeviceFound(const nsACString& aDeviceAddress);
   virtual nsresult HandleEvent(DBusMessage* msg);
 protected:
   void GetProperties();

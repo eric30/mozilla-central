@@ -6,6 +6,7 @@
 
 #include "BluetoothAdapter.h"
 #include "BluetoothProperties.h"
+#include "BluetoothEvent.h"
  
 #include "nsDOMClassInfo.h"
 #include "nsDOMEvent.h"
@@ -485,7 +486,8 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
         get_property(dict_entry, remote_device_properties);
       } while (dbus_message_iter_next(&dict));
 
-      FireDeviceFound();
+      const nsDependentCString temp(c_address, strlen(c_address));
+      FireDeviceFound(PromiseFlatCString(temp));
     }
   } else if (dbus_message_is_signal(msg,
                                     "org.bluez.Adapter",
@@ -612,7 +614,6 @@ BluetoothAdapter::GetProperties() {
   DBusMessage *msg, *reply;
   DBusError err;
   dbus_error_init(&err);
-  GetAdapterPath();
   reply = dbus_func_args(mAdapterPath,
                          DBUS_ADAPTER_IFACE, "GetProperties",
                          DBUS_TYPE_INVALID);
@@ -660,7 +661,6 @@ BluetoothAdapter::SetProperty(char* propertyName, int type, void* value)
 
    /* Initialization */
   dbus_error_init(&err);
-  GetAdapterPath();
 
   /* Compose the command */
   msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, mAdapterPath,
@@ -872,9 +872,11 @@ BluetoothAdapter::StopDiscovery() {
 }
 
 nsresult
-BluetoothAdapter::FireDeviceFound()
+BluetoothAdapter::FireDeviceFound(const nsACString& aDeviceAddress)
 {
-  nsRefPtr<nsDOMEvent> event = new nsDOMEvent(nsnull, nsnull);
+  nsRefPtr<nsDOMEvent> event = new BluetoothEvent(nsnull, nsnull);
+  static_cast<BluetoothEvent*>(event.get())->SetDeviceAddressInternal(aDeviceAddress);
+
   nsresult rv = event->InitEvent(NS_LITERAL_STRING("devicefound"), false, false);
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -924,21 +926,19 @@ onCreateDeviceResult(DBusMessage *msg, void *user, void *n)
 
 // =================== WIP =======================
 NS_IMETHODIMP
-BluetoothAdapter::BluezCreateDevice(const char* address)
+BluetoothAdapter::BluezCreateDevice(const nsAString& aAddress)
 {
-  GetAdapterPath();
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
 
-  printf("Create Device:%s\n", address);
-
-  const char *context_address = address;
+  printf("Create Device:%s\n", asciiAddress);
 
   bool ret = dbus_func_args_async(-1,
         onCreateDeviceResult,
-        (void*)context_address,
+        (void*)asciiAddress,
         mAdapterPath,
         DBUS_ADAPTER_IFACE,
         "CreateDevice",
-        DBUS_TYPE_STRING, &address,
+        DBUS_TYPE_STRING, &asciiAddress,
         DBUS_TYPE_INVALID);
 
   return ret ? NS_OK : NS_ERROR_FAILURE;
