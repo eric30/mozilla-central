@@ -543,6 +543,7 @@ DOMCI_CLASS(CallEvent)
 #ifdef MOZ_B2G_BT
 DOMCI_CLASS(BluetoothAdapter)
 DOMCI_CLASS(BluetoothDevice)
+DOMCI_CLASS(BluetoothEvent)
 #endif
 
 DOMCI_CLASS(DOMError)

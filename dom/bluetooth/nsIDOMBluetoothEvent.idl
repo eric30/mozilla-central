@@ -1,0 +1,7 @@
+#include "nsIDOMEvent.idl"
+
+[scriptable, builtinclass, uuid(b37dbb33-0bb6-4aa5-bbbe-945b131fbf74)]
+interface nsIDOMBluetoothEvent : nsIDOMEvent
+{
+  readonly attribute ACString deviceAddress;
+};
