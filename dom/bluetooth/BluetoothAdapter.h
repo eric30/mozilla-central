@@ -7,12 +7,12 @@
 #ifndef mozilla_dom_bluetooth_bluetoothadapter_h__
 #define mozilla_dom_bluetooth_bluetoothadapter_h__
 
-#include "BluetoothCommon.h"
-#include "mozilla/ipc/DBusEventHandler.h"
-#include "mozilla/ipc/RawDBusConnection.h"
 #include "nsDOMEventTargetHelper.h"
 #include "nsIDOMBluetoothAdapter.h"
 #include "nsIDOMDOMRequest.h"
+#include "BluetoothCommon.h"
+#include "mozilla/ipc/DBusEventHandler.h"
+#include "mozilla/ipc/RawDBusConnection.h"
 
 class DBusMessage;
 class nsIEventTarget;
