@@ -63,7 +63,6 @@ protected:
   NS_DECL_EVENT_HANDLER(devicedisappeared)
   NS_DECL_EVENT_HANDLER(devicecreated)
   NS_DECL_EVENT_HANDLER(deviceremoved)
-  NS_DECL_EVENT_HANDLER(powered)
 private:
   nsCOMPtr<nsIEventTarget> mToggleBtThread;
 };
