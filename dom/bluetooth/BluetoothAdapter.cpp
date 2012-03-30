@@ -741,20 +741,15 @@ BluetoothAdapter::GetName(nsAString& aName)
 NS_IMETHODIMP
 BluetoothAdapter::SetName(const nsAString& aName)
 {
-  // TODO: The code below does not work, seems encoding problem, need to revise.
-  /*
-  char* propertyName = "Name";
+  if (mName.Equals(aName)) return NS_OK;
 
-  if (mName != aName) {
-    if (SetProperty(propertyName, DBUS_TYPE_STRING, (void*)&aName)) {
-      printf("[ERIC] Name has been set.");
-    } else {
-      printf("[ERIC] Set Properties failed - Name");
-    }
+  const char* asciiName = ToNewCString(aName);
 
-    mName = aName;
+  if (!SetProperty("Name", DBUS_TYPE_STRING, (void*)&asciiName)) {
+    return NS_ERROR_FAILURE;
   }
-  */
+
+  mName = aName;
 
   return NS_OK;
 }
