@@ -14,7 +14,6 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
 {
   readonly attribute bool enabled;
 
-  attribute boolean power;
   attribute boolean discoverable;
   readonly attribute DOMString address;
   readonly attribute unsigned long class;
@@ -34,5 +33,4 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   attribute nsIDOMEventListener ondevicedisappeared;
   attribute nsIDOMEventListener ondevicecreated;
   attribute nsIDOMEventListener ondeviceremoved;  
-  attribute nsIDOMEventListener onpowered;
 };

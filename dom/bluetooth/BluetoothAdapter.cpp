@@ -725,13 +725,6 @@ BluetoothAdapter::GetClass(PRUint32* aClass)
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::GetPower(bool* aPower)
-{
-  *aPower = mPower;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
 BluetoothAdapter::GetName(nsAString& aName)
 {
   aName = mName;
@@ -774,14 +767,6 @@ BluetoothAdapter::SetPairable(const bool aPairable)
 
   mPairable = aPairable;
 
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-BluetoothAdapter::SetPower(const bool aPower)
-{
-  if(mPower == aPower) return NS_OK;
-  // setProperty(mAdapterProxy,"Pairable", aPairable);
   return NS_OK;
 }
 
@@ -949,5 +934,3 @@ NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicefound)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicedisappeared)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicecreated)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, deviceremoved)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, powered)
-
