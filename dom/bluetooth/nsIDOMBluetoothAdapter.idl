@@ -35,5 +35,4 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   attribute nsIDOMEventListener ondevicedisappeared;
   attribute nsIDOMEventListener ondevicecreated;
   attribute nsIDOMEventListener ondeviceremoved;  
-  attribute nsIDOMEventListener onpowered;
 };

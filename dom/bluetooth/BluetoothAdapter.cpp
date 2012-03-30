@@ -949,5 +949,3 @@ NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicefound)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicedisappeared)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicecreated)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, deviceremoved)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, powered)
-
