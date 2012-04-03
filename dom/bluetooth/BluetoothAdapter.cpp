@@ -347,7 +347,8 @@ BluetoothAdapter::GetEnabled(bool* aEnabled)
 }
 
 void
-get_property(DBusMessageIter dict_entry, BluetoothProperties* properties)
+get_property(DBusMessageIter dict_entry, BluetoothProperties* properties, 
+             int* ret_property_index, property_value* ret_property_value)
 {
   DBusMessageIter prop_value, array_value;
 
@@ -368,8 +369,9 @@ get_property(DBusMessageIter dict_entry, BluetoothProperties* properties)
         // Search for the matching property and get its type
         int property_type = DBUS_TYPE_INVALID;
         int property_size = sizeof(remote_device_properties) / sizeof(BluetoothProperties);
+        int i;
 
-        for (int i = 0;i < property_size;++i)
+        for (i = 0;i < property_size;++i)
         {
           if (!strncmp(property_name, properties[i].mPropertyName, strlen(property_name)))
           {
@@ -380,8 +382,10 @@ get_property(DBusMessageIter dict_entry, BluetoothProperties* properties)
 
         if (property_type == DBUS_TYPE_INVALID)
         {
+          *ret_property_index = -1;
           printf("No matching property");
         } else {
+          *ret_property_index = i;
           dbus_message_iter_recurse(&dict_entry, &prop_value);
 
           int value, array_type;
@@ -393,6 +397,7 @@ get_property(DBusMessageIter dict_entry, BluetoothProperties* properties)
             case DBUS_TYPE_OBJECT_PATH:
               dbus_message_iter_get_basic(&prop_value, &str);
               printf("Value : %s\n", str);
+              ret_property_value->str_val = str;
               break;
 
             case DBUS_TYPE_UINT32:
@@ -400,6 +405,7 @@ get_property(DBusMessageIter dict_entry, BluetoothProperties* properties)
             case DBUS_TYPE_BOOLEAN:
               dbus_message_iter_get_basic(&prop_value, &value);
               printf("Value : %d\n", value);
+              ret_property_value->int_val = value;
               break;
               
             case DBUS_TYPE_ARRAY:
@@ -426,6 +432,7 @@ get_property(DBusMessageIter dict_entry, BluetoothProperties* properties)
                 } while(dbus_message_iter_next(&array_value));
 
                 printf("\n");
+                ret_property_value->array_val = temp;
               }
               break;
 
@@ -483,7 +490,7 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
         }
 
         dbus_message_iter_recurse(&dict, &dict_entry);
-        get_property(dict_entry, remote_device_properties);
+        //get_property(dict_entry, remote_device_properties);
       } while (dbus_message_iter_next(&dict));
 
       const nsDependentCString temp(c_address, strlen(c_address));
@@ -538,8 +545,7 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
 
     printf("PropertyChanged Event\n");
 
-    get_property(iter, adapter_properties);
-
+    //get_property(iter, adapter_properties);
     // TODO: Only need to update the changed property
     // GetProperties();
   } else {
@@ -610,13 +616,15 @@ failed:
 
 void 
 BluetoothAdapter::GetProperties() {
-
   DBusMessage *msg, *reply;
   DBusError err;
   dbus_error_init(&err);
+  GetAdapterPath();
+
   reply = dbus_func_args(mAdapterPath,
                          DBUS_ADAPTER_IFACE, "GetProperties",
                          DBUS_TYPE_INVALID);
+
   if (!reply) {
     if (dbus_error_is_set(&err)) {
       //LOG_AND_FREE_DBUS_ERROR(&err);
@@ -625,21 +633,74 @@ BluetoothAdapter::GetProperties() {
       printf("DBus reply is NULL in function %s\n", __FUNCTION__);
     return ;
   }
-  
-  DBusMessageIter iter;
-  //jobjectArray str_array = NULL;
-  if (!dbus_message_iter_init(reply, &iter)) {
+
+  char *c_address;
+  DBusMessageIter iter, dict_entry, dict;
+  int prop_index;
+  property_value prop_value;
+
+  if (dbus_message_iter_init(reply, &iter)) {
+    int type = dbus_message_iter_get_arg_type(&iter);
+    if (type != DBUS_TYPE_ARRAY) {
+      printf("Type = %d, not DUBS_TYPE_ARRAY\n", type);
+      return;
+    }
+
+    dbus_message_iter_recurse(&iter, &dict);
+
+    do {
+      type = dbus_message_iter_get_arg_type(&dict);
+      if (type != DBUS_TYPE_DICT_ENTRY) {
+        printf("Type = %d, not DBUS_TYPE_DICT_ENTRY\n", type);
+        return;
+      }
+
+      dbus_message_iter_recurse(&dict, &dict_entry);
+      get_property(dict_entry, adapter_properties, &prop_index, &prop_value);
+
+      // TODO: Not very good. Need to be refined.
+      switch (prop_index)
+      {
+        case BT_ADAPTER_ADDRESS:
+          mAddress = NS_ConvertASCIItoUTF16(prop_value.str_val);
+          break;
+        case BT_ADAPTER_NAME:
+          mName = NS_ConvertASCIItoUTF16(prop_value.str_val);
+          break;
+        case BT_ADAPTER_CLASS:
+          mClass = prop_value.int_val;
+          break;
+        case BT_ADAPTER_POWERED:
+          mPower = (prop_value.int_val == 0) ? false : true;
+          break;
+        case BT_ADAPTER_DISCOVERABLE:
+          mDiscoverable = (prop_value.int_val == 0) ? false : true;
+          break;
+        case BT_ADAPTER_DISCOVERABLE_TIMEOUT:
+          mDiscoverableTimeout = prop_value.int_val;
+          break;
+        case BT_ADAPTER_PAIRABLE:
+          mPairable = (prop_value.int_val == 0) ? false : true;
+          break;
+        case BT_ADAPTER_PAIRABLE_TIMEOUT:
+          mPairableTimeout = prop_value.int_val;
+          break;
+        case BT_ADAPTER_DISCOVERING:
+          mDiscovering = (prop_value.int_val == 0) ? false : true;
+          break;
+        case BT_ADAPTER_DEVICES:
+          // TODO: TBD
+          break;
+        case BT_ADAPTER_UUIDS:
+          // TODO: TBD
+          break;
+      }
+    } while (dbus_message_iter_next(&dict));
+  } else {
     printf("Return value is wrong!\n");
-    dbus_message_unref(reply);
-    return;
   }
-  //str_array = parse_adapter_properties(env, &iter);
-  const char* n;
-  GetDBusDictValue<const char*>(iter, "Name", DBUS_TYPE_STRING, n);
-  mName = NS_ConvertASCIItoUTF16(n);
-  printf("name! %s\n", n);
+
   dbus_message_unref(reply);
-  printf("Adapter properties got\n");
 }
 
 void
@@ -661,6 +722,7 @@ BluetoothAdapter::SetProperty(char* propertyName, int type, void* value)
 
    /* Initialization */
   dbus_error_init(&err);
+
 
   /* Compose the command */
   msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, mAdapterPath,
