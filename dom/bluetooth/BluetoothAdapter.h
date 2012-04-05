@@ -47,6 +47,7 @@ protected:
   bool SetProperty(char* propertyName, int type, void* value);
   void GetAdapterPath();
   nsresult RunAdapterFunction(const char* function_name);
+  nsresult BluezRegisterAgent(const char * agent_path, const char * capabilities);
   bool mPower;
   bool mDiscoverable;
   PRUint32 mClass;
