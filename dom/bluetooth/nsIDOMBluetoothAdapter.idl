@@ -23,6 +23,7 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   attribute unsigned long pairabletimeout;
   attribute unsigned long discoverabletimeout;
   readonly attribute boolean discovering;
+  readonly attribute boolean paireddevices;
 
   void startDiscovery();
   void stopDiscovery();
@@ -31,6 +32,7 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   void bluezCreateDevice(in DOMString address);
   void bluezCancelDeviceCreation(in DOMString address);
   void bluezRemoveDevice(in DOMString objectpath);
+  void bluezCreatePairedDevice(in DOMString address);
 
   attribute nsIDOMEventListener ondevicefound;
   attribute nsIDOMEventListener onpropertychanged;
