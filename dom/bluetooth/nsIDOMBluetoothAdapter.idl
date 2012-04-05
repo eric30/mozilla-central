@@ -29,6 +29,8 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
 
   nsIDOMDOMRequest setEnabled(in boolean enabled);
   void bluezCreateDevice(in DOMString address);
+  void bluezCancelDeviceCreation(in DOMString address);
+  void bluezRemoveDevice(in DOMString objectpath);
 
   attribute nsIDOMEventListener ondevicefound;
   attribute nsIDOMEventListener onpropertychanged;

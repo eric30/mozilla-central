@@ -11,6 +11,13 @@
 #define DBUS_ADAPTER_IFACE BLUEZ_DBUS_BASE_IFC ".Adapter"
 #define DBUS_DEVICE_IFACE BLUEZ_DBUS_BASE_IFC ".Device"
 
+#include <android/log.h>
+#if defined(MOZ_WIDGET_GONK)
+  #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args)
+#else
+    #define LOG(args...)  printf(args);
+#endif
+
 typedef struct {
   void (*user_cb)(DBusMessage *, void *, void *);
   void *user;
@@ -155,19 +162,18 @@ int32_t RawDBusConnection::dbus_returns_int32(DBusMessage *reply) {
 void 
 dbus_func_args_async_callback(DBusPendingCall *call, void *data) 
 {
-  printf("[ERIC] Callback !!");
-  /*
+  LOG("Callback !!");
   dbus_async_call_t *req = (dbus_async_call_t *)data;
   DBusMessage *msg;
 
-   This is guaranteed to be non-NULL, because this function is called only
-     when once the remote method invokation returns. 
+  // This is guaranteed to be non-NULL, because this function is called only
+  // when once the remote method invokation returns. 
   msg = dbus_pending_call_steal_reply(call);
 
   if (msg) {
     if (req->user_cb) {
       // The user may not deref the message object.
-      req->user_cb(msg, req->user, req->nat);
+      req->user_cb(msg, req->user, NULL);
     }
     dbus_message_unref(msg);
   }
@@ -176,7 +182,6 @@ dbus_func_args_async_callback(DBusPendingCall *call, void *data)
   dbus_pending_call_cancel(call);
   dbus_pending_call_unref(call);
   free(req);
-  */
 }
 
 bool 
@@ -200,13 +205,16 @@ RawDBusConnection::dbus_func_args_async_valist(
   /* Compose the command */
   msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, path, ifc, func);
 
+  LOG("va_list 1");
+
   if (msg == NULL) {
+    LOG("Could not allocate D-Bus message object!");
     goto done;
   }
 
   /* append arguments */
   if (!dbus_message_append_args_valist(msg, first_arg_type, args)) {
-    printf("[ERIC] DBus Async call argument appending failed.\n");
+    LOG("Could not append argument to method call!");
     goto done;
   }
 
@@ -218,19 +226,24 @@ RawDBusConnection::dbus_func_args_async_valist(
     pending->user = user;
     pending->user_cb = user_cb;
 
+    LOG("va_list 2");
+
     reply = dbus_connection_send_with_reply(mConnection, msg, &call,
                                           timeout_ms);
-    if (reply) {
+    if (reply == TRUE) {
       dbus_pending_call_set_notify(call,
         dbus_func_args_async_callback,
         pending,
         NULL);
+    } else {
+      LOG("Reply is null");
     }
+
+    LOG("va_list 3");
   }
 
 done:
   if (msg) dbus_message_unref(msg);
-
   return reply ? true : false;
 }
 
