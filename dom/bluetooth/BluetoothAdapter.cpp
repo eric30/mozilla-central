@@ -24,6 +24,13 @@
 #define DBUS_ADAPTER_IFACE BLUEZ_DBUS_BASE_IFC ".Adapter"
 #define DBUS_DEVICE_IFACE BLUEZ_DBUS_BASE_IFC ".Device"
 
+#include <android/log.h>
+#if defined(MOZ_WIDGET_GONK)
+  #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args)
+#else
+  #define LOG(args...)  printf(args);
+#endif
+
 static void
 FireEnabled(bool aResult, nsIDOMDOMRequest* aDomRequest)
 {
@@ -259,21 +266,23 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(BluetoothAdapter)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(BluetoothAdapter, 
                                                   nsDOMEventTargetHelper)
   NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(enabled)
-NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicefound)
+  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicefound)
+  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicecreated)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothAdapter, 
                                                 nsDOMEventTargetHelper)
   NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(enabled)
-NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicefound)
+  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicefound)
+  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicecreated)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(BluetoothAdapter)
-NS_INTERFACE_MAP_ENTRY(nsIDOMBluetoothAdapter)
-NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(BluetoothAdapter)
+  NS_INTERFACE_MAP_ENTRY(nsIDOMBluetoothAdapter)
+  NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(BluetoothAdapter)
 NS_INTERFACE_MAP_END_INHERITING(nsDOMEventTargetHelper)
 
-  NS_IMPL_ADDREF_INHERITED(BluetoothAdapter, nsDOMEventTargetHelper)
+NS_IMPL_ADDREF_INHERITED(BluetoothAdapter, nsDOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(BluetoothAdapter, nsDOMEventTargetHelper)
 
 BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow *aWindow) 
@@ -514,9 +523,9 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
     if (dbus_message_get_args(msg, &err,
                               DBUS_TYPE_OBJECT_PATH, &c_object_path,
                               DBUS_TYPE_INVALID)) {
-      printf("Device address = %s has been created\n", c_object_path);
+      LOG("Device address = %s has been created\n", c_object_path);
     } else {
-      printf("DeviceCreated get args failed\n");
+      LOG("DeviceCreated get args failed\n");
     }
   } else if (dbus_message_is_signal(msg,
                                     "org.bluez.Adapter",
@@ -525,9 +534,9 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
     if (dbus_message_get_args(msg, &err,
                               DBUS_TYPE_OBJECT_PATH, &c_object_path,
                               DBUS_TYPE_INVALID)) {
-      printf("Device address = %s has been removed\n", c_object_path);
+      LOG("Device address = %s has been removed\n", c_object_path);
     } else {
-      printf("DeviceRemoved get args failed\n");
+      LOG("DeviceRemoved get args failed\n");
     }
   } else if (dbus_message_is_signal(msg,
                                     "org.bluez.Adapter",
@@ -607,7 +616,7 @@ void BluetoothAdapter::GetAdapterPath() {
     goto failed;
   }
   dbus_message_unref(msg);
-  printf("Adapter path: %s\n", device_path);
+  LOG("Adapter path: %s\n", device_path);
   mAdapterPath = device_path;
   return;
 failed:
@@ -954,52 +963,84 @@ BluetoothAdapter::FireDeviceFound(nsIDOMBluetoothDevice* aDevice)
 
 // =================== WIP =======================
 void 
-onCreateDeviceResult(DBusMessage *msg, void *user, void *n) 
+asyncCreateDeviceCallback(DBusMessage *msg, void *data, void* n)
 {
-  printf("[ERIC] onCreateDeviceResult callback invoked");
-  /*
-  native_data_t *nat = (native_data_t *)n;
-  const char *address= (const char *)user;
   DBusError err;
   dbus_error_init(&err);
-  JNIEnv *env;
-  nat->vm->GetEnv((void**)&env, nat->envVer);
 
-  LOGV("... Address = %s", address);
-
-  jint result = CREATE_DEVICE_SUCCESS;
   if (dbus_set_error_from_message(&err, msg)) {
-    if (dbus_error_has_name(&err, "org.bluez.Error.AlreadyExists")) {
-      result = CREATE_DEVICE_ALREADY_EXISTS;
+    if (dbus_error_has_name(&err, "org.blueZ.Error.AlreadyExists")) {
+      LOG("Device already exists\n");
     } else {
-      result = CREATE_DEVICE_FAILED;
+      LOG("Create device failed\n");
     }
-    LOG_AND_FREE_DBUS_ERROR(&err);
+  } else {
+    LOG("Device has been created");
   }
-  jstring addr = env->NewStringUTF(address);
-  env->CallVoidMethod(nat->me,
-      method_onCreateDeviceResult,
-      addr,
-      result);
-  env->DeleteLocalRef(addr);
-  free(user);
-  */
 }
 
-// =================== WIP =======================
+void 
+asyncRemoveDeviceCallback(DBusMessage *msg, void *data, void* n)
+{
+  DBusError err;
+  dbus_error_init(&err);
+
+  if (dbus_set_error_from_message(&err, msg)) {
+    LOG("Remove device failed\n");
+  } else {
+    LOG("Device has been removed");
+  }
+}
+
 NS_IMETHODIMP
 BluetoothAdapter::BluezCreateDevice(const nsAString& aAddress)
 {
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
 
-  printf("Create Device:%s\n", asciiAddress);
+  GetAdapterPath();
 
   bool ret = dbus_func_args_async(-1,
-        onCreateDeviceResult,
+        asyncCreateDeviceCallback,
         (void*)asciiAddress,
         mAdapterPath,
         DBUS_ADAPTER_IFACE,
         "CreateDevice",
+        DBUS_TYPE_STRING, &asciiAddress,
+        DBUS_TYPE_INVALID);
+
+  return ret ? NS_OK : NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::BluezRemoveDevice(const nsAString& aObjectPath)
+{
+  const char* asciiObjectPath = NS_LossyConvertUTF16toASCII(aObjectPath).get();
+
+  GetAdapterPath();
+
+  bool ret = dbus_func_args_async(-1,
+        asyncRemoveDeviceCallback,
+        nsnull,
+        mAdapterPath,
+        DBUS_ADAPTER_IFACE,
+        "RemoveDevice",
+        DBUS_TYPE_OBJECT_PATH, &asciiObjectPath,
+        DBUS_TYPE_INVALID);
+
+  return ret ? NS_OK : NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::BluezCancelDeviceCreation(const nsAString& aAddress)
+{
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+
+  GetAdapterPath();
+
+  bool ret = dbus_func_args_timeout(-1,
+        mAdapterPath,
+        DBUS_ADAPTER_IFACE,
+        "CancelDeviceCreation",
         DBUS_TYPE_STRING, &asciiAddress,
         DBUS_TYPE_INVALID);
 
