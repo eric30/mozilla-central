@@ -25,10 +25,10 @@
 #define DBUS_DEVICE_IFACE BLUEZ_DBUS_BASE_IFC ".Device"
 
 #if defined(MOZ_WIDGET_GONK)
-  #include <android/log.h>
-  #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args)
 #else
-  #define LOG(args...)  printf(args);
+#define LOG(args...)  printf(args);
 #endif
 
 static void
@@ -42,9 +42,9 @@ FireEnabled(bool aResult, nsIDOMDOMRequest* aDomRequest)
   }
 
   mozilla::DebugOnly<nsresult> rv = aResult ?     
-                                    rs->FireSuccess(aDomRequest, JSVAL_VOID) :
-                                    rs->FireError(aDomRequest, 
-                                                  NS_LITERAL_STRING("Bluetooth firmware loading failed"));
+    rs->FireSuccess(aDomRequest, JSVAL_VOID) :
+    rs->FireError(aDomRequest, 
+                  NS_LITERAL_STRING("Bluetooth firmware loading failed"));
 
   NS_WARN_IF_FALSE(NS_SUCCEEDED(rv), "Bluetooth firmware loading failed");
 }
@@ -159,104 +159,104 @@ static bool EnsureBluetoothInit() {
 
 class ToggleBtResultTask : public nsRunnable
 {
-  public:
-    ToggleBtResultTask(nsRefPtr<BluetoothAdapter>& adapterPtr, 
-                       nsCOMPtr<nsIDOMDOMRequest>& req,
-                       bool enabled,
-                       bool result)
-      : mResult(result),
-        mEnabled(enabled)
-    {
-      MOZ_ASSERT(!NS_IsMainThread());
+public:
+  ToggleBtResultTask(nsRefPtr<BluetoothAdapter>& adapterPtr, 
+                     nsCOMPtr<nsIDOMDOMRequest>& req,
+                     bool enabled,
+                     bool result)
+    : mResult(result),
+      mEnabled(enabled)
+  {
+    MOZ_ASSERT(!NS_IsMainThread());
 
-      mDOMRequest.swap(req);
-      mAdapterPtr.swap(adapterPtr);
+    mDOMRequest.swap(req);
+    mAdapterPtr.swap(adapterPtr);
+  }
+
+  NS_IMETHOD Run() 
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+
+    // Update bt power status to BluetoothAdapter only if loading bluetooth 
+    // firmware succeeds.
+    if (mResult) {
+      mAdapterPtr->SetEnabledInternal(mEnabled);
     }
 
-    NS_IMETHOD Run() 
-    {
-      MOZ_ASSERT(NS_IsMainThread());
+    FireEnabled(mResult, mDOMRequest);
 
-      // Update bt power status to BluetoothAdapter only if loading bluetooth 
-      // firmware succeeds.
-      if (mResult) {
-        mAdapterPtr->SetEnabledInternal(mEnabled);
-      }
+    //mAdapterPtr must be null before returning to prevent the background 
+    //thread from racing to release it during the destruction of this runnable.
+    mAdapterPtr = nsnull;
+    mDOMRequest = nsnull;
 
-      FireEnabled(mResult, mDOMRequest);
+    return NS_OK;
+  }
 
-      //mAdapterPtr must be null before returning to prevent the background 
-      //thread from racing to release it during the destruction of this runnable.
-      mAdapterPtr = nsnull;
-      mDOMRequest = nsnull;
-
-      return NS_OK;
-    }
-
-  private:
-    nsRefPtr<BluetoothAdapter> mAdapterPtr;
-    nsCOMPtr<nsIDOMDOMRequest> mDOMRequest;
-    bool mEnabled;
-    bool mResult;
+private:
+  nsRefPtr<BluetoothAdapter> mAdapterPtr;
+  nsCOMPtr<nsIDOMDOMRequest> mDOMRequest;
+  bool mEnabled;
+  bool mResult;
 };
 
 class ToggleBtTask : public nsRunnable
 {
-  public:
-    ToggleBtTask(bool enabled, nsIDOMDOMRequest* req, BluetoothAdapter* adapterPtr)
-      : mEnabled(enabled),
-        mDOMRequest(req),
-        mAdapterPtr(adapterPtr) 
-    {
-      MOZ_ASSERT(NS_IsMainThread());
-    }
+public:
+  ToggleBtTask(bool enabled, nsIDOMDOMRequest* req, BluetoothAdapter* adapterPtr)
+    : mEnabled(enabled),
+      mDOMRequest(req),
+      mAdapterPtr(adapterPtr) 
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+  }
 
-    NS_IMETHOD Run() 
-    {
-      MOZ_ASSERT(!NS_IsMainThread());
+  NS_IMETHOD Run() 
+  {
+    MOZ_ASSERT(!NS_IsMainThread());
 
-      bool result;
+    bool result;
 
 #ifdef MOZ_WIDGET_GONK
-      // Platform specific check for gonk until object is divided in
-      // different implementations per platform. Linux doesn't require
-      // bluetooth firmware loading, but code should work otherwise.
-      if(!EnsureBluetoothInit()) {
-        NS_ERROR("Failed to load bluedroid library.\n");
-        return NS_ERROR_FAILURE;
-      }
-
-      // return 1 if it's enabled, 0 if it's disabled, and -1 on error
-      int isEnabled = sBluedroidFunctions.bt_is_enabled();
-
-      if ((isEnabled == 1 && mEnabled) || (isEnabled == 0 && !mEnabled)) {
-        result = true;
-      } else if (isEnabled < 0) {
-        result = false;
-      } else if (mEnabled) {
-        result = (sBluedroidFunctions.bt_enable() == 0) ? true : false;
-      } else {
-        result = (sBluedroidFunctions.bt_disable() == 0) ? true : false;
-      }
-#else
-      result = true;
-      NS_WARNING("No bluetooth support in this build configuration, faking a success event instead");
-#endif
-
-      // Create a result thread and pass it to Main Thread, 
-      nsCOMPtr<nsIRunnable> resultRunnable = new ToggleBtResultTask(mAdapterPtr, mDOMRequest, mEnabled, result);
-
-      if (NS_FAILED(NS_DispatchToMainThread(resultRunnable))) {
-        NS_WARNING("Failed to dispatch to main thread!");
-      }
-
-      return NS_OK;
+    // Platform specific check for gonk until object is divided in
+    // different implementations per platform. Linux doesn't require
+    // bluetooth firmware loading, but code should work otherwise.
+    if(!EnsureBluetoothInit()) {
+      NS_ERROR("Failed to load bluedroid library.\n");
+      return NS_ERROR_FAILURE;
     }
 
-  private:
-    bool mEnabled;
-    nsRefPtr<BluetoothAdapter> mAdapterPtr;
-    nsCOMPtr<nsIDOMDOMRequest> mDOMRequest;
+    // return 1 if it's enabled, 0 if it's disabled, and -1 on error
+    int isEnabled = sBluedroidFunctions.bt_is_enabled();
+
+    if ((isEnabled == 1 && mEnabled) || (isEnabled == 0 && !mEnabled)) {
+      result = true;
+    } else if (isEnabled < 0) {
+      result = false;
+    } else if (mEnabled) {
+      result = (sBluedroidFunctions.bt_enable() == 0) ? true : false;
+    } else {
+      result = (sBluedroidFunctions.bt_disable() == 0) ? true : false;
+    }
+#else
+    result = true;
+    NS_WARNING("No bluetooth support in this build configuration, faking a success event instead");
+#endif
+
+    // Create a result thread and pass it to Main Thread, 
+    nsCOMPtr<nsIRunnable> resultRunnable = new ToggleBtResultTask(mAdapterPtr, mDOMRequest, mEnabled, result);
+
+    if (NS_FAILED(NS_DispatchToMainThread(resultRunnable))) {
+      NS_WARNING("Failed to dispatch to main thread!");
+    }
+
+    return NS_OK;
+  }
+
+private:
+  bool mEnabled;
+  nsRefPtr<BluetoothAdapter> mAdapterPtr;
+  nsCOMPtr<nsIDOMDOMRequest> mDOMRequest;
 };
 
 DOMCI_DATA(BluetoothAdapter, BluetoothAdapter)
@@ -265,20 +265,20 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(BluetoothAdapter)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(BluetoothAdapter, 
                                                   nsDOMEventTargetHelper)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(enabled)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicefound)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicecreated)
+NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(enabled)
+NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicefound)
+NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicecreated)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothAdapter, 
                                                 nsDOMEventTargetHelper)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(enabled)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicefound)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicecreated)
+NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(enabled)
+NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicefound)
+NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicecreated)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(BluetoothAdapter)
-  NS_INTERFACE_MAP_ENTRY(nsIDOMBluetoothAdapter)
+NS_INTERFACE_MAP_ENTRY(nsIDOMBluetoothAdapter)
   NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(BluetoothAdapter)
 NS_INTERFACE_MAP_END_INHERITING(nsDOMEventTargetHelper)
 
@@ -1075,6 +1075,49 @@ BluetoothAdapter::BluezCreatePairedDevice(const nsAString& aAddress)
       DBUS_TYPE_INVALID);
 
   return ret ? NS_OK : NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::BluezRegisterAgent(const char * agent_path, const char * capabilities) {
+    DBusMessage *msg, *reply;
+    DBusError err;
+    bool oob = TRUE;
+
+    // if (!dbus_connection_register_object_path(mConnection, agent_path,
+    //                                           &agent_vtable, NULL)) {
+    //   LOG("%s: Can't register object path %s for agent!",
+    //        __FUNCTION__, agent_path);
+    //   return NS_ERROR_FAILURE;
+    // }
+
+    msg = dbus_message_new_method_call("org.bluez", mAdapterPath,
+                                       "org.bluez.Adapter", "RegisterAgent");
+    if (!msg) {
+      LOG("%s: Can't allocate new method call for agent!",
+           __FUNCTION__);
+      return NS_ERROR_FAILURE;
+    }
+    dbus_message_append_args(msg, DBUS_TYPE_OBJECT_PATH, &agent_path,
+                             DBUS_TYPE_STRING, &capabilities,
+                             DBUS_TYPE_BOOLEAN, &oob,
+                             DBUS_TYPE_INVALID);
+
+    dbus_error_init(&err);
+    reply = dbus_connection_send_with_reply_and_block(mConnection, msg, -1, &err);
+    dbus_message_unref(msg);
+
+    if (!reply) {
+      LOG("%s: Can't register agent!", __FUNCTION__);
+      if (dbus_error_is_set(&err)) {
+        //LOG_AND_FREE_DBUS_ERROR(&err);
+      }
+      return NS_ERROR_FAILURE;
+    }
+
+    dbus_message_unref(reply);
+    dbus_connection_flush(mConnection);
+
+    return NS_OK;
 }
 
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, propertychanged)
