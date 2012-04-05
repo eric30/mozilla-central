@@ -17,6 +17,7 @@
 
 class DBusMessage;
 class nsIEventTarget;
+class nsIDOMBluetoothDevice;
 
 BEGIN_BLUETOOTH_NAMESPACE
 
@@ -38,7 +39,8 @@ public:
 
   inline void SetEnabledInternal(bool aEnabled) {mEnabled = aEnabled;}
 
-  nsresult FireDeviceFound(const nsACString& aDeviceAddress);
+  //nsresult FireDeviceFound(const nsACString& aDeviceAddress);
+  nsresult FireDeviceFound(nsIDOMBluetoothDevice* aDevice);
   virtual nsresult HandleEvent(DBusMessage* msg);
 protected:
   void GetProperties();

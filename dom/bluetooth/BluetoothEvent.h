@@ -17,19 +17,27 @@ public:
   NS_DECL_NSIDOMBLUETOOTHEVENT
   NS_FORWARD_TO_NSDOMEVENT
 
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(BluetoothEvent, nsDOMEvent)
+
   BluetoothEvent(nsPresContext* aPresContext, nsEvent* aEvent)
     : nsDOMEvent(aPresContext, aEvent)
+    , mDevice(nsnull)
   { }
 
   BluetoothEvent()
     : nsDOMEvent(nsnull, nsnull)
+    , mDevice(nsnull) 
   { }
 
   void SetDeviceAddressInternal(const nsACString&);
+  void SetDeviceInternal(nsIDOMBluetoothDevice* aDevice);
 
 protected:
   nsCString mAdapterAddress;
   nsCString mDeviceAddress;
+
+private:
+  nsCOMPtr<nsIDOMBluetoothDevice> mDevice;
 };
 
 END_BLUETOOTH_NAMESPACE
