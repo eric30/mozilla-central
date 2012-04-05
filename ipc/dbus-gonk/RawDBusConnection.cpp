@@ -11,11 +11,11 @@
 #define DBUS_ADAPTER_IFACE BLUEZ_DBUS_BASE_IFC ".Adapter"
 #define DBUS_DEVICE_IFACE BLUEZ_DBUS_BASE_IFC ".Device"
 
-#include <android/log.h>
 #if defined(MOZ_WIDGET_GONK)
+  #include <android/log.h>
   #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args)
 #else
-    #define LOG(args...)  printf(args);
+  #define LOG(args...)  printf(args);
 #endif
 
 typedef struct {
@@ -162,7 +162,6 @@ int32_t RawDBusConnection::dbus_returns_int32(DBusMessage *reply) {
 void 
 dbus_func_args_async_callback(DBusPendingCall *call, void *data) 
 {
-  LOG("Callback !!");
   dbus_async_call_t *req = (dbus_async_call_t *)data;
   DBusMessage *msg;
 
@@ -205,8 +204,6 @@ RawDBusConnection::dbus_func_args_async_valist(
   /* Compose the command */
   msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, path, ifc, func);
 
-  LOG("va_list 1");
-
   if (msg == NULL) {
     LOG("Could not allocate D-Bus message object!");
     goto done;
@@ -226,8 +223,6 @@ RawDBusConnection::dbus_func_args_async_valist(
     pending->user = user;
     pending->user_cb = user_cb;
 
-    LOG("va_list 2");
-
     reply = dbus_connection_send_with_reply(mConnection, msg, &call,
                                           timeout_ms);
     if (reply == TRUE) {
@@ -235,11 +230,7 @@ RawDBusConnection::dbus_func_args_async_valist(
         dbus_func_args_async_callback,
         pending,
         NULL);
-    } else {
-      LOG("Reply is null");
     }
-
-    LOG("va_list 3");
   }
 
 done:
