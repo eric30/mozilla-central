@@ -493,8 +493,8 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
         //get_property(dict_entry, remote_device_properties);
       } while (dbus_message_iter_next(&dict));
 
-      const nsDependentCString temp(c_address, strlen(c_address));
-      FireDeviceFound(PromiseFlatCString(temp));
+      nsIDOMBluetoothDevice* devicePtr = new BluetoothDevice();
+      FireDeviceFound(devicePtr);
     }
   } else if (dbus_message_is_signal(msg,
                                     "org.bluez.Adapter",
@@ -581,7 +581,7 @@ void BluetoothAdapter::GetAdapterPath() {
           // bluetoothd is still down, retry
           //LOG_AND_FREE_DBUS_ERROR(&err);
           printf("Service unknown\n");
-          usleep(10000);  // 10 ms
+          //usleep(10000);  // 10 ms
           continue;
         } else {
           // Some other error we weren't expecting
@@ -934,10 +934,10 @@ BluetoothAdapter::StopDiscovery() {
 }
 
 nsresult
-BluetoothAdapter::FireDeviceFound(const nsACString& aDeviceAddress)
+BluetoothAdapter::FireDeviceFound(nsIDOMBluetoothDevice* aDevice)
 {
   nsRefPtr<nsDOMEvent> event = new BluetoothEvent(nsnull, nsnull);
-  static_cast<BluetoothEvent*>(event.get())->SetDeviceAddressInternal(aDeviceAddress);
+  static_cast<BluetoothEvent*>(event.get())->SetDeviceInternal(aDevice);
 
   nsresult rv = event->InitEvent(NS_LITERAL_STRING("devicefound"), false, false);
   NS_ENSURE_SUCCESS(rv, rv);
