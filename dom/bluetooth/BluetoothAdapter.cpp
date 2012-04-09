@@ -181,6 +181,7 @@ public:
     // firmware succeeds.
     if (mResult) {
       mAdapterPtr->SetEnabledInternal(mEnabled);
+      mAdapterPtr->SetupBluetooth();
     }
 
     FireEnabled(mResult, mDOMRequest);
@@ -317,7 +318,17 @@ BluetoothAdapter::RunAdapterFunction(const char* function_name) {
   }
 
   return NS_OK;
+}
 
+nsresult
+BluetoothAdapter::SetupBluetooth()
+{
+  GetAdapterPath();
+  GetProperties();
+
+  nsresult rv = SetupBluetoothAgents();
+
+  return rv;
 }
 
 NS_IMETHODIMP
@@ -462,13 +473,15 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
     return NS_ERROR_FAILURE;
   } 
   
-  LOG("Handling an event!\n");
-
   DBusError err;
   dbus_error_init(&err);
 
+  LOG("%s: Received signal %s:%s from %s", __FUNCTION__,
+      dbus_message_get_interface(msg), dbus_message_get_member(msg),
+      dbus_message_get_path(msg));
+
   if (dbus_message_is_signal(msg,
-                             "org.bluez.Adapter",
+                             DBUS_ADAPTER_IFACE,
                              "DeviceFound")) {
     char *c_address;
     DBusMessageIter iter, dict_entry, dict;
@@ -505,7 +518,7 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
       FireDeviceFound(devicePtr);
     }
   } else if (dbus_message_is_signal(msg,
-                                    "org.bluez.Adapter",
+                                    DBUS_ADAPTER_IFACE,
                                     "DeviceDisappered")) {
     char *c_object_path;
     if (dbus_message_get_args(msg, &err, 
@@ -516,7 +529,7 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
       LOG("DeviceDisappeared get args failed\n");
     }
   } else if (dbus_message_is_signal(msg,
-                                    "org.bluez.Adapter",
+                                    DBUS_ADAPTER_IFACE,
                                     "DeviceCreated")) {
     char *c_object_path;
     if (dbus_message_get_args(msg, &err,
@@ -527,7 +540,7 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
       LOG("DeviceCreated get args failed\n");
     }
   } else if (dbus_message_is_signal(msg,
-                                    "org.bluez.Adapter",
+                                    DBUS_ADAPTER_IFACE,
                                     "DeviceRemoved")) {
     char *c_object_path;
     if (dbus_message_get_args(msg, &err,
@@ -537,8 +550,8 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
     } else {
       LOG("DeviceRemoved get args failed\n");
     }
-  } else if (dbus_message_is_signal(msg,
-                                    "org.bluez.Adapter",
+  } else if (dbus_message_is_signal(msg, 
+                                    DBUS_ADAPTER_IFACE,
                                     "PropertyChanged")) {
     DBusMessageIter iter;
     int len = 0, prop_index = -1;
@@ -551,13 +564,35 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
       return NS_ERROR_FAILURE;
     }
 
-    LOG("PropertyChanged Event\n");
-
     //get_property(iter, adapter_properties);
     // TODO: Only need to update the changed property
     // GetProperties();
-  } else {
-    LOG("Unknown DBus Event\n");
+  } else if (dbus_message_is_signal(msg,
+                                    DBUS_DEVICE_IFACE,
+                                    "PropertyChanged")) {
+    // TODO(Eric)
+    //   Need to notify JS that device property has been changed
+    /*
+    jobjectArray str_array = parse_remote_device_property_change(env, msg);
+    if (str_array != NULL) {
+      const char *remote_device_path = dbus_message_get_path(msg);
+      env->CallVoidMethod(nat->me,
+          method_onDevicePropertyChanged,
+          env->NewStringUTF(remote_device_path),
+          str_array);
+    }
+    */
+  } else if (dbus_message_is_signal(msg,
+                                    DBUS_DEVICE_IFACE,
+                                    "DisconnectRequested")) {
+    const char *remote_device_path = dbus_message_get_path(msg);
+    // TODO(Eric)
+    //   Need to notify JS that remote device request to disconnect.
+    /*
+    env->CallVoidMethod(nat->me,
+        method_onDeviceDisconnectRequested,
+        env->NewStringUTF(remote_device_path));
+    */
   }
 
   LOG("Event handling done\n");
@@ -635,7 +670,6 @@ BluetoothAdapter::GetProperties() {
 
   if (!reply) {
     if (dbus_error_is_set(&err)) {
-      //LOG_AND_FREE_DBUS_ERROR(&err);
       LOG("Error!\n");
     } else
       LOG("DBus reply is NULL in function %s\n", __FUNCTION__);
@@ -1053,42 +1087,25 @@ BluetoothAdapter::BluezCancelDeviceCreation(const nsAString& aAddress)
   return ret ? NS_OK : NS_ERROR_FAILURE;
 }
 
-// ======================== WIP ========================
-NS_IMETHODIMP
-BluetoothAdapter::BluezCreatePairedDevice(const nsAString& aAddress)
-{
-  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
-  const char *capabilities = "DisplayYesNo";
-  const char *agentPath = "/TEMP";
-
-  GetAdapterPath();
-
-  bool ret = dbus_func_args_async(10000,
-      asyncCreatePairedDeviceCallback , // callback
-      (void*)asciiAddress,
-      mAdapterPath,
-      DBUS_ADAPTER_IFACE,
-      "CreatePairedDevice",
-      DBUS_TYPE_STRING, &asciiAddress,
-      DBUS_TYPE_OBJECT_PATH, &agentPath,
-      DBUS_TYPE_STRING, &capabilities,
-      DBUS_TYPE_INVALID);
-
-  return ret ? NS_OK : NS_ERROR_FAILURE;
-}
+extern DBusHandlerResult agent_event_filter(DBusConnection *conn,
+                                            DBusMessage *msg, void *data);
+static const DBusObjectPathVTable agent_vtable = {
+                    NULL, agent_event_filter, NULL, NULL, NULL, NULL };
 
 NS_IMETHODIMP
 BluetoothAdapter::BluezRegisterAgent(const char * agent_path, const char * capabilities) {
     DBusMessage *msg, *reply;
     DBusError err;
-    bool oob = TRUE;
+    bool oob = false;
 
-    // if (!dbus_connection_register_object_path(mConnection, agent_path,
-    //                                           &agent_vtable, NULL)) {
-    //   LOG("%s: Can't register object path %s for agent!",
-    //        __FUNCTION__, agent_path);
-    //   return NS_ERROR_FAILURE;
-    // }
+    GetAdapterPath();
+
+    if (!dbus_connection_register_object_path(mConnection, agent_path,
+                                              &agent_vtable, NULL)) {
+      LOG("%s: Can't register object path %s for agent!",
+           __FUNCTION__, agent_path);
+      return NS_ERROR_FAILURE;
+    }
 
     msg = dbus_message_new_method_call("org.bluez", mAdapterPath,
                                        "org.bluez.Adapter", "RegisterAgent");
@@ -1102,6 +1119,8 @@ BluetoothAdapter::BluezRegisterAgent(const char * agent_path, const char * capab
                              DBUS_TYPE_BOOLEAN, &oob,
                              DBUS_TYPE_INVALID);
 
+    LOG("Prepare to RegisterAgent");
+ 
     dbus_error_init(&err);
     reply = dbus_connection_send_with_reply_and_block(mConnection, msg, -1, &err);
     dbus_message_unref(msg);
@@ -1118,6 +1137,49 @@ BluetoothAdapter::BluezRegisterAgent(const char * agent_path, const char * capab
     dbus_connection_flush(mConnection);
 
     return NS_OK;
+}
+
+nsresult
+BluetoothAdapter::SetupBluetoothAgents()
+{
+  const char *capabilities = "DisplayYesNo";
+  const char *device_agent_path = "/B2G/bluetooth/remote_device_agent";
+  const char *agentPath = "/B2G/bluetooth/agent";
+
+  // 1. Register remote device agent, 
+  if (!dbus_connection_register_object_path(mConnection, device_agent_path,
+        &agent_vtable, NULL)) {
+    LOG("%s: Can't register object path %s for remote device agent!",
+        __FUNCTION__, device_agent_path);
+    return NS_ERROR_FAILURE;
+  }
+
+  // 2. Register agent for local device
+  return BluezRegisterAgent(agentPath, capabilities);
+}
+
+// ======================== WIP ========================
+NS_IMETHODIMP
+BluetoothAdapter::BluezCreatePairedDevice(const nsAString& aAddress)
+{
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  const char *capabilities = "DisplayYesNo";
+  const char *device_agent_path = "/B2G/bluetooth/remote_device_agent";
+
+  GetAdapterPath();
+
+  bool ret = dbus_func_args_async(10000,
+      asyncCreatePairedDeviceCallback , // callback
+      (void*)asciiAddress,
+      mAdapterPath,
+      DBUS_ADAPTER_IFACE,
+      "CreatePairedDevice",
+      DBUS_TYPE_STRING, &asciiAddress,
+      DBUS_TYPE_OBJECT_PATH, &device_agent_path,
+      DBUS_TYPE_STRING, &capabilities,
+      DBUS_TYPE_INVALID);
+
+  return ret ? NS_OK : NS_ERROR_FAILURE;
 }
 
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, propertychanged)
