@@ -196,7 +196,55 @@ static DBusHandlerResult event_filter(DBusConnection *conn, DBusMessage *msg,
   NS_DispatchToMainThread(d);
   return DBUS_HANDLER_RESULT_HANDLED;
 }
+/*
+static const DBusObjectPathVTable agent_vtable = {
+                        NULL, event_filter, NULL, NULL, NULL, NULL };
 
+bool
+register_agent(const char * agent_path, const char * capabilities) {
+  DBusMessage *msg, *reply;
+  DBusError err;
+  bool oob = false;
+
+  if (!dbus_connection_register_object_path(mConnection, agent_path,
+        &agent_vtable, NULL)) {
+    LOG("%s: Can't register object path %s for agent!",
+        __FUNCTION__, agent_path);
+    return NS_ERROR_FAILURE;
+  }
+
+  msg = dbus_message_new_method_call("org.bluez", mAdapterPath,
+      "org.bluez.Adapter", "RegisterAgent");
+  if (!msg) {
+    LOG("%s: Can't allocate new method call for agent!",
+        __FUNCTION__);
+    return NS_ERROR_FAILURE;
+  }
+  dbus_message_append_args(msg, DBUS_TYPE_OBJECT_PATH, &agent_path,
+      DBUS_TYPE_STRING, &capabilities,
+      DBUS_TYPE_BOOLEAN, &oob,
+      DBUS_TYPE_INVALID);
+
+  LOG("Prepare to RegisterAgent");
+
+  dbus_error_init(&err);
+  reply = dbus_connection_send_with_reply_and_block(mConnection, msg, -1, &err);
+  dbus_message_unref(msg);
+
+  if (!reply) {
+    LOG("%s: Can't register agent!", __FUNCTION__);
+    if (dbus_error_is_set(&err)) {
+      //LOG_AND_FREE_DBUS_ERROR(&err);
+    }
+    return NS_ERROR_FAILURE;
+  }
+
+  dbus_message_unref(reply);
+  dbus_connection_flush(mConnection);
+
+  return NS_OK;
+}
+*/
 
 bool
 DBusThread::setUpEventLoop()
@@ -241,12 +289,15 @@ DBusThread::setUpEventLoop()
     return false;
   }
 	
-  // const char *agent_path = "/android/bluetooth/agent";
-  // const char *capabilities = "DisplayYesNo";
-  // if (register_agent(nat, agent_path, capabilities) < 0) {
-  //   dbus_connection_unregister_object_path (dbt->conn, agent_path);
-  //   return JNI_FALSE;
-  // }
+  /*
+  const char *agent_path = "/B2G/bluetooth/agent";
+  const char *capabilities = "DisplayYesNo";
+  if (register_agent(agent_path, capabilities) < 0) {
+    dbus_connection_unregister_object_path (mConnection, agent_path);
+    return false;
+  }
+  */
+
   return true;
 }
 

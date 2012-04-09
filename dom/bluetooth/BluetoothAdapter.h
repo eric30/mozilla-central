@@ -39,9 +39,10 @@ public:
 
   inline void SetEnabledInternal(bool aEnabled) {mEnabled = aEnabled;}
 
-  //nsresult FireDeviceFound(const nsACString& aDeviceAddress);
   nsresult FireDeviceFound(nsIDOMBluetoothDevice* aDevice);
   virtual nsresult HandleEvent(DBusMessage* msg);
+  nsresult SetupBluetoothAgents(void);
+  nsresult SetupBluetooth(void);
 protected:
   void GetProperties();
   bool SetProperty(char* propertyName, int type, void* value);
