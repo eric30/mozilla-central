@@ -18,6 +18,7 @@
 #include <dlfcn.h>
 #include <string.h>
 #include "dbus/dbus.h"
+#include "jsapi.h"
 
 #define BLUEZ_DBUS_BASE_PATH      "/org/bluez"
 #define BLUEZ_DBUS_BASE_IFC       "org.bluez"
@@ -368,7 +369,7 @@ BluetoothAdapter::GetEnabled(bool* aEnabled)
 
 void
 get_property(DBusMessageIter dict_entry, BluetoothProperties* properties, 
-             int* ret_property_index, property_value* ret_property_value)
+             int* ret_property_index, property_value* ret_property_value, int* ret_length)
 {
   DBusMessageIter prop_value, array_value;
 
@@ -432,6 +433,8 @@ get_property(DBusMessageIter dict_entry, BluetoothProperties* properties,
               dbus_message_iter_recurse(&prop_value, &array_value);
               array_type = dbus_message_iter_get_arg_type(&array_value);
 
+              *ret_length = 0;
+ 
               if (array_type == DBUS_TYPE_OBJECT_PATH ||
                   array_type == DBUS_TYPE_STRING) {
                 int len = 0;
@@ -441,6 +444,7 @@ get_property(DBusMessageIter dict_entry, BluetoothProperties* properties,
                 } while (dbus_message_iter_next(&array_value));
                 dbus_message_iter_recurse(&prop_value, &array_value);
 
+                *ret_length = len;
                 char** temp = (char**)malloc(sizeof(char *) * len);
 
                 len = 0;
@@ -678,7 +682,7 @@ BluetoothAdapter::GetProperties() {
 
   char *c_address;
   DBusMessageIter iter, dict_entry, dict;
-  int prop_index;
+  int prop_index, array_length;
   property_value prop_value;
 
   if (dbus_message_iter_init(reply, &iter)) {
@@ -698,7 +702,7 @@ BluetoothAdapter::GetProperties() {
       }
 
       dbus_message_iter_recurse(&dict, &dict_entry);
-      get_property(dict_entry, adapter_properties, &prop_index, &prop_value);
+      get_property(dict_entry, adapter_properties, &prop_index, &prop_value, &array_length);
 
       // TODO: Not very good. Need to be refined.
       switch (prop_index)
@@ -731,10 +735,20 @@ BluetoothAdapter::GetProperties() {
           mDiscovering = (prop_value.int_val == 0) ? false : true;
           break;
         case BT_ADAPTER_DEVICES:
-          // TODO: TBD
+          mDevices.Clear();
+
+          for (int i = 0;i < array_length;++i)
+          {
+            mDevices.AppendElement(NS_ConvertASCIItoUTF16(prop_value.array_val[i]));
+          }
           break;
         case BT_ADAPTER_UUIDS:
-          // TODO: TBD
+          mUuids.Clear();
+
+          for (int i = 0;i < array_length;++i)
+          {
+            mUuids.AppendElement(NS_ConvertASCIItoUTF16(prop_value.array_val[i]));
+          }
           break;
       }
     } while (dbus_message_iter_next(&dict));
@@ -945,6 +959,55 @@ BluetoothAdapter::GetPaireddevices(bool* aPairedDevices)
   GetProperties();
   return NS_OK;
 }
+
+NS_IMETHODIMP
+BluetoothAdapter::GetDevices(JSContext* aCx, jsval* aDevices)
+{
+  PRUint32 length = mDevices.Length();
+
+  if (length == 0) {
+    *aDevices = JSVAL_NULL;
+    return NS_OK;
+  }
+
+  jsval* devices = new jsval[length];
+
+  for (PRUint32 i = 0; i < length; ++i) {
+    devices[i].setString(JS_NewUCStringCopyN(aCx, 
+                                             static_cast<const jschar*>(mDevices[i].get()),
+                                             mDevices[i].Length()));
+  }
+
+  aDevices->setObjectOrNull(JS_NewArrayObject(aCx, length, devices));
+  NS_ENSURE_TRUE(aDevices->isObject(), NS_ERROR_FAILURE);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::GetUuids(JSContext* aCx, jsval* aUuids)
+{
+  PRUint32 length = mUuids.Length();
+
+  if (length == 0) {
+    *aUuids = JSVAL_NULL;
+    return NS_OK;
+  }
+
+  jsval* uuids = new jsval[length];
+
+  for (PRUint32 i = 0; i < length; ++i) {
+    uuids[i].setString(JS_NewUCStringCopyN(aCx,
+                                           static_cast<const jschar*>(mUuids[i].get()),
+                                           mUuids[i].Length()));
+  }
+
+  aUuids->setObjectOrNull(JS_NewArrayObject(aCx, length, uuids));
+  NS_ENSURE_TRUE(aUuids->isObject(), NS_ERROR_FAILURE);
+
+  return NS_OK;
+}
+
 
 // nsresult
 // BluetoothAdapter::firePropertyChanged()

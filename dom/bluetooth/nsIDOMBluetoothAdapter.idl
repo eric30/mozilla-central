@@ -25,6 +25,12 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   readonly attribute boolean discovering;
   readonly attribute boolean paireddevices;
 
+  [implicit_jscontext]
+  readonly attribute jsval devices;
+
+  [implicit_jscontext]
+  readonly attribute jsval uuids;
+
   void startDiscovery();
   void stopDiscovery();
 

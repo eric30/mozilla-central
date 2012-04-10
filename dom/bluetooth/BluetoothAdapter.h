@@ -60,6 +60,8 @@ protected:
   bool mDiscovering;
   const char* mAdapterPath;
   bool mEnabled;
+  nsTArray<nsString> mDevices;
+  nsTArray<nsString> mUuids;
 
   NS_DECL_EVENT_HANDLER(enabled)
   NS_DECL_EVENT_HANDLER(propertychanged)
