@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdio.h>
 #include "dbus/dbus.h"
 
 #if defined(MOZ_WIDGET_GONK)

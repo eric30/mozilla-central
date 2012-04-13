@@ -229,8 +229,8 @@ SystemWorkerManager::Init()
   rv = InitRIL(cx);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = InitWifi(cx);
-  NS_ENSURE_SUCCESS(rv, rv);
+  //rv = InitWifi(cx);
+  //NS_ENSURE_SUCCESS(rv, rv);
 
   rv = InitBluetooth(cx);
   NS_ENSURE_SUCCESS(rv, rv);

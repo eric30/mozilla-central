@@ -7,7 +7,8 @@
 #include "BluetoothAdapter.h"
 #include "BluetoothProperties.h"
 #include "BluetoothEvent.h"
- 
+#include "BluetoothSocket.h"
+
 #include "nsDOMClassInfo.h"
 #include "nsDOMEvent.h"
 #include "nsString.h"
@@ -29,7 +30,7 @@
 #include <android/log.h>
 #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args)
 #else
-#define LOG(args...)  printf(args);
+#define LOG(args...)  printf(args); printf("\n");
 #endif
 
 static void
@@ -1084,6 +1085,7 @@ asyncCreateDeviceCallback(DBusMessage *msg, void *data, void* n)
 void 
 asyncCreatePairedDeviceCallback(DBusMessage *msg, void *data, void* n)
 {
+  const char* asciiAddress = "a8:26:d9:df:64:7a";
   DBusError err;
   dbus_error_init(&err);
 
@@ -1091,6 +1093,12 @@ asyncCreatePairedDeviceCallback(DBusMessage *msg, void *data, void* n)
     LOG("Creating paired device failed");
   } else {
     LOG("PairedDevice has been created");
+
+    BluetoothSocket* socket = new BluetoothSocket();
+
+    // Start to connect
+    // Try 2, it's HFP channel
+    socket->Connect(1, asciiAddress);
   }
 }
 
@@ -1214,6 +1222,39 @@ BluetoothAdapter::BluezCreatePairedDevice(const nsAString& aAddress)
     return NS_ERROR_FAILURE;
   }
 
+  // Then send CreatePairedDevice, it will register a temp device agent then 
+  // unregister it after pairing process is over
+  bool ret = dbus_func_args_async(10000,
+      asyncCreatePairedDeviceCallback , // callback
+      (void*)asciiAddress,
+      mAdapterPath,
+      DBUS_ADAPTER_IFACE,
+      "CreatePairedDevice",
+      DBUS_TYPE_STRING, &asciiAddress,
+      DBUS_TYPE_OBJECT_PATH, &device_agent_path,
+      DBUS_TYPE_STRING, &capabilities,
+      DBUS_TYPE_INVALID);
+
+  return ret ? NS_OK : NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::Connect()
+{
+  const char *capabilities = "DisplayYesNo";
+  const char *device_agent_path = "/B2G/bluetooth/remote_device_agent_haha";
+
+  // First, setup the event handler
+  if (!dbus_connection_register_object_path(mConnection, device_agent_path,
+        &agent_vtable, NULL)) {
+    LOG("%s: Can't register object path %s for remote device agent!",
+        __FUNCTION__, device_agent_path);
+    return NS_ERROR_FAILURE;
+  }
+
+  // Remember to fill in the object path of target device 
+  const char* asciiAddress = "a8:26:d9:df:64:7a";
+ 
   // Then send CreatePairedDevice, it will register a temp device agent then 
   // unregister it after pairing process is over
   bool ret = dbus_func_args_async(10000,
