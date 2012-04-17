@@ -47,6 +47,7 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   attribute nsIDOMEventListener ondeviceremoved;  
 
   // xxx TEMP
+  void disconnect();
   void connect(in DOMString address);
   void checkDevice(in DOMString objectpath);
 };

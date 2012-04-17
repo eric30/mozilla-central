@@ -6,6 +6,7 @@
 #include "sco.h"
 
 #include <errno.h>
+#include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <stdlib.h>
@@ -25,6 +26,8 @@ static const int TYPE_RFCOMM = 1;
 static const int TYPE_SCO = 2;
 static const int TYPE_L2CAP = 3;  // TODO: Test l2cap code paths
 static const int RFCOMM_SO_SNDBUF = 70 * 1024;  // 70 KB send buffer
+
+USING_BLUETOOTH_NAMESPACE
 
 void 
 BluetoothSocket::InitSocketNative(int type, bool auth, bool encrypt)
@@ -91,7 +94,7 @@ BluetoothSocket::InitSocketNative(int type, bool auth, bool encrypt)
 
 BluetoothSocket::BluetoothSocket() : mPort(-1)
 {
-  InitSocketNative(TYPE_RFCOMM, true, true);
+  InitSocketNative(TYPE_RFCOMM, true, false);
 
   if (mFd <= 0) {
     LOG("Creating socket failed");
@@ -246,6 +249,12 @@ BluetoothSocket::Accept()
 
     return ret;
   }
+}
+
+void
+BluetoothSocket::Disconnect()
+{
+  close(mFd);
 }
 
 bool
