@@ -1098,14 +1098,13 @@ asyncCreatePairedDeviceCallback(DBusMessage *msg, void *data, void* n)
 {
   DBusError err;
   dbus_error_init(&err);
+  const char* backupAddress =  (const char *)data;
 
   if (dbus_set_error_from_message(&err, msg)) {
-    LOG("Creating paired device failed");
+    LOG("Creating paired device failed, err: %s", err.name);
   } else {
-    LOG("PairedDevice has been created");
+    LOG("PairedDevice %s has been created", backupAddress);
 /*
-    const char* backupAddress =  (const char *)data;
-
     BluetoothSocket* socket = new BluetoothSocket();
 
     // Start to connect
@@ -1119,6 +1118,10 @@ asyncCreatePairedDeviceCallback(DBusMessage *msg, void *data, void* n)
     LOG("Returned accepted socket: %d", returnedSocket);
     */
   }
+
+  dbus_error_free(&err);
+
+  delete data;
 }
 
 NS_IMETHODIMP
@@ -1230,6 +1233,9 @@ BluetoothAdapter::SetupBluetoothAgents()
 
   LOG("Setup Bluetooth Agents");
 
+  nsresult rv = BluezRegisterAgent("/B2G/bluetooth/agent", capabilities);
+  NS_ENSURE_SUCCESS(rv, rv);
+
   // Register agent for remote devices.
   static const DBusObjectPathVTable agent_vtable = {
     NULL, agent_event_filter, NULL, NULL, NULL, NULL };
@@ -1241,7 +1247,7 @@ BluetoothAdapter::SetupBluetoothAgents()
     return NS_ERROR_FAILURE;
   }
 
-  return BluezRegisterAgent("/B2G/bluetooth/agent", "DisplayYesNo");
+  return rv;
 }
 
 NS_IMETHODIMP
@@ -1273,6 +1279,77 @@ BluetoothAdapter::BluezCreatePairedDevice(const nsAString& aAddress)
 NS_IMETHODIMP
 BluetoothAdapter::Connect(const nsAString& aAddress)
 {
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  BluetoothSocket* socket = new BluetoothSocket();
+
+  socket->Connect(1, asciiAddress);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::CheckDevice(const nsAString& aObjectPath)
+{
+  const char* asciiObjectPath = NS_LossyConvertUTF16toASCII(aObjectPath).get();
+
+  DBusMessage *msg, *reply;
+  DBusError err;
+  dbus_error_init(&err);
+
+  reply = dbus_func_args_timeout(-1, asciiObjectPath,
+                                 DBUS_DEVICE_IFACE, "GetProperties",
+                                 DBUS_TYPE_INVALID);
+
+  if (!reply) {
+    if (dbus_error_is_set(&err)) {
+      //LOG_AND_FREE_DBUS_ERROR(&err);
+      LOG("ERROR!!!!!!");
+    } else
+      LOG("DBus reply is NULL in function %s", __FUNCTION__);
+
+    return NS_ERROR_FAILURE;
+  }
+
+  DBusMessageIter iter, dict_entry, dict;
+  if (dbus_message_iter_init(reply, &iter)) {
+    int type = dbus_message_iter_get_arg_type(&iter);
+    if (type != DBUS_TYPE_ARRAY) {
+      LOG("Type = %d, not DUBS_TYPE_ARRAY\n", type);
+      return NS_ERROR_FAILURE;
+    }
+
+    dbus_message_iter_recurse(&iter, &dict);
+
+    do {
+      property_value prop_value;
+      int prop_index, array_length;
+
+      type = dbus_message_iter_get_arg_type(&dict);
+      if (type != DBUS_TYPE_DICT_ENTRY) {
+        LOG("Type = %d, not DBUS_TYPE_DICT_ENTRY\n", type);
+        return NS_ERROR_FAILURE;
+      }
+
+      dbus_message_iter_recurse(&dict, &dict_entry);
+      get_property(dict_entry, remote_device_properties, &prop_index, &prop_value, &array_length);
+
+      // TODO: Not very good. Need to be refined.
+      /*
+      switch (prop_index)
+      {
+        case BT_DEVICE_ADDRESS:
+        case BT_DEVICE_NAME:
+        case BT_DEVICE_PAIRED:
+        case BT_DEVICE_CONNECTED:
+        case BT_DEVICE_ADAPTER:
+          break;
+      }
+      */
+    } while (dbus_message_iter_next(&dict));
+  }
+
+  dbus_message_unref(reply);
+
   return NS_OK;
 }
 

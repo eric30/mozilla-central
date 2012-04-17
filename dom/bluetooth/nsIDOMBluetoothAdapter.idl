@@ -48,4 +48,5 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
 
   // xxx TEMP
   void connect(in DOMString address);
+  void checkDevice(in DOMString objectpath);
 };
