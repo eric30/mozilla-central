@@ -561,21 +561,32 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
                                     DBUS_ADAPTER_IFACE,
                                     "PropertyChanged")) {
     DBusMessageIter iter;
-    int len = 0, prop_index = -1;
-    int array_index = 0, size = 0;
-    property_value value;
+    char* property_name;
 
-    if (!dbus_message_iter_init(msg, &iter))
-    {
+    if (!dbus_message_iter_init(msg, &iter)) {
       LOG("Iterator init failed.\n");
       return NS_ERROR_FAILURE;
+    } else {
+      dbus_message_iter_get_basic(&iter, &property_name);
+      LOG("Adapter Property [%s] changed.", property_name);
     }
     
     // TODO: Need to notify JS some properties have been changed
-    GetProperties();
+    // GetProperties();
   } else if (dbus_message_is_signal(msg,
                                     DBUS_DEVICE_IFACE,
                                     "PropertyChanged")) {
+    DBusMessageIter iter;
+    char* property_name;
+
+    if (!dbus_message_iter_init(msg, &iter)) {
+      LOG("Iterator init failed.\n");
+      return NS_ERROR_FAILURE;
+    } else {
+      dbus_message_iter_get_basic(&iter, &property_name);
+      LOG("Device Property [%s] changed.", property_name);
+    }
+
     // TODO(Eric)
     //   Need to notify JS that device property has been changed
     /*
@@ -1085,7 +1096,6 @@ asyncCreateDeviceCallback(DBusMessage *msg, void *data, void* n)
 void 
 asyncCreatePairedDeviceCallback(DBusMessage *msg, void *data, void* n)
 {
-  const char* asciiAddress = "a8:26:d9:df:64:7a";
   DBusError err;
   dbus_error_init(&err);
 
@@ -1093,13 +1103,15 @@ asyncCreatePairedDeviceCallback(DBusMessage *msg, void *data, void* n)
     LOG("Creating paired device failed");
   } else {
     LOG("PairedDevice has been created");
-    LOG("Original Data = %s", (const char *)data);
+/*
+    const char* backupAddress =  (const char *)data;
 
- /*   BluetoothSocket* socket = new BluetoothSocket();
+    BluetoothSocket* socket = new BluetoothSocket();
 
     // Start to connect
-    // Try 2, it's HFP channel
-    //socket->Connect(1, asciiAddress);
+    socket->Connect(1, backupAddress);
+    */
+    /*
     socket->Listen(1);
 
     int returnedSocket = socket->Accept();
@@ -1237,21 +1249,16 @@ BluetoothAdapter::BluezCreatePairedDevice(const nsAString& aAddress)
 {
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
   const char *capabilities = "DisplayYesNo";
-  const char *device_agent_path = "/B2G/bluetooth/remote_device_agent_haha";
+  const char *device_agent_path = "/B2G/bluetooth/remote_device_agent";
 
-  // First, setup the event handler
-  if (!dbus_connection_register_object_path(mConnection, device_agent_path,
-        &agent_vtable, NULL)) {
-    LOG("%s: Can't register object path %s for remote device agent!",
-        __FUNCTION__, device_agent_path);
-    return NS_ERROR_FAILURE;
-  }
+  char* backupAddress = new char[strlen(asciiAddress)];
+  memcpy(backupAddress, asciiAddress, strlen(asciiAddress));
 
   // Then send CreatePairedDevice, it will register a temp device agent then 
   // unregister it after pairing process is over
   bool ret = dbus_func_args_async(10000,
       asyncCreatePairedDeviceCallback , // callback
-      (void*)asciiAddress,
+      (void*)backupAddress,
       mAdapterPath,
       DBUS_ADAPTER_IFACE,
       "CreatePairedDevice",
@@ -1264,32 +1271,8 @@ BluetoothAdapter::BluezCreatePairedDevice(const nsAString& aAddress)
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::Connect()
+BluetoothAdapter::Connect(const nsAString& aAddress)
 {
-  // Remember to fill in the object path of target device 
-  const char* asciiAddress = "a8:26:d9:df:64:7a";
- 
- /*
-  // Then send CreatePairedDevice, it will register a temp device agent then 
-  // unregister it after pairing process is over
-  bool ret = dbus_func_args_async(10000,
-      asyncCreatePairedDeviceCallback , // callback
-      (void*)asciiAddress,
-      mAdapterPath,
-      DBUS_ADAPTER_IFACE,
-      "CreatePairedDevice",
-      DBUS_TYPE_STRING, &asciiAddress,
-      DBUS_TYPE_OBJECT_PATH, &device_agent_path,
-      DBUS_TYPE_STRING, &capabilities,
-      DBUS_TYPE_INVALID);
-  */
-  // Remember to fill in the object path of target device 
-  BluetoothSocket* socket = new BluetoothSocket();
-
-  // Start to connect
-  socket->Connect(1, asciiAddress);
-
-  //return ret ? NS_OK : NS_ERROR_FAILURE;
   return NS_OK;
 }
 
