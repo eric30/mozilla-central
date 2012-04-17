@@ -8,7 +8,10 @@ public:
 
   BluetoothSocket();
   void Connect(int channel, const char* bd_address);
+  void Listen(int channel);
+  int Accept();
+  bool Available();
 
 protected:
-  void InitSocketNative();
+  void InitSocketNative(int type, bool auth, bool encrypt);
 };
