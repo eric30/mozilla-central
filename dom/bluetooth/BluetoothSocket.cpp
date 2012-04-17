@@ -5,6 +5,8 @@
 #include "l2cap.h"
 #include "sco.h"
 
+#include <errno.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -25,30 +27,30 @@ static const int TYPE_L2CAP = 3;  // TODO: Test l2cap code paths
 static const int RFCOMM_SO_SNDBUF = 70 * 1024;  // 70 KB send buffer
 
 void 
-BluetoothSocket::InitSocketNative()
+BluetoothSocket::InitSocketNative(int type, bool auth, bool encrypt)
 {
-  int fd;
   int lm = 0;
   int sndbuf;
-  bool auth = true;
-  bool encrypt = true;
-  int type = TYPE_RFCOMM;
+
+  mType = type;
+  mAuth = auth;
+  mEncrypt = encrypt;
 
   switch (type) {
     case TYPE_RFCOMM:
-      fd = socket(PF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
+      mFd = socket(PF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
       break;
     case TYPE_SCO:
-      fd = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_SCO);
+      mFd = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_SCO);
       break;
     case TYPE_L2CAP:
-      fd = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
+      mFd = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
       break;
     default:
       return;
   }
 
-  if (fd < 0) {
+  if (mFd < 0) {
     LOG("socket() failed, throwing");
     return;
   }
@@ -68,7 +70,7 @@ BluetoothSocket::InitSocketNative()
   }
 
   if (lm) {
-    if (setsockopt(fd, SOL_RFCOMM, RFCOMM_LM, &lm, sizeof(lm))) {
+    if (setsockopt(mFd, SOL_RFCOMM, RFCOMM_LM, &lm, sizeof(lm))) {
       LOG("setsockopt(RFCOMM_LM) failed, throwing");
       return;
     }
@@ -76,30 +78,20 @@ BluetoothSocket::InitSocketNative()
 
   if (type == TYPE_RFCOMM) {
     sndbuf = RFCOMM_SO_SNDBUF;
-    if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf))) {
+    if (setsockopt(mFd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf))) {
       LOG("setsockopt(SO_SNDBUF) failed, throwing");
       return;
     }
   }
 
-  LOG("...fd %d created (%s, lm = %x)", fd, TYPE_AS_STR(type), lm);
-
-  mFd = (int)fd;
+  LOG("...fd %d created (%s, lm = %x)", mFd, TYPE_AS_STR(type), lm);
 
   return;
 }
 
-BluetoothSocket::BluetoothSocket()
+BluetoothSocket::BluetoothSocket() : mPort(-1)
 {
-  mPort = -1;
-  mType = TYPE_RFCOMM;
-  mFd = -1;
-  mAuth = true;
-  mEncrypt = true;
-  // mUuid = ?  should be uuid of HFP
-  // mAddress = a8:26:d9:df:64:7a
-
-  InitSocketNative();
+  InitSocketNative(TYPE_RFCOMM, true, true);
 
   if (mFd <= 0) {
     LOG("Creating socket failed");
@@ -167,9 +159,105 @@ BluetoothSocket::Connect(int channel, const char* bd_address)
     LOG("RET = %d\n", ret);
 
     if (ret) {
-      LOG("Connect error");
+      LOG("Connect error=%d", errno);
     }
 
     return;
   }
+}
+
+void
+BluetoothSocket::Listen(int channel)
+{
+  struct sockaddr_rc local_addr = { 0 };
+  socklen_t addr_sz;
+  struct sockaddr *addr;
+  bdaddr_t bd_address_obj;
+
+  mPort = channel;
+
+  if (mFd <= 0) {
+    LOG("Fd is not valid");
+  } else {
+    switch (mType) {
+      case TYPE_RFCOMM:
+        struct sockaddr_rc addr_rc;
+        addr = (struct sockaddr *)&addr_rc;
+        addr_sz = sizeof(addr_rc);
+
+        memset(addr, 0, addr_sz);
+        addr_rc.rc_family = AF_BLUETOOTH;
+        addr_rc.rc_channel = mPort;
+        memcpy(&addr_rc.rc_bdaddr, &bd_address_obj, sizeof(bdaddr_t));
+        break;
+      default:
+        LOG("Are u kidding me");
+        break;
+    }
+
+    if (bind(mFd, addr, addr_sz)) {
+      LOG("...bind(%d) gave errno %d", mFd, errno);
+    }
+
+    if (listen(mFd, 1)) {
+      LOG("...listen(%d) gave errno %d", mFd, errno);
+    }
+
+    LOG("...bindListenNative(%d) success", mFd);
+
+    return;
+  }
+}
+
+int
+BluetoothSocket::Accept()
+{
+  socklen_t addr_sz;
+  struct sockaddr *addr;
+  bdaddr_t bd_address_obj;
+
+  if (mFd <= 0) {
+    LOG("Fd is not valid");
+    return false;
+  } else {
+    switch (mType) {
+      case TYPE_RFCOMM:
+        struct sockaddr_rc addr_rc;
+        addr = (struct sockaddr *)&addr_rc;
+        addr_sz = sizeof(addr_rc);
+
+        memset(addr, 0, addr_sz);
+        break;
+
+      default:
+        LOG("Are u kidding me");
+        break;
+    }
+
+    LOG("Prepare to accept %d", mFd);
+
+    int ret;
+
+    do {
+      ret = accept(mFd, addr, &addr_sz);
+    } while (ret < 0 && errno == EINTR);
+
+    LOG("result of accept() ret=%d, err=%d", ret, errno);
+
+    return ret;
+  }
+}
+
+bool
+BluetoothSocket::Available()
+{
+  int available;
+
+  if (mFd <= 0) return false;
+
+  if (ioctl(mFd, FIONREAD, &available) < 0) {
+    return false;
+  }
+
+  return true;
 }

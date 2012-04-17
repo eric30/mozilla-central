@@ -1093,12 +1093,19 @@ asyncCreatePairedDeviceCallback(DBusMessage *msg, void *data, void* n)
     LOG("Creating paired device failed");
   } else {
     LOG("PairedDevice has been created");
+    LOG("Original Data = %s", (const char *)data);
 
-    BluetoothSocket* socket = new BluetoothSocket();
+ /*   BluetoothSocket* socket = new BluetoothSocket();
 
     // Start to connect
     // Try 2, it's HFP channel
-    socket->Connect(1, asciiAddress);
+    //socket->Connect(1, asciiAddress);
+    socket->Listen(1);
+
+    int returnedSocket = socket->Accept();
+    
+    LOG("Returned accepted socket: %d", returnedSocket);
+    */
   }
 }
 
@@ -1160,7 +1167,7 @@ NS_IMETHODIMP
 BluetoothAdapter::BluezRegisterAgent(const char * agent_path, const char * capabilities) {
     DBusMessage *msg, *reply;
     DBusError err;
-    bool oob = false;
+    int oob = 0;
 
     if (!dbus_connection_register_object_path(mConnection, agent_path,
                                               &agent_vtable, NULL)) {
@@ -1176,7 +1183,9 @@ BluetoothAdapter::BluezRegisterAgent(const char * agent_path, const char * capab
            __FUNCTION__);
       return NS_ERROR_FAILURE;
     }
-    dbus_message_append_args(msg, DBUS_TYPE_OBJECT_PATH, &agent_path,
+
+    dbus_message_append_args(msg, 
+                             DBUS_TYPE_OBJECT_PATH, &agent_path,
                              DBUS_TYPE_STRING, &capabilities,
                              DBUS_TYPE_BOOLEAN, &oob,
                              DBUS_TYPE_INVALID);
@@ -1204,6 +1213,22 @@ BluetoothAdapter::BluezRegisterAgent(const char * agent_path, const char * capab
 nsresult
 BluetoothAdapter::SetupBluetoothAgents()
 {
+  const char *capabilities = "DisplayYesNo";
+  const char *device_agent_path = "/B2G/bluetooth/remote_device_agent";
+
+  LOG("Setup Bluetooth Agents");
+
+  // Register agent for remote devices.
+  static const DBusObjectPathVTable agent_vtable = {
+    NULL, agent_event_filter, NULL, NULL, NULL, NULL };
+
+  if (!dbus_connection_register_object_path(mConnection, device_agent_path,
+        &agent_vtable, NULL)) {
+    LOG("%s: Can't register object path %s for remote device agent!",
+        __FUNCTION__, device_agent_path);
+    return NS_ERROR_FAILURE;
+  }
+
   return BluezRegisterAgent("/B2G/bluetooth/agent", "DisplayYesNo");
 }
 
@@ -1241,20 +1266,10 @@ BluetoothAdapter::BluezCreatePairedDevice(const nsAString& aAddress)
 NS_IMETHODIMP
 BluetoothAdapter::Connect()
 {
-  const char *capabilities = "DisplayYesNo";
-  const char *device_agent_path = "/B2G/bluetooth/remote_device_agent_haha";
-
-  // First, setup the event handler
-  if (!dbus_connection_register_object_path(mConnection, device_agent_path,
-        &agent_vtable, NULL)) {
-    LOG("%s: Can't register object path %s for remote device agent!",
-        __FUNCTION__, device_agent_path);
-    return NS_ERROR_FAILURE;
-  }
-
   // Remember to fill in the object path of target device 
   const char* asciiAddress = "a8:26:d9:df:64:7a";
  
+ /*
   // Then send CreatePairedDevice, it will register a temp device agent then 
   // unregister it after pairing process is over
   bool ret = dbus_func_args_async(10000,
@@ -1267,8 +1282,15 @@ BluetoothAdapter::Connect()
       DBUS_TYPE_OBJECT_PATH, &device_agent_path,
       DBUS_TYPE_STRING, &capabilities,
       DBUS_TYPE_INVALID);
+  */
+  // Remember to fill in the object path of target device 
+  BluetoothSocket* socket = new BluetoothSocket();
 
-  return ret ? NS_OK : NS_ERROR_FAILURE;
+  // Start to connect
+  socket->Connect(1, asciiAddress);
+
+  //return ret ? NS_OK : NS_ERROR_FAILURE;
+  return NS_OK;
 }
 
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, propertychanged)
