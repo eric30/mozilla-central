@@ -21,6 +21,8 @@ class nsIDOMBluetoothDevice;
 
 BEGIN_BLUETOOTH_NAMESPACE
 
+class BluetoothSocket;
+
 class BluetoothAdapter : public nsDOMEventTargetHelper
                        , public nsIDOMBluetoothAdapter
                        , public mozilla::ipc::DBusEventHandler
@@ -62,6 +64,7 @@ protected:
   bool mEnabled;
   nsTArray<nsString> mDevices;
   nsTArray<nsString> mUuids;
+  BluetoothSocket* mSocket;
 
   NS_DECL_EVENT_HANDLER(enabled)
   NS_DECL_EVENT_HANDLER(propertychanged)

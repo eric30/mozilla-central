@@ -296,6 +296,7 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow *aWindow)
   mPairableTimeout(0),
   mDiscoverableTimeout(0),
   mDiscovering(0),
+  mSocket(NULL),
   mName(NS_LITERAL_STRING("testing"))
 {
   BindToOwner(aWindow);
@@ -1280,9 +1281,22 @@ NS_IMETHODIMP
 BluetoothAdapter::Connect(const nsAString& aAddress)
 {
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
-  BluetoothSocket* socket = new BluetoothSocket();
 
-  socket->Connect(1, asciiAddress);
+  if (mSocket == NULL) {
+    mSocket = new BluetoothSocket();
+  }
+
+  mSocket->Connect(1, asciiAddress);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::Disconnect()
+{
+  if (mSocket != NULL) {
+    mSocket->Disconnect();
+  }
 
   return NS_OK;
 }
