@@ -39,6 +39,7 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   void bluezCancelDeviceCreation(in DOMString address);
   void bluezRemoveDevice(in DOMString objectpath);
   void bluezCreatePairedDevice(in DOMString address);
+  void bluezAddHfpService();
 
   attribute nsIDOMEventListener ondevicefound;
   attribute nsIDOMEventListener onpropertychanged;

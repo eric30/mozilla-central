@@ -48,7 +48,6 @@ agent_event_filter(DBusConnection *conn, DBusMessage *msg, void *data){
     if (!reply) {
       LOG("%s: Cannot create message reply to RequestPasskeyConfirmation or"
           "RequestPairingConsent to D-Bus\n", __FUNCTION__);
-      return DBUS_HANDLER_RESULT_HANDLED;
       return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
 
@@ -112,13 +111,22 @@ agent_event_filter(DBusConnection *conn, DBusMessage *msg, void *data){
     }
 
     // TODO(Eric)
-    // Need to send a request PIN code event to JS
-    /*
-    dbus_message_ref(msg);  // increment refcount because we pass to java
-    env->CallVoidMethod(nat->me, method_onRequestPinCode,
-        env->NewStringUTF(object_path),
-        int(msg));*/
-  } else if (dbus_message_is_method_call(msg,
+    // Now we reply PIN code "0000" immediately, but an event is needed for notifying JS.
+    DBusMessage *reply = dbus_message_new_method_return(msg);
+    if (!reply) {
+      LOG("%s: Cannot create message reply to return PIN code to "
+          "D-Bus\n", __FUNCTION__);
+      dbus_message_unref(msg);
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    }
+
+    const char *pin = "0000";
+
+    dbus_message_append_args(reply, DBUS_TYPE_STRING, &pin, DBUS_TYPE_INVALID);
+
+    dbus_connection_send(conn, reply, NULL);
+    dbus_message_unref(reply);
+ } else if (dbus_message_is_method_call(msg,
         "org.bluez.Agent", "RequestPasskey")) {
     char *object_path;
     if (!dbus_message_get_args(msg, NULL,

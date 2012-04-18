@@ -1265,6 +1265,31 @@ BluetoothAdapter::BluezCreatePairedDevice(const nsAString& aAddress)
 }
 
 NS_IMETHODIMP
+BluetoothAdapter::BluezAddHfpService()
+{
+  const char* service_name = "Voice gateway";
+  int channel = 2;
+  unsigned long long uuidMsb = 0x0000111f00001000;
+  unsigned long long uuidLsb = 0x800000805f9b34fb;
+
+  LOG("... uuid1 = %llX", uuidMsb);
+  LOG("... uuid2 = %llX", uuidLsb);
+
+  DBusMessage *reply;
+  reply = dbus_func_args(mAdapterPath,
+                         DBUS_ADAPTER_IFACE, "AddRfcommServiceRecord",
+                         DBUS_TYPE_STRING, &service_name,
+                         DBUS_TYPE_UINT64, &uuidMsb,
+                         DBUS_TYPE_UINT64, &uuidLsb,
+                         DBUS_TYPE_UINT16, &channel,
+                         DBUS_TYPE_INVALID);
+
+  LOG("HFP Service added, returned [%d]", dbus_returns_uint32(reply));
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 BluetoothAdapter::QueryServerChannel(const nsAString& aObjectPath, PRInt32* aRetChannel)
 {
   // Lookup the server channel of target profile
