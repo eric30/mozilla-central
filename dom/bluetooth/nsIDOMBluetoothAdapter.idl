@@ -48,6 +48,8 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
 
   // xxx TEMP
   void disconnect();
-  void connect(in DOMString address);
+  void connect(in long channel, in DOMString address);
+  void listen(in long channel);
   void checkDevice(in DOMString objectpath);
+  long queryServerChannel(in DOMString objectpath);
 };
