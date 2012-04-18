@@ -101,13 +101,6 @@ BluetoothSocket::BluetoothSocket() : mPort(-1)
   } else {
     LOG("Creating socket succeeded");
   }
-
-/*
-  mInputStream = new BluetoothInputStream(this);
-  mOutputStream = new BluetoothOutputStream(this);
-  mClosed = false;
-  mLock = new ReentrantReadWriteLock();
-*/
 }
 
 int get_bdaddr(const char *str, bdaddr_t *ba) {
@@ -146,12 +139,10 @@ BluetoothSocket::Connect(int channel, const char* bd_address)
         struct sockaddr_rc addr_rc;
         addr = (struct sockaddr *)&addr_rc;
         addr_sz = sizeof(addr_rc);
-
         memset(addr, 0, addr_sz);
         addr_rc.rc_family = AF_BLUETOOTH;
         addr_rc.rc_channel = mPort;
         memcpy(&addr_rc.rc_bdaddr, &bd_address_obj, sizeof(bdaddr_t));
-
         break;
       default:
         LOG("Are u kidding me");
@@ -163,6 +154,20 @@ BluetoothSocket::Connect(int channel, const char* bd_address)
 
     if (ret) {
       LOG("Connect error=%d", errno);
+    } else {
+      // Match android_bluetooth_HeadsetBase.cpp line 384
+      // Skip many lines
+
+      /* A trial async read() will tell us if everything is OK. */
+      char ch;
+      errno = 0;
+      int nr = read(mFd, &ch, 1);
+                                                      
+      if (nr >= 0 || errno != EAGAIN) {
+        LOG("RFCOMM async connect() error: (%d), nr = %d\n", strerror(errno), errno, nr);
+      } else {
+        LOG("Reading test passed");
+      }
     }
 
     return;

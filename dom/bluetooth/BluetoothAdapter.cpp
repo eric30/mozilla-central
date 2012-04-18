@@ -8,6 +8,7 @@
 #include "BluetoothProperties.h"
 #include "BluetoothEvent.h"
 #include "BluetoothSocket.h"
+#include "BluetoothServiceUuid.h"
 
 #include "nsDOMClassInfo.h"
 #include "nsDOMEvent.h"
@@ -304,7 +305,7 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow *aWindow)
 
 nsresult
 BluetoothAdapter::RunAdapterFunction(const char* function_name) {
-  DBusMessage *msg, *reply;
+  DBusMessage *reply;
   DBusError err;
   dbus_error_init(&err);
   reply = dbus_func_args(mAdapterPath,
@@ -603,7 +604,7 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
   } else if (dbus_message_is_signal(msg,
                                     DBUS_DEVICE_IFACE,
                                     "DisconnectRequested")) {
-    const char *remote_device_path = dbus_message_get_path(msg);
+    // const char *remote_device_path = dbus_message_get_path(msg);
     // TODO(Eric)
     //   Need to notify JS that remote device request to disconnect.
     /*
@@ -677,7 +678,7 @@ failed:
 
 void 
 BluetoothAdapter::GetProperties() {
-  DBusMessage *msg, *reply;
+  DBusMessage *reply;
   DBusError err;
   dbus_error_init(&err);
   GetAdapterPath();
@@ -694,7 +695,6 @@ BluetoothAdapter::GetProperties() {
     return ;
   }
 
-  char *c_address;
   DBusMessageIter iter, dict_entry, dict;
   int prop_index, array_length;
   property_value prop_value;
@@ -1105,19 +1105,6 @@ asyncCreatePairedDeviceCallback(DBusMessage *msg, void *data, void* n)
     LOG("Creating paired device failed, err: %s", err.name);
   } else {
     LOG("PairedDevice %s has been created", backupAddress);
-/*
-    BluetoothSocket* socket = new BluetoothSocket();
-
-    // Start to connect
-    socket->Connect(1, backupAddress);
-    */
-    /*
-    socket->Listen(1);
-
-    int returnedSocket = socket->Accept();
-    
-    LOG("Returned accepted socket: %d", returnedSocket);
-    */
   }
 
   dbus_error_free(&err);
@@ -1278,15 +1265,57 @@ BluetoothAdapter::BluezCreatePairedDevice(const nsAString& aAddress)
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::Connect(const nsAString& aAddress)
+BluetoothAdapter::QueryServerChannel(const nsAString& aObjectPath, PRInt32* aRetChannel)
 {
-  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  // Lookup the server channel of target profile
+  const char* asciiObjectPath = NS_LossyConvertUTF16toASCII(aObjectPath).get();
+  const char* serviceUuid = BluetoothServiceUuid::Handsfree;
+  int attributeId = 0x0004;
 
-  if (mSocket == NULL) {
+  //TODO(Eric) 
+  //  We should do a service match check here to ensure the availability of
+  //  requested service, however now we're only testing HANDSFREE, so just 
+  //  skip this step until we actually has an array of devices.
+  DBusMessage *reply = dbus_func_args(asciiObjectPath,
+                                      DBUS_DEVICE_IFACE, "GetServiceAttributeValue",
+                                      DBUS_TYPE_STRING, &serviceUuid,
+                                      DBUS_TYPE_UINT16, &attributeId,
+                                      DBUS_TYPE_INVALID);
+
+  int channel = -1;
+
+  if (reply) {
+    channel = dbus_returns_int32(reply);
+  }
+
+  *aRetChannel = channel;
+    
+  LOG("Handsfree: RFCOMM Server channel [%d]", channel);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::Listen(PRInt32 channel)
+{
+  if (mSocket == NULL || !mSocket->Available()) {
     mSocket = new BluetoothSocket();
   }
 
-  mSocket->Connect(1, asciiAddress);
+  mSocket->Listen(channel);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::Connect(PRInt32 channel, const nsAString& aAddress)
+{
+  if (mSocket == NULL || !mSocket->Available()) {
+    mSocket = new BluetoothSocket();
+  }
+
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  mSocket->Connect(channel, asciiAddress);
 
   return NS_OK;
 }
@@ -1306,7 +1335,7 @@ BluetoothAdapter::CheckDevice(const nsAString& aObjectPath)
 {
   const char* asciiObjectPath = NS_LossyConvertUTF16toASCII(aObjectPath).get();
 
-  DBusMessage *msg, *reply;
+  DBusMessage *reply;
   DBusError err;
   dbus_error_init(&err);
 
