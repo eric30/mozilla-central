@@ -1320,6 +1320,18 @@ BluetoothAdapter::QueryServerChannel(const nsAString& aObjectPath, PRInt32* aRet
   return NS_OK;
 }
 
+/*
+NS_IMETHODIMP
+BluetoothAdapter::Accept()
+{
+  if (mSocket == NULL) {
+    LOG("No socket how can you accept anything???");
+  }
+
+  return NS_OK;
+}
+*/
+
 NS_IMETHODIMP
 BluetoothAdapter::Listen(PRInt32 channel)
 {

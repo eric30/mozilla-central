@@ -6,11 +6,15 @@
 #include "sco.h"
 
 #include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <sys/poll.h>
 #include <sys/socket.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include <sys/uio.h>
 
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
@@ -92,7 +96,7 @@ BluetoothSocket::InitSocketNative(int type, bool auth, bool encrypt)
   return;
 }
 
-BluetoothSocket::BluetoothSocket() : mPort(-1)
+BluetoothSocket::BluetoothSocket() : mPort(-1), mFlag(false)
 {
   InitSocketNative(TYPE_RFCOMM, true, false);
 
@@ -157,21 +161,116 @@ BluetoothSocket::Connect(int channel, const char* bd_address)
     } else {
       // Match android_bluetooth_HeadsetBase.cpp line 384
       // Skip many lines
-
-      /* A trial async read() will tell us if everything is OK. */
-      char ch;
-      errno = 0;
-      int nr = read(mFd, &ch, 1);
-                                                      
-      if (nr >= 0 || errno != EAGAIN) {
-        LOG("RFCOMM async connect() error: (%d), nr = %d\n", strerror(errno), errno, nr);
-      } else {
-        LOG("Reading test passed");
-      }
+      // Start a thread to run an event loop
+      mFlag = true;
+      pthread_create(&(mThread), NULL, BluetoothSocket::StartEventThread, this);
     }
 
     return;
   }
+}
+
+static const char* get_line(int fd, char *buf, int len, int timeout_ms,
+                            int *err) {
+  char *bufit=buf;
+  int fd_flags = fcntl(fd, F_GETFL, 0);
+  struct pollfd pfd;
+
+again:
+  *bufit = 0;
+  pfd.fd = fd;
+  pfd.events = POLLIN;
+  *err = errno = 0;
+  int ret = poll(&pfd, 1, timeout_ms);
+  if (ret < 0) {
+    LOG("poll() error\n");
+    *err = errno;
+    return NULL;
+  }
+  if (ret == 0) {
+    return NULL;
+  }
+
+  if (pfd.revents & (POLLHUP | POLLERR | POLLNVAL)) {
+    LOG("RFCOMM poll() returned  success (%d), "
+        "but with an unexpected revents bitmask: %#x\n", ret, pfd.revents);
+    errno = EIO;
+    *err = errno;
+    return NULL;
+  }
+
+  while ((int)(bufit - buf) < (len - 1))
+  {
+    errno = 0;
+    int rc = read(fd, bufit, 1);
+
+    if (!rc)
+      break;
+
+    if (rc < 0) {
+      if (errno == EBUSY) {
+        LOG("read() error %s (%d): repeating read()...",
+            strerror(errno), errno);
+        goto again;
+      }
+      *err = errno;
+      LOG("read() error %s (%d)", strerror(errno), errno);
+      return NULL;
+    }
+
+
+    if (*bufit=='\xd') {
+      break;
+    }
+
+    if (*bufit=='\xa')
+      bufit = buf;
+    else
+      bufit++;
+  }
+
+  *bufit = NULL;
+
+  // According to ITU V.250 section 5.1, IA5 7 bit chars are used,
+  //   the eighth bit or higher bits are ignored if they exists
+  // We mask out only eighth bit, no higher bit, since we do char
+  // string here, not wide char.
+  // We added this processing due to 2 real world problems.
+  // 1 BMW 2005 E46 which sends binary junk
+  // 2 Audi 2010 A3, dial command use 0xAD (soft-hyphen) as number
+  //   formater, which was rejected by the AT handler
+  //mask_eighth_bit(buf);
+
+  return buf;
+}
+
+void*
+BluetoothSocket::StartEventThread(void* ptr)
+{
+  BluetoothSocket* socket = static_cast<BluetoothSocket*>(ptr);
+  int err;
+
+  if (socket->mFd <= 0) {
+    LOG("%s: Fd is not valid", __FUNCTION__);
+  } else {
+    while (socket->mFlag)
+    {
+      int timeout = 500; //0.5 sec
+      char buf[256];
+      const char *ret = get_line(socket->mFd,
+                                 buf, sizeof(buf),
+                                 timeout,
+                                 &err);
+
+      if (ret == NULL) {
+        LOG("Read Nothing");
+      } else {
+        LOG("Received:%s", ret);
+      }
+    }
+  }
+
+  return NULL;
 }
 
 void
@@ -212,6 +311,10 @@ BluetoothSocket::Listen(int channel)
     }
 
     LOG("...bindListenNative(%d) success", mFd);
+
+    // Start a thread to run an event loop
+    mFlag = true;
+    pthread_create(&(mThread), NULL, BluetoothSocket::StartEventThread, this);
 
     return;
   }
@@ -259,7 +362,13 @@ BluetoothSocket::Accept()
 void
 BluetoothSocket::Disconnect()
 {
+  void* ret;
+
+  mFlag = false;
+  pthread_join(mThread, &ret);
   close(mFd);
+
+  LOG("Disconnected");
 }
 
 bool
