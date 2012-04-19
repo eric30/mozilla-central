@@ -26,6 +26,9 @@
 #define TYPE_AS_STR(t) \
     ((t) == TYPE_RFCOMM ? "RFCOMM" : ((t) == TYPE_SCO ? "SCO" : "L2CAP"))
 
+static const char CRLF[] = "\xd\xa";
+static const int CRLF_LEN = 2;
+
 static const int TYPE_RFCOMM = 1;
 static const int TYPE_SCO = 2;
 static const int TYPE_L2CAP = 3;  // TODO: Test l2cap code paths
@@ -170,8 +173,8 @@ BluetoothSocket::Connect(int channel, const char* bd_address)
   }
 }
 
-static const char* get_line(int fd, char *buf, int len, int timeout_ms,
-                            int *err) {
+static const char* 
+get_line(int fd, char *buf, int len, int timeout_ms, int *err) {
   char *bufit=buf;
   int fd_flags = fcntl(fd, F_GETFL, 0);
   struct pollfd pfd;
@@ -244,6 +247,99 @@ again:
   return buf;
 }
 
+static inline int write_error_check(int fd, const char* line, int len) {
+  int ret;
+
+  errno = 0;
+  ret = write(fd, line, len);
+  if (ret < 0) {
+    LOG("%s: write() failed: %s (%d)", __FUNCTION__, strerror(errno),
+        errno);
+    return -1;
+  }
+  if (ret != len) {
+    LOG("%s: write() only wrote %d of %d bytes", __FUNCTION__, ret, len);
+    return -1;
+  }
+  return 0;
+}
+
+static 
+int send_line(int fd, const char* line) {
+  int nw;
+  int len = strlen(line);
+  int llen = len + CRLF_LEN * 2 + 1;
+  char *buffer = (char *)calloc(llen, sizeof(char));
+
+  snprintf(buffer, llen, "%s%s%s", CRLF, line, CRLF);
+
+  if (write_error_check(fd, buffer, llen - 1)) {
+    free(buffer);
+    return -1;
+  }
+  free(buffer);
+  return 0;
+}
+
+void reply_ok(int fd)
+{
+  if (send_line(fd, "OK") != 0) {
+    LOG("Reply [OK] failed");
+  }
+}
+
+void reply_error(int fd)
+{
+  if (send_line(fd, "ERROR") != 0) {
+    LOG("Reply [ERROR] failed");
+  }
+}
+
+void reply_brsf(int fd)
+{
+  if (send_line(fd, "+BRSF: 23") != 0) {
+    LOG("Reply +BRSF failed");
+  }
+}
+
+void reply_cind_current_status(int fd)
+{
+  const char* str = "+CIND: 1,0,0,0,3,0,3";
+
+  if (send_line(fd, str) != 0) {
+    LOG("Reply +CIND failed");
+  }
+}
+
+void reply_cind_range(int fd)
+{
+  const char* str = "+CIND: (\"service\",(0-1)),(\"call\",(0-1)),(\"callsetup\",(0-3)), \
+                            (\"callheld\",(0-2)),(\"signal\",(0-5)),(\"roam\",(0-1)), \
+                            (\"battchg\",(0-5))";
+
+  if (send_line(fd, str) != 0) {
+    LOG("Reply +CIND=? failed");
+  }
+}
+
+void reply_cmer(int fd, bool enableIndicator)
+{
+  const char* str = enableIndicator ? "+CMER: 3,0,0,1" : "+CMER: 3,0,0,0";
+
+  if (send_line(fd, str) != 0) {
+    LOG("Reply +CMER= failed");
+  }
+}
+
+void reply_chld_range(int fd)
+{
+  const char* str = "+CHLD: (0,1,2,3)";
+
+  if (send_line(fd, str) != 0) {
+    LOG("Reply +CHLD=? failed");
+  }
+}
+
 void*
 BluetoothSocket::StartEventThread(void* ptr)
 {
@@ -265,7 +361,34 @@ BluetoothSocket::StartEventThread(void* ptr)
       if (ret == NULL) {
         LOG("Read Nothing");
       } else {
+        // TODO(Eric)
+        //   We need a Handsfree msg handler here!
         LOG("Received:%s", ret);
+
+        if (!strncmp(ret, "AT+BRSF=", 8)) {
+          reply_brsf(socket->mFd);
+          reply_ok(socket->mFd);
+        } else if (!strncmp(ret, "AT+CIND=?", 9)) {
+          reply_cind_range(socket->mFd);
+          reply_ok(socket->mFd);
+        } else if (!strncmp(ret, "AT+CIND", 7)) {
+          reply_cind_current_status(socket->mFd);
+          reply_ok(socket->mFd);
+        } else if (!strncmp(ret, "AT+CMER=", 8)) {
+          reply_ok(socket->mFd);
+        } else if (!strncmp(ret, "AT+CHLD=?", 9)) {
+          reply_chld_range(socket->mFd);
+          reply_ok(socket->mFd);
+        } else if (!strncmp(ret, "AT+CHLD=", 9)) {
+          reply_ok(socket->mFd);
+        } else if (!strncmp(ret, "AT+VGS=", 7)) {
+          reply_ok(socket->mFd);
+        } else if (!strncmp(ret, "AT+VGM=", 7)) {
+          reply_ok(socket->mFd);
+        } else {
+          LOG("Not handled.");
+          reply_ok(socket->mFd);
+        }
       }
     }
   }
