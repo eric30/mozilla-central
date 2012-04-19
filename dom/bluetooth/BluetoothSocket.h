@@ -9,6 +9,8 @@
 
 #include "BluetoothCommon.h"
 
+#include <pthread.h>
+
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothSocket {
@@ -18,6 +20,7 @@ public:
   int mFd;
   bool mAuth;
   bool mEncrypt;
+  bool mFlag;
 
   BluetoothSocket();
   void Connect(int channel, const char* bd_address);
@@ -27,7 +30,9 @@ public:
   bool Available();
 
 protected:
+  pthread_t mThread;
   void InitSocketNative(int type, bool auth, bool encrypt);
+  static void* StartEventThread(void*);
 };
 
 END_BLUETOOTH_NAMESPACE
