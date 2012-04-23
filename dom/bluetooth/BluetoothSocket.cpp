@@ -399,10 +399,9 @@ BluetoothSocket::StartEventThread(void* ptr)
 void
 BluetoothSocket::Listen(int channel)
 {
-  struct sockaddr_rc local_addr = { 0 };
   socklen_t addr_sz;
   struct sockaddr *addr;
-  bdaddr_t bd_address_obj;
+  bdaddr_t bd_address_obj = *BDADDR_ANY;
 
   mPort = channel;
 
@@ -435,10 +434,6 @@ BluetoothSocket::Listen(int channel)
 
     LOG("...bindListenNative(%d) success", mFd);
 
-    // Start a thread to run an event loop
-    mFlag = true;
-    pthread_create(&(mThread), NULL, BluetoothSocket::StartEventThread, this);
-
     return;
   }
 }
@@ -448,7 +443,7 @@ BluetoothSocket::Accept()
 {
   socklen_t addr_sz;
   struct sockaddr *addr;
-  bdaddr_t bd_address_obj;
+  bdaddr_t* bdaddr;
 
   if (mFd <= 0) {
     LOG("Fd is not valid");
@@ -459,7 +454,7 @@ BluetoothSocket::Accept()
         struct sockaddr_rc addr_rc;
         addr = (struct sockaddr *)&addr_rc;
         addr_sz = sizeof(addr_rc);
-
+        bdaddr = &addr_rc.rc_bdaddr;
         memset(addr, 0, addr_sz);
         break;
 
@@ -473,13 +468,25 @@ BluetoothSocket::Accept()
     int ret;
 
     do {
+      // ret: a descriptor for the accepted socket
       ret = accept(mFd, addr, &addr_sz);
+      LOG("Accept RET=%d, ERROR=%d", ret, errno);
     } while (ret < 0 && errno == EINTR);
 
-    LOG("result of accept() ret=%d, err=%d", ret, errno);
+    if (ret < 0) {
+      LOG("Connect error=%d", errno);
+    } else {
+      // Match android_bluetooth_HeadsetBase.cpp line 384
+      // Skip many lines
+      // Start a thread to run an event loop
+      mFlag = true;
+      mFd = ret;
+      pthread_create(&(mThread), NULL, BluetoothSocket::StartEventThread, this);
+    }
 
     return ret;
   }
+
 }
 
 void
