@@ -1264,27 +1264,37 @@ BluetoothAdapter::BluezCreatePairedDevice(const nsAString& aAddress)
   return ret ? NS_OK : NS_ERROR_FAILURE;
 }
 
-NS_IMETHODIMP
-BluetoothAdapter::BluezAddHfpService()
+void
+BluetoothAdapter::AddServiceRecord(const char* serviceName, 
+                                   unsigned long long uuidMsb, 
+                                   unsigned long long uuidLsb)
 {
-  const char* service_name = "Voice gateway";
+  // TODO(Eric)
+  // Need a rfcomm channel picker function, or a simple mechanism to
+  // choose a vacant channel.
   int channel = 2;
-  unsigned long long uuidMsb = 0x0000111f00001000;
-  unsigned long long uuidLsb = 0x800000805f9b34fb;
 
   LOG("... uuid1 = %llX", uuidMsb);
   LOG("... uuid2 = %llX", uuidLsb);
 
   DBusMessage *reply;
   reply = dbus_func_args(mAdapterPath,
-                         DBUS_ADAPTER_IFACE, "AddRfcommServiceRecord",
-                         DBUS_TYPE_STRING, &service_name,
-                         DBUS_TYPE_UINT64, &uuidMsb,
-                         DBUS_TYPE_UINT64, &uuidLsb,
-                         DBUS_TYPE_UINT16, &channel,
-                         DBUS_TYPE_INVALID);
+      DBUS_ADAPTER_IFACE, "AddRfcommServiceRecord",
+      DBUS_TYPE_STRING, &serviceName,
+      DBUS_TYPE_UINT64, &uuidMsb,
+      DBUS_TYPE_UINT64, &uuidLsb,
+      DBUS_TYPE_UINT16, &channel,
+      DBUS_TYPE_INVALID);
 
-  LOG("HFP Service added, returned [%d]", dbus_returns_uint32(reply));
+  LOG("Service added, returned [%d]", dbus_returns_uint32(reply));
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::BluezAddHfpService()
+{
+  AddServiceRecord("Voice gateway", 
+                   BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
+                   BluetoothServiceUuid::BaseLSB);
 
   return NS_OK;
 }
@@ -1294,7 +1304,7 @@ BluetoothAdapter::QueryServerChannel(const nsAString& aObjectPath, PRInt32* aRet
 {
   // Lookup the server channel of target profile
   const char* asciiObjectPath = NS_LossyConvertUTF16toASCII(aObjectPath).get();
-  const char* serviceUuid = BluetoothServiceUuid::Handsfree;
+  const char* serviceUuid = BluetoothServiceUuidStr::Handsfree;
   int attributeId = 0x0004;
 
   //TODO(Eric) 
@@ -1320,18 +1330,6 @@ BluetoothAdapter::QueryServerChannel(const nsAString& aObjectPath, PRInt32* aRet
   return NS_OK;
 }
 
-/*
-NS_IMETHODIMP
-BluetoothAdapter::Accept()
-{
-  if (mSocket == NULL) {
-    LOG("No socket how can you accept anything???");
-  }
-
-  return NS_OK;
-}
-*/
-
 NS_IMETHODIMP
 BluetoothAdapter::Listen(PRInt32 channel)
 {
@@ -1340,6 +1338,7 @@ BluetoothAdapter::Listen(PRInt32 channel)
   }
 
   mSocket->Listen(channel);
+  mSocket->Accept();
 
   return NS_OK;
 }
