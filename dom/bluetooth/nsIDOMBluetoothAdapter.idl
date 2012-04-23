@@ -23,7 +23,6 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   attribute unsigned long pairabletimeout;
   attribute unsigned long discoverabletimeout;
   readonly attribute boolean discovering;
-  readonly attribute boolean paireddevices;
 
   [implicit_jscontext]
   readonly attribute jsval devices;
@@ -33,13 +32,12 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
 
   void startDiscovery();
   void stopDiscovery();
+  void pair(in DOMString address);
+  void unpair(in DOMString objectpath);
+  void connectHeadset(in long channel, in DOMString address);
+  void disconnect();
 
   nsIDOMDOMRequest setEnabled(in boolean enabled);
-  void bluezCreateDevice(in DOMString address);
-  void bluezCancelDeviceCreation(in DOMString address);
-  void bluezRemoveDevice(in DOMString objectpath);
-  void bluezCreatePairedDevice(in DOMString address);
-  void bluezAddHfpService();
 
   attribute nsIDOMEventListener ondevicefound;
   attribute nsIDOMEventListener onpropertychanged;
@@ -48,9 +46,9 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   attribute nsIDOMEventListener ondeviceremoved;  
 
   // xxx TEMP
-  void disconnect();
   void connect(in long channel, in DOMString address);
   void listen(in long channel);
   void checkDevice(in DOMString objectpath);
+  void checkAdapter();
   long queryServerChannel(in DOMString objectpath);
 };

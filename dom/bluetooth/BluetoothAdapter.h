@@ -46,12 +46,14 @@ public:
   nsresult SetupBluetoothAgents(void);
   nsresult SetupBluetooth(void);
 protected:
+  nsresult BluezCreateDevice(const char* address);
+  nsresult BluezCancelDeviceCreation(const char* address);
   void GetProperties();
   bool SetProperty(char* propertyName, int type, void* value);
   void GetAdapterPath();
   nsresult RunAdapterFunction(const char* function_name);
   nsresult BluezRegisterAgent(const char * agent_path, const char * capabilities);
-  void AddServiceRecord(const char* serviceName, unsigned long long uuidMsb, unsigned long long uuidLsb);
+  int AddServiceRecord(const char* serviceName, unsigned long long uuidMsb, unsigned long long uuidLsb);
   bool mPower;
   bool mDiscoverable;
   PRUint32 mClass;
