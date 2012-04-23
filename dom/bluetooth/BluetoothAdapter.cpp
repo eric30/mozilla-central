@@ -966,13 +966,6 @@ BluetoothAdapter::GetDiscovering(bool* aDiscovering)
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::GetPaireddevices(bool* aPairedDevices)
-{
-  GetProperties();
-  return NS_OK;
-}
-
-NS_IMETHODIMP
 BluetoothAdapter::GetDevices(JSContext* aCx, jsval* aDevices)
 {
   PRUint32 length = mDevices.Length();
@@ -1113,24 +1106,22 @@ asyncCreatePairedDeviceCallback(DBusMessage *msg, void *data, void* n)
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::BluezCreateDevice(const nsAString& aAddress)
+BluetoothAdapter::BluezCreateDevice(const char* aAddress)
 {
-  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
-
   bool ret = dbus_func_args_async(5000,
         asyncCreateDeviceCallback,
-        (void*)asciiAddress,
+        (void*)aAddress,
         mAdapterPath,
         DBUS_ADAPTER_IFACE,
         "CreateDevice",
-        DBUS_TYPE_STRING, &asciiAddress,
+        DBUS_TYPE_STRING, &aAddress,
         DBUS_TYPE_INVALID);
 
   return ret ? NS_OK : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::BluezRemoveDevice(const nsAString& aObjectPath)
+BluetoothAdapter::Unpair(const nsAString& aObjectPath)
 {
   const char* asciiObjectPath = NS_LossyConvertUTF16toASCII(aObjectPath).get();
 
@@ -1147,15 +1138,13 @@ BluetoothAdapter::BluezRemoveDevice(const nsAString& aObjectPath)
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::BluezCancelDeviceCreation(const nsAString& aAddress)
+BluetoothAdapter::BluezCancelDeviceCreation(const char* aAddress)
 {
-  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
-
   bool ret = dbus_func_args_timeout(5000,
         mAdapterPath,
         DBUS_ADAPTER_IFACE,
         "CancelDeviceCreation",
-        DBUS_TYPE_STRING, &asciiAddress,
+        DBUS_TYPE_STRING, &aAddress,
         DBUS_TYPE_INVALID);
 
   return ret ? NS_OK : NS_ERROR_FAILURE;
@@ -1239,7 +1228,7 @@ BluetoothAdapter::SetupBluetoothAgents()
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::BluezCreatePairedDevice(const nsAString& aAddress)
+BluetoothAdapter::Pair(const nsAString& aAddress)
 {
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
   const char *capabilities = "DisplayYesNo";
@@ -1264,7 +1253,7 @@ BluetoothAdapter::BluezCreatePairedDevice(const nsAString& aAddress)
   return ret ? NS_OK : NS_ERROR_FAILURE;
 }
 
-void
+int
 BluetoothAdapter::AddServiceRecord(const char* serviceName, 
                                    unsigned long long uuidMsb, 
                                    unsigned long long uuidLsb)
@@ -1273,9 +1262,6 @@ BluetoothAdapter::AddServiceRecord(const char* serviceName,
   // Need a rfcomm channel picker function, or a simple mechanism to
   // choose a vacant channel.
   int channel = 2;
-
-  LOG("... uuid1 = %llX", uuidMsb);
-  LOG("... uuid2 = %llX", uuidLsb);
 
   DBusMessage *reply;
   reply = dbus_func_args(mAdapterPath,
@@ -1286,17 +1272,7 @@ BluetoothAdapter::AddServiceRecord(const char* serviceName,
       DBUS_TYPE_UINT16, &channel,
       DBUS_TYPE_INVALID);
 
-  LOG("Service added, returned [%d]", dbus_returns_uint32(reply));
-}
-
-NS_IMETHODIMP
-BluetoothAdapter::BluezAddHfpService()
-{
-  AddServiceRecord("Voice gateway", 
-                   BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
-                   BluetoothServiceUuid::BaseLSB);
-
-  return NS_OK;
+  return reply ? dbus_returns_uint32(reply) : -1;
 }
 
 NS_IMETHODIMP
@@ -1344,6 +1320,26 @@ BluetoothAdapter::Listen(PRInt32 channel)
 }
 
 NS_IMETHODIMP
+BluetoothAdapter::ConnectHeadset(PRInt32 channel, const nsAString& aAddress)
+{
+  if (AddServiceRecord("Voice gateway",
+                       BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
+                       BluetoothServiceUuid::BaseLSB) == -1) {
+    LOG("Adding service record failed");
+    return NS_ERROR_FAILURE;
+  }
+
+  if (mSocket == NULL || !mSocket->Available()) {
+    mSocket = new BluetoothSocket();
+  }
+
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  mSocket->Connect(channel, asciiAddress);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 BluetoothAdapter::Connect(PRInt32 channel, const nsAString& aAddress)
 {
   if (mSocket == NULL || !mSocket->Available()) {
@@ -1363,6 +1359,13 @@ BluetoothAdapter::Disconnect()
     mSocket->Disconnect();
   }
 
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::CheckAdapter()
+{
+  GetProperties();
   return NS_OK;
 }
 
