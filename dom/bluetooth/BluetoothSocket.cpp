@@ -447,7 +447,7 @@ BluetoothSocket::Accept()
 
   if (mFd <= 0) {
     LOG("Fd is not valid");
-    return false;
+    return -1;
   } else {
     switch (mType) {
       case TYPE_RFCOMM:
@@ -486,7 +486,6 @@ BluetoothSocket::Accept()
 
     return ret;
   }
-
 }
 
 void
