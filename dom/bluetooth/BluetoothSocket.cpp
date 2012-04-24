@@ -221,7 +221,6 @@ again:
       return NULL;
     }
 
-
     if (*bufit=='\xd') {
       break;
     }

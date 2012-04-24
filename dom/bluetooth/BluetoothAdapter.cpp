@@ -8,6 +8,7 @@
 #include "BluetoothProperties.h"
 #include "BluetoothEvent.h"
 #include "BluetoothSocket.h"
+#include "BluetoothScoSocket.h"
 #include "BluetoothServiceUuid.h"
 
 #include "nsDOMClassInfo.h"
@@ -298,6 +299,7 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow *aWindow)
   mDiscoverableTimeout(0),
   mDiscovering(0),
   mSocket(NULL),
+  mScoSocket(NULL),
   mName(NS_LITERAL_STRING("testing"))
 {
   BindToOwner(aWindow);
@@ -1422,9 +1424,26 @@ BluetoothAdapter::Connect(PRInt32 channel, const nsAString& aAddress)
 NS_IMETHODIMP
 BluetoothAdapter::Disconnect()
 {
+  if (mScoSocket != NULL) {
+    mScoSocket->Disconnect();
+  }
+
   if (mSocket != NULL) {
     mSocket->Disconnect();
   }
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::ConnectSco(const nsAString& aAddress)
+{
+  if (mScoSocket == NULL || !mScoSocket->Available()) {
+    mScoSocket = new BluetoothScoSocket();
+  }
+
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  mScoSocket->Connect(asciiAddress);
 
   return NS_OK;
 }

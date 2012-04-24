@@ -22,6 +22,7 @@ class nsIDOMBluetoothDevice;
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothSocket;
+class BluetoothScoSocket;
 
 class BluetoothAdapter : public nsDOMEventTargetHelper
                        , public nsIDOMBluetoothAdapter
@@ -70,6 +71,7 @@ protected:
   nsTArray<nsString> mDevices;
   nsTArray<nsString> mUuids;
   BluetoothSocket* mSocket;
+  BluetoothScoSocket* mScoSocket;
 
   NS_DECL_EVENT_HANDLER(enabled)
   NS_DECL_EVENT_HANDLER(propertychanged)

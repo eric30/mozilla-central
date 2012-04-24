@@ -640,14 +640,16 @@ RadioInterfaceLayer.prototype = {
 
   get speakerEnabled() {
     return (gAudioManager.getForceForUse(nsIAudioManager.USE_COMMUNICATION) ==
-            nsIAudioManager.FORCE_SPEAKER);
+ //           nsIAudioManager.FORCE_SPEAKER);
+            nsIAudioManager.FORCE_BT_SCO);
   },
   set speakerEnabled(value) {
     if (value == this.speakerEnabled) {
       return;
     }
     gAudioManager.phoneState = nsIAudioManager.PHONE_STATE_IN_CALL; // XXX why is this needed?
-    let force = value ? nsIAudioManager.FORCE_SPEAKER :
+//    let force = value ? nsIAudioManager.FORCE_SPEAKER :
+    let force = value ? nsIAudioManager.FORCE_BT_SCO :
                         nsIAudioManager.FORCE_NONE;
     gAudioManager.setForceForUse(nsIAudioManager.USE_COMMUNICATION, force);
   },
