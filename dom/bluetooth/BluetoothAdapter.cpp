@@ -388,7 +388,6 @@ get_property(DBusMessageIter dict_entry, BluetoothProperties* properties,
       LOG("No next item.");
     } else {
       if (dbus_message_iter_get_arg_type(&dict_entry) == DBUS_TYPE_VARIANT) {
-        
         // Search for the matching property and get its type
         int property_type = DBUS_TYPE_INVALID;
         int property_size = sizeof(remote_device_properties) / sizeof(BluetoothProperties);
@@ -1265,15 +1264,44 @@ BluetoothAdapter::AddServiceRecord(const char* serviceName,
 
   DBusMessage *reply;
   reply = dbus_func_args(mAdapterPath,
-      DBUS_ADAPTER_IFACE, "AddRfcommServiceRecord",
-      DBUS_TYPE_STRING, &serviceName,
-      DBUS_TYPE_UINT64, &uuidMsb,
-      DBUS_TYPE_UINT64, &uuidLsb,
-      DBUS_TYPE_UINT16, &channel,
-      DBUS_TYPE_INVALID);
+                         DBUS_ADAPTER_IFACE, "AddRfcommServiceRecord",
+                         DBUS_TYPE_STRING, &serviceName,
+                         DBUS_TYPE_UINT64, &uuidMsb,
+                         DBUS_TYPE_UINT64, &uuidLsb,
+                         DBUS_TYPE_UINT16, &channel,
+                         DBUS_TYPE_INVALID);
 
   return reply ? dbus_returns_uint32(reply) : -1;
 }
+
+int
+BluetoothAdapter::QueryServerChannelInternal(const char* aObjectPath)
+{
+  // Lookup the server channel of target profile
+  const char* serviceUuid = BluetoothServiceUuidStr::Handsfree;
+  int attributeId = 0x0004;
+
+  //TODO(Eric) 
+  //  We should do a service match check here to ensure the availability of
+  //  requested service, however now we're only testing HANDSFREE, so just 
+  //  skip this step until we actually has an array of devices.
+  DBusMessage *reply = dbus_func_args(aObjectPath,
+                                      DBUS_DEVICE_IFACE, "GetServiceAttributeValue",
+                                      DBUS_TYPE_STRING, &serviceUuid,
+                                      DBUS_TYPE_UINT16, &attributeId,
+                                      DBUS_TYPE_INVALID);
+
+  int channel = -1;
+
+  if (reply) {
+    channel = dbus_returns_int32(reply);
+  }
+
+  LOG("Handsfree: RFCOMM Server channel [%d]", channel);
+
+  return channel;
+}
+
 
 NS_IMETHODIMP
 BluetoothAdapter::QueryServerChannel(const nsAString& aObjectPath, PRInt32* aRetChannel)
@@ -1319,8 +1347,33 @@ BluetoothAdapter::Listen(PRInt32 channel)
   return NS_OK;
 }
 
+const char*
+BluetoothAdapter::GetObjectPath(const char* aAddress)
+{
+  DBusMessage *reply;
+  char* retObjectPath = "";
+
+  reply = dbus_func_args(mAdapterPath,
+                         DBUS_ADAPTER_IFACE, "FindDevice",
+                         DBUS_TYPE_STRING, &aAddress,
+                         DBUS_TYPE_INVALID);
+
+  DBusError err;
+
+  dbus_error_init(&err);
+  if (!dbus_message_get_args(reply, &err,
+                             DBUS_TYPE_OBJECT_PATH, &retObjectPath,
+                             DBUS_TYPE_INVALID)) {
+    //LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
+  }
+
+  dbus_message_unref(reply);
+
+  return retObjectPath;
+}
+
 NS_IMETHODIMP
-BluetoothAdapter::ConnectHeadset(PRInt32 channel, const nsAString& aAddress)
+BluetoothAdapter::ConnectHeadset(const nsAString& aAddress)
 {
   if (AddServiceRecord("Voice gateway",
                        BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
@@ -1332,9 +1385,23 @@ BluetoothAdapter::ConnectHeadset(PRInt32 channel, const nsAString& aAddress)
   if (mSocket == NULL || !mSocket->Available()) {
     mSocket = new BluetoothSocket();
   }
-
+  
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
-  mSocket->Connect(channel, asciiAddress);
+  const char* objectPath = GetObjectPath(asciiAddress);
+
+  if (!strcmp(objectPath, "")) {
+    LOG("Cannot find target device, please check if this device has already been created.");
+    return NS_ERROR_FAILURE;
+  } else {
+    int channel = QueryServerChannelInternal(objectPath);
+
+    if (channel == -1) {
+      LOG("Cannot find Handsfree channel");
+      return NS_ERROR_FAILURE;
+    }
+
+    mSocket->Connect(channel, asciiAddress);
+  }
 
   return NS_OK;
 }

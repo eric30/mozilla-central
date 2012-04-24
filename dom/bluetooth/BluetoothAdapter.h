@@ -51,6 +51,8 @@ protected:
   void GetProperties();
   bool SetProperty(char* propertyName, int type, void* value);
   void GetAdapterPath();
+  const char* GetObjectPath(const char * aAddress);
+  int QueryServerChannelInternal(const char* aObjectPath);
   nsresult RunAdapterFunction(const char* function_name);
   nsresult BluezRegisterAgent(const char * agent_path, const char * capabilities);
   int AddServiceRecord(const char* serviceName, unsigned long long uuidMsb, unsigned long long uuidLsb);
