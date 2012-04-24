@@ -575,7 +575,6 @@ void BluetoothAdapter::GetAdapterPath() {
           // bluetoothd is still down, retry
           //LOG_AND_FREE_DBUS_ERROR(&err);
           printf("Service unknown\n");
-          usleep(10000);  // 10 ms
           continue;
         } else {
           // Some other error we weren't expecting
