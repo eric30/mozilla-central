@@ -11,6 +11,7 @@
 #include "BluetoothScoSocket.h"
 #include "BluetoothServiceUuid.h"
 
+#include "AudioManager.h"
 #include "nsDOMClassInfo.h"
 #include "nsDOMEvent.h"
 #include "nsString.h"
@@ -1444,6 +1445,16 @@ BluetoothAdapter::ConnectSco(const nsAString& aAddress)
 
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
   mScoSocket->Connect(asciiAddress);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::SetAudioRoute(PRInt32 aRoute)
+{
+  mozilla::dom::gonk::AudioManager::SetAudioRoute(aRoute);
+
+  LOG("Set Audio Route to BluetoothSco");
 
   return NS_OK;
 }

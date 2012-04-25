@@ -52,4 +52,5 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   void checkDevice(in DOMString objectpath);
   void checkAdapter();
   long queryServerChannel(in DOMString objectpath);
+  void setAudioRoute(in long aRoute);
 };
