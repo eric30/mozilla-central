@@ -31,8 +31,10 @@ public:
 
 protected:
   pthread_t mThread;
+  pthread_t mAcceptThread;
   void InitSocketNative(int type, bool auth, bool encrypt);
   static void* StartEventThread(void*);
+  static void* AcceptInternal(void*);
 };
 
 END_BLUETOOTH_NAMESPACE

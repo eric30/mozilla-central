@@ -437,54 +437,53 @@ BluetoothSocket::Listen(int channel)
   }
 }
 
-int
-BluetoothSocket::Accept()
+void*
+BluetoothSocket::AcceptInternal(void* ptr)
 {
+  BluetoothSocket* socket = static_cast<BluetoothSocket*>(ptr);  
+
+  int ret;
   socklen_t addr_sz;
   struct sockaddr *addr;
   bdaddr_t* bdaddr;
+  struct sockaddr_rc addr_rc;
 
+  addr = (struct sockaddr *)&addr_rc;
+  addr_sz = sizeof(addr_rc);
+  bdaddr = &addr_rc.rc_bdaddr;
+  memset(addr, 0, addr_sz);
+
+  do {
+    // ret: a descriptor for the accepted socket
+    ret = accept(socket->mFd, addr, &addr_sz);
+    LOG("Accept RET=%d, ERROR=%d", ret, errno);
+  } while (ret < 0 && errno == EINTR);
+
+  if (ret < 0) {
+    LOG("Connect error=%d", errno);
+  } else {
+    // Match android_bluetooth_HeadsetBase.cpp line 384
+    // Skip many lines
+    // Start a thread to run an event loop
+    socket->mFlag = true;
+    socket->mFd = ret;
+    pthread_create(&(socket->mThread), NULL, BluetoothSocket::StartEventThread, ptr);
+  }
+
+  return NULL;
+}
+
+int
+BluetoothSocket::Accept()
+{
   if (mFd <= 0) {
     LOG("Fd is not valid");
     return -1;
-  } else {
-    switch (mType) {
-      case TYPE_RFCOMM:
-        struct sockaddr_rc addr_rc;
-        addr = (struct sockaddr *)&addr_rc;
-        addr_sz = sizeof(addr_rc);
-        bdaddr = &addr_rc.rc_bdaddr;
-        memset(addr, 0, addr_sz);
-        break;
-
-      default:
-        LOG("Are u kidding me");
-        break;
-    }
-
-    LOG("Prepare to accept %d", mFd);
-
-    int ret;
-
-    do {
-      // ret: a descriptor for the accepted socket
-      ret = accept(mFd, addr, &addr_sz);
-      LOG("Accept RET=%d, ERROR=%d", ret, errno);
-    } while (ret < 0 && errno == EINTR);
-
-    if (ret < 0) {
-      LOG("Connect error=%d", errno);
-    } else {
-      // Match android_bluetooth_HeadsetBase.cpp line 384
-      // Skip many lines
-      // Start a thread to run an event loop
-      mFlag = true;
-      mFd = ret;
-      pthread_create(&(mThread), NULL, BluetoothSocket::StartEventThread, this);
-    }
-
-    return ret;
   }
+
+  pthread_create(&(mAcceptThread), NULL, BluetoothSocket::AcceptInternal, this);
+
+  return 0;
 }
 
 void

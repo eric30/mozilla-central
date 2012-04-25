@@ -10,6 +10,7 @@
 #include "BluetoothSocket.h"
 #include "BluetoothScoSocket.h"
 #include "BluetoothServiceUuid.h"
+#include "BluetoothUtils.h"
 
 #include "AudioManager.h"
 #include "nsDOMClassInfo.h"
@@ -333,6 +334,8 @@ BluetoothAdapter::SetupBluetooth()
   GetProperties();
 
   nsresult rv = SetupBluetoothAgents();
+
+  Listen(BluetoothUtils::NextAvailableChannel());
 
   return rv;
 }
@@ -683,7 +686,6 @@ BluetoothAdapter::GetProperties() {
   DBusMessage *reply;
   DBusError err;
   dbus_error_init(&err);
-  GetAdapterPath();
 
   reply = dbus_func_args(mAdapterPath,
                          DBUS_ADAPTER_IFACE, "GetProperties",
@@ -1258,13 +1260,9 @@ BluetoothAdapter::Pair(const nsAString& aAddress)
 int
 BluetoothAdapter::AddServiceRecord(const char* serviceName, 
                                    unsigned long long uuidMsb, 
-                                   unsigned long long uuidLsb)
+                                   unsigned long long uuidLsb,
+                                   int channel)
 {
-  // TODO(Eric)
-  // Need a rfcomm channel picker function, or a simple mechanism to
-  // choose a vacant channel.
-  int channel = 2;
-
   DBusMessage *reply;
   reply = dbus_func_args(mAdapterPath,
                          DBUS_ADAPTER_IFACE, "AddRfcommServiceRecord",
@@ -1340,6 +1338,14 @@ BluetoothAdapter::QueryServerChannel(const nsAString& aObjectPath, PRInt32* aRet
 NS_IMETHODIMP
 BluetoothAdapter::Listen(PRInt32 channel)
 {
+  if (AddServiceRecord("Voice gateway",
+                       BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
+                       BluetoothServiceUuid::BaseLSB,
+                       channel) == -1) {
+    LOG("Adding service record failed");
+    return NS_ERROR_FAILURE;
+  }
+
   if (mSocket == NULL || !mSocket->Available()) {
     mSocket = new BluetoothSocket();
   }
@@ -1378,9 +1384,25 @@ BluetoothAdapter::GetObjectPath(const char* aAddress)
 NS_IMETHODIMP
 BluetoothAdapter::ConnectHeadset(const nsAString& aAddress)
 {
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  const char* objectPath = GetObjectPath(asciiAddress);
+
+  if (!strcmp(objectPath, "")) {
+    LOG("Cannot find target device, please check if this device has already been created.");
+    return NS_ERROR_FAILURE;
+  }
+
+  int channel = QueryServerChannelInternal(objectPath);
+
+  if (channel == -1) {
+    LOG("Cannot find Handsfree channel");
+    return NS_ERROR_FAILURE;
+  }
+
   if (AddServiceRecord("Voice gateway",
                        BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
-                       BluetoothServiceUuid::BaseLSB) == -1) {
+                       BluetoothServiceUuid::BaseLSB,
+                       channel) == -1) {
     LOG("Adding service record failed");
     return NS_ERROR_FAILURE;
   }
@@ -1388,23 +1410,8 @@ BluetoothAdapter::ConnectHeadset(const nsAString& aAddress)
   if (mSocket == NULL || !mSocket->Available()) {
     mSocket = new BluetoothSocket();
   }
-  
-  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
-  const char* objectPath = GetObjectPath(asciiAddress);
 
-  if (!strcmp(objectPath, "")) {
-    LOG("Cannot find target device, please check if this device has already been created.");
-    return NS_ERROR_FAILURE;
-  } else {
-    int channel = QueryServerChannelInternal(objectPath);
-
-    if (channel == -1) {
-      LOG("Cannot find Handsfree channel");
-      return NS_ERROR_FAILURE;
-    }
-
-    mSocket->Connect(channel, asciiAddress);
-  }
+  mSocket->Connect(channel, asciiAddress);
 
   return NS_OK;
 }
