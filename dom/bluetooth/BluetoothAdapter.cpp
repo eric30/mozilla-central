@@ -1535,7 +1535,7 @@ BluetoothAdapter::GetDevice(const nsAString& aAddress, nsIDOMBluetoothDevice** a
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
   nsCOMPtr<nsIDOMBluetoothDevice> ptr = new BluetoothDevice(asciiAddress, GetObjectPath(asciiAddress));
 
-  *aDevice = ptr;
+  NS_ADDREF(*aDevice = ptr);
 
   return NS_OK;
 }

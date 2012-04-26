@@ -6,7 +6,6 @@
 #define mozilla_dom_bluetooth_bluetoothdevice_h__
 
 #include "BluetoothCommon.h"
-#include "nsDOMEventTargetHelper.h"
 #include "nsIDOMBluetoothDevice.h"
 #include "nsString.h"
 #include "mozilla/ipc/DBusEventHandler.h"
@@ -16,19 +15,13 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothSocket;
 
-class BluetoothDevice : public nsDOMEventTargetHelper
-                      , public nsIDOMBluetoothDevice
+class BluetoothDevice : public nsIDOMBluetoothDevice
                       , public mozilla::ipc::DBusEventHandler
                       , public mozilla::ipc::RawDBusConnection
 {
 public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMBLUETOOTHDEVICE
-
-  NS_FORWARD_NSIDOMEVENTTARGET(nsDOMEventTargetHelper::)
-
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(BluetoothDevice,
-                                           nsDOMEventTargetHelper)
 
   BluetoothDevice(const char* aAddress, const char* aObjectPath);
   virtual nsresult HandleEvent(DBusMessage* msg);
@@ -48,9 +41,6 @@ protected:
   nsString mAlias;
 
   bool SetProperty(char* propertyName, int type, void* value);
-
-  NS_DECL_EVENT_HANDLER(propertychanged)
-  NS_DECL_EVENT_HANDLER(disconnectrequested)
 
 private:
   BluetoothSocket* mSocket;

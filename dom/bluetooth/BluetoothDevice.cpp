@@ -26,39 +26,28 @@ USING_BLUETOOTH_NAMESPACE
 
 DOMCI_DATA(BluetoothDevice, BluetoothDevice)
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(BluetoothDevice)
-
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(BluetoothDevice,
-                                                  nsDOMEventTargetHelper)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(propertychanged)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(disconnectrequested)
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
-
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothDevice,
-                                                nsDOMEventTargetHelper)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(propertychanged)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(disconnectrequested)
-NS_IMPL_CYCLE_COLLECTION_UNLINK_END
-
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(BluetoothDevice)
+NS_INTERFACE_MAP_BEGIN(BluetoothDevice)
   NS_INTERFACE_MAP_ENTRY(nsIDOMBluetoothDevice)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIDOMBluetoothDevice)
   NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(BluetoothDevice)
-NS_INTERFACE_MAP_END_INHERITING(nsDOMEventTargetHelper)
+NS_INTERFACE_MAP_END
 
-NS_IMPL_ADDREF_INHERITED(BluetoothDevice, nsDOMEventTargetHelper)
-NS_IMPL_RELEASE_INHERITED(BluetoothDevice, nsDOMEventTargetHelper)
+NS_IMPL_ADDREF(BluetoothDevice)
+NS_IMPL_RELEASE(BluetoothDevice)
 
 BluetoothDevice::BluetoothDevice(const char* aAddress, const char* aObjectPath) : mSocket(NULL)
 {
   mAddress = NS_ConvertASCIItoUTF16(aAddress);
+
+  mObjectPath = (char *)calloc(strlen(aObjectPath), sizeof(char));
   strcpy(mObjectPath, aObjectPath);
 }
 
 nsresult
 BluetoothDevice::HandleEvent(DBusMessage* msg)
 {
-
+  // TODO(Eric)
+  // Currently, I'm still not sure if we're gonna implement an event handler in BluetoothDevice or not.
 
   return NS_OK;
 }
@@ -181,6 +170,10 @@ BluetoothDevice::Connect(PRInt32 channel)
 nsresult
 BluetoothDevice::Disconnect()
 {
+  if (mSocket != NULL) {
+    mSocket->Disconnect();
+  }
+
   return NS_OK;
 }
 
@@ -265,5 +258,3 @@ BluetoothDevice::CancelDiscovery()
   return reply ? NS_OK : NS_ERROR_FAILURE;
 }
 
-NS_IMPL_EVENT_HANDLER(BluetoothDevice, propertychanged)
-NS_IMPL_EVENT_HANDLER(BluetoothDevice, disconnectrequested)

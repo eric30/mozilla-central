@@ -1634,9 +1634,9 @@ static nsDOMClassInfoData sClassInfoData[] = {
 #ifdef MOZ_B2G_BT
   NS_DEFINE_CLASSINFO_DATA(BluetoothAdapter, nsEventTargetSH,
                            EVENTTARGET_SCRIPTABLE_FLAGS)
-  NS_DEFINE_CLASSINFO_DATA(BluetoothDevice, nsEventTargetSH,
-                           EVENTTARGET_SCRIPTABLE_FLAGS)
- NS_DEFINE_CLASSINFO_DATA(BluetoothEvent, nsDOMGenericSH,
+  NS_DEFINE_CLASSINFO_DATA(BluetoothDevice, nsDOMGenericSH,
+                           DOM_DEFAULT_SCRIPTABLE_FLAGS)
+  NS_DEFINE_CLASSINFO_DATA(BluetoothEvent, nsDOMGenericSH,
                            DOM_DEFAULT_SCRIPTABLE_FLAGS)
 #endif
 
