@@ -14,6 +14,7 @@
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothSocket;
+class BluetoothScoSocket;
 
 class BluetoothDevice : public nsIDOMBluetoothDevice
                       , public mozilla::ipc::DBusEventHandler
@@ -44,6 +45,7 @@ protected:
 
 private:
   BluetoothSocket* mSocket;
+  BluetoothScoSocket* mScoSocket;
 };
 
 END_BLUETOOTH_NAMESPACE

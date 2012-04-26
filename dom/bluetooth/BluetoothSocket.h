@@ -23,7 +23,7 @@ public:
   bool mFlag;
 
   BluetoothSocket();
-  void Connect(int channel, const char* bd_address);
+  bool Connect(int channel, const char* bd_address);
   void Disconnect();
   void Listen(int channel);
   int Accept();

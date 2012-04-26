@@ -37,7 +37,7 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   void pair(in DOMString address);
   void unpair(in DOMString objectpath);
   void connectHeadset(in DOMString address);
-  void disconnect();
+  void listen(in long channel);
 
   nsIDOMDOMRequest setEnabled(in boolean enabled);
 
@@ -48,12 +48,7 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   attribute nsIDOMEventListener ondeviceremoved;  
 
   // xxx TEMP
-  void connect(in long channel, in DOMString address);
-  void listen(in long channel);
-  void connectSco(in DOMString address);
   void checkDevice(in DOMString objectpath);
   void checkAdapter();
-  long queryServerChannel(in DOMString objectpath);
-  void setAudioRoute(in long aRoute);
   nsIDOMBluetoothDevice getDevice(in DOMString address);
 };

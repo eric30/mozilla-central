@@ -77,7 +77,7 @@ int get_bdaddr(const char *str, bdaddr_t *ba) {
   return 0;
 }
 
-void
+bool
 BluetoothScoSocket::Connect(const char* bd_address)
 {
   socklen_t addr_sz;
@@ -86,27 +86,31 @@ BluetoothScoSocket::Connect(const char* bd_address)
 
   if (get_bdaddr(bd_address, &bd_address_obj)) {
     LOG("Cannot translate from BD_Addr string to an bdaddr_t obj");
-    return;
+    return false;
   }
 
   if (mFd <= 0) {
     LOG("Fd is not valid");
-  } else {
-    struct sockaddr_sco addr_sco;
-    addr = (struct sockaddr *)&addr_sco;
-    addr_sz = sizeof(addr_sco);
-
-    memset(addr, 0, addr_sz);
-    addr_sco.sco_family = AF_BLUETOOTH;
-    memcpy(&addr_sco.sco_bdaddr, &bd_address_obj, sizeof(bdaddr_t));
-
-    int ret = connect(mFd, addr, addr_sz);
-    LOG("RET = %d\n", ret);
-
-    if (ret) {
-      LOG("Connect error=%d", errno);
-    }
+    return false;
   }
+
+  struct sockaddr_sco addr_sco;
+  addr = (struct sockaddr *)&addr_sco;
+  addr_sz = sizeof(addr_sco);
+
+  memset(addr, 0, addr_sz);
+  addr_sco.sco_family = AF_BLUETOOTH;
+  memcpy(&addr_sco.sco_bdaddr, &bd_address_obj, sizeof(bdaddr_t));
+
+  int ret = connect(mFd, addr, addr_sz);
+  LOG("RET = %d\n", ret);
+
+  if (ret) {
+    LOG("Connect error=%d", errno);
+    return false;
+  }
+
+  return true;
 }
 
 void

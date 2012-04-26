@@ -8,7 +8,6 @@
 #include "BluetoothProperties.h"
 #include "BluetoothEvent.h"
 #include "BluetoothSocket.h"
-#include "BluetoothScoSocket.h"
 #include "BluetoothServiceUuid.h"
 #include "BluetoothUtils.h"
 
@@ -301,7 +300,6 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow *aWindow)
   mDiscoverableTimeout(0),
   mDiscovering(0),
   mSocket(NULL),
-  mScoSocket(NULL),
   mName(NS_LITERAL_STRING("testing"))
 {
   BindToOwner(aWindow);
@@ -1293,38 +1291,6 @@ BluetoothAdapter::QueryServerChannelInternal(const char* aObjectPath)
   return channel;
 }
 
-
-NS_IMETHODIMP
-BluetoothAdapter::QueryServerChannel(const nsAString& aObjectPath, PRInt32* aRetChannel)
-{
-  // Lookup the server channel of target profile
-  const char* asciiObjectPath = NS_LossyConvertUTF16toASCII(aObjectPath).get();
-  const char* serviceUuid = BluetoothServiceUuidStr::Handsfree;
-  int attributeId = 0x0004;
-
-  //TODO(Eric) 
-  //  We should do a service match check here to ensure the availability of
-  //  requested service, however now we're only testing HANDSFREE, so just 
-  //  skip this step until we actually has an array of devices.
-  DBusMessage *reply = dbus_func_args(asciiObjectPath,
-                                      DBUS_DEVICE_IFACE, "GetServiceAttributeValue",
-                                      DBUS_TYPE_STRING, &serviceUuid,
-                                      DBUS_TYPE_UINT16, &attributeId,
-                                      DBUS_TYPE_INVALID);
-
-  int channel = -1;
-
-  if (reply) {
-    channel = dbus_returns_int32(reply);
-  }
-
-  *aRetChannel = channel;
-    
-  LOG("Handsfree: RFCOMM Server channel [%d]", channel);
-
-  return NS_OK;
-}
-
 NS_IMETHODIMP
 BluetoothAdapter::Listen(PRInt32 channel)
 {
@@ -1402,56 +1368,6 @@ BluetoothAdapter::ConnectHeadset(const nsAString& aAddress)
   }
 
   mSocket->Connect(channel, asciiAddress);
-
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-BluetoothAdapter::Connect(PRInt32 channel, const nsAString& aAddress)
-{
-  if (mSocket == NULL || !mSocket->Available()) {
-    mSocket = new BluetoothSocket();
-  }
-
-  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
-  mSocket->Connect(channel, asciiAddress);
-
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-BluetoothAdapter::Disconnect()
-{
-  if (mScoSocket != NULL) {
-    mScoSocket->Disconnect();
-  }
-
-  if (mSocket != NULL) {
-    mSocket->Disconnect();
-  }
-
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-BluetoothAdapter::ConnectSco(const nsAString& aAddress)
-{
-  if (mScoSocket == NULL || !mScoSocket->Available()) {
-    mScoSocket = new BluetoothScoSocket();
-  }
-
-  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
-  mScoSocket->Connect(asciiAddress);
-
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-BluetoothAdapter::SetAudioRoute(PRInt32 aRoute)
-{
-  mozilla::dom::gonk::AudioManager::SetAudioRoute(aRoute);
-
-  LOG("Set Audio Route to BluetoothSco");
 
   return NS_OK;
 }

@@ -5,7 +5,10 @@
 #include "BluetoothDevice.h"
 #include "BluetoothCommon.h"
 #include "BluetoothSocket.h"
+#include "BluetoothScoSocket.h"
+#include "BluetoothServiceUuid.h"
 
+#include "AudioManager.h"
 #include "dbus/dbus.h"
 #include "nsDOMClassInfo.h"
 #include "nsString.h"
@@ -35,7 +38,9 @@ NS_INTERFACE_MAP_END
 NS_IMPL_ADDREF(BluetoothDevice)
 NS_IMPL_RELEASE(BluetoothDevice)
 
-BluetoothDevice::BluetoothDevice(const char* aAddress, const char* aObjectPath) : mSocket(NULL)
+BluetoothDevice::BluetoothDevice(const char* aAddress, 
+                                 const char* aObjectPath) : mSocket(NULL)
+                                                          , mScoSocket(NULL)
 {
   mAddress = NS_ConvertASCIItoUTF16(aAddress);
 
@@ -162,7 +167,17 @@ BluetoothDevice::Connect(PRInt32 channel)
   }
 
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(mAddress).get();
-  mSocket->Connect(channel, asciiAddress);
+
+  if (mSocket->Connect(channel, asciiAddress)) {
+    // Connect ok, next : establish a SCO link
+    if (mScoSocket == NULL || !mScoSocket->Available()) {
+      mScoSocket = new BluetoothScoSocket();
+    }
+
+    if (mScoSocket->Connect(asciiAddress)) {
+      mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
+    }
+  }
 
   return NS_OK;
 }
@@ -173,6 +188,10 @@ BluetoothDevice::Disconnect()
   if (mSocket != NULL) {
     mSocket->Disconnect();
   }
+
+  if (mScoSocket != NULL) { 
+    mScoSocket->Disconnect(); 
+  } 
 
   return NS_OK;
 }
@@ -256,5 +275,36 @@ BluetoothDevice::CancelDiscovery()
                                       DBUS_TYPE_INVALID);
 
   return reply ? NS_OK : NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
+BluetoothDevice::QueryServerChannel(PRInt32* aChannel)
+{
+  // Lookup the server channel of target profile
+  const char* serviceUuid = BluetoothServiceUuidStr::Handsfree;
+  
+  // 0x0004 represents ProtocolDescriptorList. For more information, 
+  // see https://www.bluetooth.org/Technical/AssignedNumbers/service_discovery.htm
+  int attributeId = 0x0004;
+
+  //TODO(Eric) 
+  //  We should do a service match check here to ensure the availability of
+  //  requested service, however now we're only testing HANDSFREE, so just 
+  //  skip this step until we actually has an array of devices.
+  DBusMessage *reply = dbus_func_args(mObjectPath,
+                                      DBUS_DEVICE_IFACE, "GetServiceAttributeValue",
+                                      DBUS_TYPE_STRING, &serviceUuid,
+                                      DBUS_TYPE_UINT16, &attributeId,
+                                      DBUS_TYPE_INVALID);
+
+  *aChannel = -1;
+
+  if (reply) {
+    *aChannel = dbus_returns_int32(reply);
+  }
+
+  LOG("Handsfree: RFCOMM Server channel [%d]", *aChannel);
+
+  return NS_OK;
 }
 

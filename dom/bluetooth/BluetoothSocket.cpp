@@ -124,7 +124,7 @@ int get_bdaddr(const char *str, bdaddr_t *ba) {
   return 0;
 }
 
-void
+bool
 BluetoothSocket::Connect(int channel, const char* bd_address)
 {
   socklen_t addr_sz;
@@ -135,42 +135,44 @@ BluetoothSocket::Connect(int channel, const char* bd_address)
 
   if (get_bdaddr(bd_address, &bd_address_obj)) {
     LOG("Terrible");
-    return;
+    return false;
   }
 
   if (mFd <= 0) {
     LOG("Fd is not valid");
-  } else {
-    switch (mType) {
-      case TYPE_RFCOMM:
-        struct sockaddr_rc addr_rc;
-        addr = (struct sockaddr *)&addr_rc;
-        addr_sz = sizeof(addr_rc);
-        memset(addr, 0, addr_sz);
-        addr_rc.rc_family = AF_BLUETOOTH;
-        addr_rc.rc_channel = mPort;
-        memcpy(&addr_rc.rc_bdaddr, &bd_address_obj, sizeof(bdaddr_t));
-        break;
-      default:
-        LOG("Are u kidding me");
-        break;
-    }
-
-    int ret = connect(mFd, addr, addr_sz);
-    LOG("RET = %d\n", ret);
-
-    if (ret) {
-      LOG("Connect error=%d", errno);
-    } else {
-      // Match android_bluetooth_HeadsetBase.cpp line 384
-      // Skip many lines
-      // Start a thread to run an event loop
-      mFlag = true;
-      pthread_create(&(mThread), NULL, BluetoothSocket::StartEventThread, this);
-    }
-
-    return;
+    return false;
   }
+
+  switch (mType) {
+    case TYPE_RFCOMM:
+      struct sockaddr_rc addr_rc;
+      addr = (struct sockaddr *)&addr_rc;
+      addr_sz = sizeof(addr_rc);
+      memset(addr, 0, addr_sz);
+      addr_rc.rc_family = AF_BLUETOOTH;
+      addr_rc.rc_channel = mPort;
+      memcpy(&addr_rc.rc_bdaddr, &bd_address_obj, sizeof(bdaddr_t));
+      break;
+    default:
+      LOG("Are u kidding me");
+      break;
+  }
+
+  int ret = connect(mFd, addr, addr_sz);
+  LOG("RET = %d\n", ret);
+
+  if (ret) {
+    LOG("Connect error=%d", errno);
+    return false;
+  }
+
+  // Match android_bluetooth_HeadsetBase.cpp line 384
+  // Skip many lines
+  // Start a thread to run an event loop
+  mFlag = true;
+  pthread_create(&(mThread), NULL, BluetoothSocket::StartEventThread, this);
+
+  return true;
 }
 
 static const char* 

@@ -24,4 +24,5 @@ interface nsIDOMBluetoothDevice : nsISupports
   jsval getProperties();
   jsval discoverServices(in DOMString pattern);
   void cancelDiscovery();
+  long queryServerChannel();
 };
