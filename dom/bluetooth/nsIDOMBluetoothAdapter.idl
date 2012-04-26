@@ -5,8 +5,10 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsIDOMEventTarget.idl"
+#include "nsIDOMBluetoothDevice.idl"
 
 interface nsIDOMDOMRequest;
+interface nsIDOMBluetoothDevice;
 interface nsIDOMEventListener;
 
 [scriptable, builtinclass, uuid(ac288eab-dcdb-4f6a-b94d-6c0e286d6a73)]
@@ -53,4 +55,5 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   void checkAdapter();
   long queryServerChannel(in DOMString objectpath);
   void setAudioRoute(in long aRoute);
+  nsIDOMBluetoothDevice getDevice(in DOMString address);
 };

@@ -311,3 +311,13 @@ bool RawDBusConnection::dbus_returns_boolean(DBusMessage *reply) {
   dbus_message_unref(reply);
   return ret;
 }
+
+void
+RawDBusConnection::append_variant(DBusMessageIter *iter, int type, void *val)
+{
+  DBusMessageIter value_iter;
+  char var_type[2] = {(char)type, '\0'};
+  dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, var_type, &value_iter);
+  dbus_message_iter_append_basic(&value_iter, type, val);
+  dbus_message_iter_close_container(iter, &value_iter);
+}

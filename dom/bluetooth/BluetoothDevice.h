@@ -9,11 +9,17 @@
 #include "nsDOMEventTargetHelper.h"
 #include "nsIDOMBluetoothDevice.h"
 #include "nsString.h"
+#include "mozilla/ipc/DBusEventHandler.h"
+#include "mozilla/ipc/RawDBusConnection.h"
 
 BEGIN_BLUETOOTH_NAMESPACE
 
+class BluetoothSocket;
+
 class BluetoothDevice : public nsDOMEventTargetHelper
                       , public nsIDOMBluetoothDevice
+                      , public mozilla::ipc::DBusEventHandler
+                      , public mozilla::ipc::RawDBusConnection
 {
 public:
   NS_DECL_ISUPPORTS
@@ -24,9 +30,11 @@ public:
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(BluetoothDevice,
                                            nsDOMEventTargetHelper)
 
-  BluetoothDevice();
+  BluetoothDevice(const char* aAddress, const char* aObjectPath);
+  virtual nsresult HandleEvent(DBusMessage* msg);
 
 protected:
+  char* mObjectPath;
   nsString mAdapter;
   nsString mAddress;
   PRUint32 mClass;
@@ -39,8 +47,13 @@ protected:
   bool mTrusted;
   nsString mAlias;
 
+  bool SetProperty(char* propertyName, int type, void* value);
+
   NS_DECL_EVENT_HANDLER(propertychanged)
   NS_DECL_EVENT_HANDLER(disconnectrequested)
+
+private:
+  BluetoothSocket* mSocket;
 };
 
 END_BLUETOOTH_NAMESPACE

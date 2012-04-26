@@ -528,8 +528,8 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
         get_property(dict_entry, remote_device_properties, &prop_index, &prop_value, &array_length);
       } while (dbus_message_iter_next(&dict));
 
-      nsIDOMBluetoothDevice* devicePtr = new BluetoothDevice();
-      FireDeviceFound(devicePtr);
+      //nsIDOMBluetoothDevice* devicePtr = new BluetoothDevice(c_address, GetObjectPath(c_address));
+      //FireDeviceFound(devicePtr);
     }
   } else if (dbus_message_is_signal(msg,
                                     DBUS_ADAPTER_IFACE,
@@ -775,16 +775,6 @@ BluetoothAdapter::GetProperties() {
   }
 
   dbus_message_unref(reply);
-}
-
-void
-append_variant(DBusMessageIter *iter, int type, void *val)
-{
-  DBusMessageIter value_iter;
-  char var_type[2] = {(char)type, '\0'};
-  dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, var_type, &value_iter);
-  dbus_message_iter_append_basic(&value_iter, type, val);
-  dbus_message_iter_close_container(iter, &value_iter);
 }
 
 bool
@@ -1535,6 +1525,17 @@ BluetoothAdapter::CheckDevice(const nsAString& aObjectPath)
   }
 
   dbus_message_unref(reply);
+
+  return NS_OK;
+}
+
+nsresult
+BluetoothAdapter::GetDevice(const nsAString& aAddress, nsIDOMBluetoothDevice** aDevice)
+{
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  nsCOMPtr<nsIDOMBluetoothDevice> ptr = new BluetoothDevice(asciiAddress, GetObjectPath(asciiAddress));
+
+  *aDevice = ptr;
 
   return NS_OK;
 }

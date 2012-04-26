@@ -22,9 +22,9 @@ interface nsIDOMBluetoothDevice : nsIDOMEventTarget
   attribute nsIDOMEventListener onpropertychanged;
   attribute nsIDOMEventListener ondisconnectrequested;
 
+  void connect(in long channel);
   void disconnect();
   jsval getProperties();
-  void setProperty(in DOMString name, in DOMString value);
-  jsval discoverServices(in DOMString pattern);
+  jsval discoverServices(in DOMString objectPath, in DOMString pattern);
   void cancelDiscovery();
 };

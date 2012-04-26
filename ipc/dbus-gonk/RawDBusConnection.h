@@ -13,6 +13,7 @@
 #include <string>
 #include <stdlib.h>
 
+struct DBusMessageIter;
 struct DBusMessage;
 struct DBusError;
 struct DBusConnection;
@@ -85,6 +86,7 @@ public:
   uint32_t dbus_returns_uint32(DBusMessage *reply);
   // std::string dbus_returns_string(DBusMessage *reply);
   bool dbus_returns_boolean(DBusMessage *reply);
+  void append_variant(DBusMessageIter *iter, int type, void *val);
 
 protected:
   DBusConnection* mConnection;  
