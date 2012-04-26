@@ -229,29 +229,24 @@ void
 asyncDiscoverServicesCallback(DBusMessage *msg, void *data, void* n)
 {
   // TODO(Eric)
+  LOG("Discover callback");
 }
 
 nsresult
-BluetoothDevice::DiscoverServices(const nsAString& aObjectPath, 
-                                  const nsAString& aPattern, 
+BluetoothDevice::DiscoverServices(const nsAString& aPattern, 
                                   jsval* aServices)
 {
-  // TODO(Eric)
-  // Actually, asciiObjectPath should not be passed as an argument, it should
-  // be got via a function, just like BluetoothAdapter.getAdapterPath().
   const char *asciiPattern = NS_LossyConvertUTF16toASCII(aPattern).get();
-  const char *asciiObjectPath = NS_LossyConvertUTF16toASCII(aObjectPath).get();
 
-  char *backupObjectPath = (char *)calloc(strlen(asciiObjectPath), sizeof(char));
-  strcpy(backupObjectPath, asciiObjectPath);
+  char *backupObjectPath = (char *)calloc(strlen(mObjectPath), sizeof(char));
+  strcpy(backupObjectPath, mObjectPath);
 
-  LOG("... Object Path = %s", asciiObjectPath);
   LOG("... Pattern = %s, strlen = %d", asciiPattern, strlen(asciiPattern));
 
   bool ret = dbus_func_args_async(-1,
                                   asyncDiscoverServicesCallback,
                                   (void*)backupObjectPath,
-                                  asciiObjectPath,
+                                  mObjectPath,
                                   DBUS_DEVICE_IFACE,
                                   "DiscoverServices",
                                   DBUS_TYPE_STRING, &asciiPattern,
@@ -263,7 +258,11 @@ BluetoothDevice::DiscoverServices(const nsAString& aObjectPath,
 nsresult
 BluetoothDevice::CancelDiscovery()
 {
-  return NS_OK;
+  DBusMessage *reply = dbus_func_args(mObjectPath,
+                                      DBUS_DEVICE_IFACE, "CancelDiscovery",
+                                      DBUS_TYPE_INVALID);
+
+  return reply ? NS_OK : NS_ERROR_FAILURE;
 }
 
 NS_IMPL_EVENT_HANDLER(BluetoothDevice, propertychanged)

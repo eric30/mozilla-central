@@ -25,6 +25,6 @@ interface nsIDOMBluetoothDevice : nsIDOMEventTarget
   void connect(in long channel);
   void disconnect();
   jsval getProperties();
-  jsval discoverServices(in DOMString objectPath, in DOMString pattern);
+  jsval discoverServices(in DOMString pattern);
   void cancelDiscovery();
 };
