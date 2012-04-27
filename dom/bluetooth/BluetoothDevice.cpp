@@ -6,7 +6,6 @@
 #include "BluetoothCommon.h"
 #include "BluetoothProperties.h"
 #include "BluetoothSocket.h"
-#include "BluetoothScoSocket.h"
 #include "BluetoothServiceUuid.h"
 
 #include "AudioManager.h"
@@ -172,7 +171,7 @@ nsresult
 BluetoothDevice::Connect(PRInt32 channel)
 {
   if (mSocket == NULL || !mSocket->Available()) {
-    mSocket = new BluetoothSocket();
+    mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM);
   }
 
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(mAddress).get();
@@ -180,10 +179,10 @@ BluetoothDevice::Connect(PRInt32 channel)
   if (mSocket->Connect(channel, asciiAddress)) {
     // Connect ok, next : establish a SCO link
     if (mScoSocket == NULL || !mScoSocket->Available()) {
-      mScoSocket = new BluetoothScoSocket();
+      mScoSocket = new BluetoothSocket(BluetoothSocket::TYPE_SCO);
     }
 
-    if (mScoSocket->Connect(asciiAddress)) {
+    if (mScoSocket->Connect(-1, asciiAddress)) {
       mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
     }
   }

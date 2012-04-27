@@ -23,7 +23,6 @@ CPPSRCS = \
   BluetoothEvent.cpp \
   BluetoothEventLoop.cpp \
   BluetoothSocket.cpp \
-  BluetoothScoSocket.cpp \
   BluetoothUtils.cpp \
   $(NULL)
 

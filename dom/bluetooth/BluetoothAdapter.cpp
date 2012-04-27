@@ -1311,7 +1311,7 @@ BluetoothAdapter::Listen(PRInt32 channel)
   }
 
   if (mSocket == NULL || !mSocket->Available()) {
-    mSocket = new BluetoothSocket();
+    mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM);
   }
 
   mSocket->Listen(channel);

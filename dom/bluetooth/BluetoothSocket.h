@@ -15,6 +15,10 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothSocket {
 public:
+  static const int TYPE_RFCOMM = 1;
+  static const int TYPE_SCO = 2;
+  static const int TYPE_L2CAP = 3;
+
   int mPort;
   int mType;
   int mFd;
@@ -22,7 +26,7 @@ public:
   bool mEncrypt;
   bool mFlag;
 
-  BluetoothSocket();
+  BluetoothSocket(int type);
   bool Connect(int channel, const char* bd_address);
   void Disconnect();
   void Listen(int channel);

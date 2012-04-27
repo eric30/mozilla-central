@@ -29,9 +29,6 @@
 static const char CRLF[] = "\xd\xa";
 static const int CRLF_LEN = 2;
 
-static const int TYPE_RFCOMM = 1;
-static const int TYPE_SCO = 2;
-static const int TYPE_L2CAP = 3;  // TODO: Test l2cap code paths
 static const int RFCOMM_SO_SNDBUF = 70 * 1024;  // 70 KB send buffer
 
 USING_BLUETOOTH_NAMESPACE
@@ -99,9 +96,9 @@ BluetoothSocket::InitSocketNative(int type, bool auth, bool encrypt)
   return;
 }
 
-BluetoothSocket::BluetoothSocket() : mPort(-1), mFlag(false)
+BluetoothSocket::BluetoothSocket(int type) : mPort(-1), mFlag(false)
 {
-  InitSocketNative(TYPE_RFCOMM, true, false);
+  InitSocketNative(type, true, false);
 
   if (mFd <= 0) {
     LOG("Creating socket failed");
@@ -148,10 +145,20 @@ BluetoothSocket::Connect(int channel, const char* bd_address)
       struct sockaddr_rc addr_rc;
       addr = (struct sockaddr *)&addr_rc;
       addr_sz = sizeof(addr_rc);
+
       memset(addr, 0, addr_sz);
       addr_rc.rc_family = AF_BLUETOOTH;
       addr_rc.rc_channel = mPort;
       memcpy(&addr_rc.rc_bdaddr, &bd_address_obj, sizeof(bdaddr_t));
+      break;
+    case TYPE_SCO:
+      struct sockaddr_sco addr_sco;
+      addr = (struct sockaddr *)&addr_sco;
+      addr_sz = sizeof(addr_sco);
+
+      memset(addr, 0, addr_sz);
+      addr_sco.sco_family = AF_BLUETOOTH;
+      memcpy(&addr_sco.sco_bdaddr, &bd_address_obj, sizeof(bdaddr_t));
       break;
     default:
       LOG("Are u kidding me");
@@ -420,6 +427,15 @@ BluetoothSocket::Listen(int channel)
         addr_rc.rc_channel = mPort;
         memcpy(&addr_rc.rc_bdaddr, &bd_address_obj, sizeof(bdaddr_t));
         break;
+      case TYPE_SCO:
+        struct sockaddr_sco addr_sco;
+        addr = (struct sockaddr *)&addr_sco;
+        addr_sz = sizeof(addr_sco);
+
+        memset(addr, 0, addr_sz);
+        addr_sco.sco_family = AF_BLUETOOTH;
+        memcpy(&addr_sco.sco_bdaddr, &bd_address_obj, sizeof(bdaddr_t));
+        break;
       default:
         LOG("Are u kidding me");
         break;
@@ -448,12 +464,26 @@ BluetoothSocket::AcceptInternal(void* ptr)
   socklen_t addr_sz;
   struct sockaddr *addr;
   bdaddr_t* bdaddr;
-  struct sockaddr_rc addr_rc;
 
-  addr = (struct sockaddr *)&addr_rc;
-  addr_sz = sizeof(addr_rc);
-  bdaddr = &addr_rc.rc_bdaddr;
-  memset(addr, 0, addr_sz);
+  switch (socket->mType) {
+    case TYPE_RFCOMM:
+      struct sockaddr_rc addr_rc;
+      addr = (struct sockaddr *)&addr_rc;
+      addr_sz = sizeof(addr_rc);
+      bdaddr = &addr_rc.rc_bdaddr;
+      memset(addr, 0, addr_sz);
+      break;
+    case TYPE_SCO:
+      struct sockaddr_sco addr_sco;
+      addr = (struct sockaddr *)&addr_sco;
+      addr_sz = sizeof(addr_sco);
+      bdaddr = &addr_sco.sco_bdaddr;
+      memset(addr, 0, addr_sz);
+      break;
+    default:
+      LOG("Are u kidding me?");
+      break;
+  }
 
   do {
     // ret: a descriptor for the accepted socket
