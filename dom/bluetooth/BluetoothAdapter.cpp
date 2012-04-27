@@ -310,6 +310,7 @@ BluetoothAdapter::RunAdapterFunction(const char* function_name) {
   DBusMessage *reply;
   DBusError err;
   dbus_error_init(&err);
+  GetAdapterPath();
   reply = dbus_func_args(mAdapterPath,
                          DBUS_ADAPTER_IFACE, function_name,
                          DBUS_TYPE_INVALID);
@@ -373,7 +374,7 @@ BluetoothAdapter::GetEnabled(bool* aEnabled)
   return NS_OK; 
 }
 
-void
+static void
 get_property(DBusMessageIter dict_entry, BluetoothProperties* properties, 
              int* ret_property_index, property_value* ret_property_value, int* ret_length)
 {
@@ -394,7 +395,7 @@ get_property(DBusMessageIter dict_entry, BluetoothProperties* properties,
       if (dbus_message_iter_get_arg_type(&dict_entry) == DBUS_TYPE_VARIANT) {
         // Search for the matching property and get its type
         int property_type = DBUS_TYPE_INVALID;
-        int property_size = sizeof(remote_device_properties) / sizeof(BluetoothProperties);
+        int property_size = sizeof(adapter_properties) / sizeof(BluetoothProperties);
         int i;
 
         for (i = 0;i < property_size;++i)
@@ -511,6 +512,7 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
       }
 
       dbus_message_iter_recurse(&iter, &dict);
+      char* tempName;
 
       do {
         property_value prop_value;
@@ -524,10 +526,16 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
 
         dbus_message_iter_recurse(&dict, &dict_entry);
         get_property(dict_entry, remote_device_properties, &prop_index, &prop_value, &array_length);
+
+        if (prop_index == BT_DEVICE_NAME) {
+          tempName = new char[strlen(prop_value.str_val)];
+          strcpy(tempName, prop_value.str_val);
+        }
       } while (dbus_message_iter_next(&dict));
 
-      //nsIDOMBluetoothDevice* devicePtr = new BluetoothDevice(c_address, GetObjectPath(c_address));
-      //FireDeviceFound(devicePtr);
+      // Fire event to JS
+      nsIDOMBluetoothDevice* devicePtr = new BluetoothDevice(c_address, tempName, GetObjectPath(c_address));
+      FireDeviceFound(devicePtr);
     }
   } else if (dbus_message_is_signal(msg,
                                     DBUS_ADAPTER_IFACE,
@@ -1316,12 +1324,15 @@ const char*
 BluetoothAdapter::GetObjectPath(const char* aAddress)
 {
   DBusMessage *reply;
-  char* retObjectPath = "";
+  char* retObjectPath = NULL;
 
   reply = dbus_func_args(mAdapterPath,
                          DBUS_ADAPTER_IFACE, "FindDevice",
                          DBUS_TYPE_STRING, &aAddress,
                          DBUS_TYPE_INVALID);
+
+  if (!reply)
+    return NULL;
 
   DBusError err;
 
@@ -1335,41 +1346,6 @@ BluetoothAdapter::GetObjectPath(const char* aAddress)
   dbus_message_unref(reply);
 
   return retObjectPath;
-}
-
-NS_IMETHODIMP
-BluetoothAdapter::ConnectHeadset(const nsAString& aAddress)
-{
-  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
-  const char* objectPath = GetObjectPath(asciiAddress);
-
-  if (!strcmp(objectPath, "")) {
-    LOG("Cannot find target device, please check if this device has already been created.");
-    return NS_ERROR_FAILURE;
-  }
-
-  int channel = QueryServerChannelInternal(objectPath);
-
-  if (channel == -1) {
-    LOG("Cannot find Handsfree channel");
-    return NS_ERROR_FAILURE;
-  }
-
-  if (AddServiceRecord("Voice gateway",
-                       BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
-                       BluetoothServiceUuid::BaseLSB,
-                       channel) == -1) {
-    LOG("Adding service record failed");
-    return NS_ERROR_FAILURE;
-  }
-
-  if (mSocket == NULL || !mSocket->Available()) {
-    mSocket = new BluetoothSocket();
-  }
-
-  mSocket->Connect(channel, asciiAddress);
-
-  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -1449,7 +1425,7 @@ nsresult
 BluetoothAdapter::GetDevice(const nsAString& aAddress, nsIDOMBluetoothDevice** aDevice)
 {
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
-  nsCOMPtr<nsIDOMBluetoothDevice> ptr = new BluetoothDevice(asciiAddress, GetObjectPath(asciiAddress));
+  nsCOMPtr<nsIDOMBluetoothDevice> ptr = new BluetoothDevice(asciiAddress, "", GetObjectPath(asciiAddress));
 
   NS_ADDREF(*aDevice = ptr);
 

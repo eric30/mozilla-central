@@ -24,7 +24,7 @@ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMBLUETOOTHDEVICE
 
-  BluetoothDevice(const char* aAddress, const char* aObjectPath);
+  BluetoothDevice(const char* aAddress, const char* aName, const char* aObjectPath);
   virtual nsresult HandleEvent(DBusMessage* msg);
 
 protected:
@@ -42,6 +42,7 @@ protected:
   nsString mAlias;
 
   bool SetProperty(char* propertyName, int type, void* value);
+  void UpdateProperties();
 
 private:
   BluetoothSocket* mSocket;

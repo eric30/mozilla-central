@@ -36,7 +36,6 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   void stopDiscovery();
   void pair(in DOMString address);
   void unpair(in DOMString objectpath);
-  void connectHeadset(in DOMString address);
   void listen(in long channel);
 
   nsIDOMDOMRequest setEnabled(in boolean enabled);
