@@ -107,7 +107,8 @@ BluetoothSocket::BluetoothSocket(int type) : mPort(-1), mFlag(false)
   }
 }
 
-int get_bdaddr(const char *str, bdaddr_t *ba) {
+int 
+get_bdaddr(const char *str, bdaddr_t *ba) {
  char *d = ((char *)ba) + 5, *endp;
  int i;
  for(i = 0; i < 6; i++) {

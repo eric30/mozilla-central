@@ -31,6 +31,7 @@ public:
 
   void SetDeviceAddressInternal(const nsACString&);
   void SetDeviceInternal(nsIDOMBluetoothDevice* aDevice);
+  void SetPropertyNameInternal(const nsString& aPropertyName);
 
 protected:
   nsCString mAdapterAddress;
@@ -38,6 +39,7 @@ protected:
 
 private:
   nsCOMPtr<nsIDOMBluetoothDevice> mDevice;
+  nsString mPropertyName;
 };
 
 END_BLUETOOTH_NAMESPACE

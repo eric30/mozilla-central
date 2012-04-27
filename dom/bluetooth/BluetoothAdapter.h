@@ -42,9 +42,11 @@ public:
   inline void SetEnabledInternal(bool aEnabled) {mEnabled = aEnabled;}
 
   nsresult FireDeviceFound(nsIDOMBluetoothDevice* aDevice);
+  nsresult FirePropertyChanged(const char* propertyName);
   virtual nsresult HandleEvent(DBusMessage* msg);
   nsresult SetupBluetoothAgents(void);
   nsresult SetupBluetooth(void);
+
 protected:
   nsresult BluezCreateDevice(const char* address);
   nsresult BluezCancelDeviceCreation(const char* address);

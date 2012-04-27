@@ -13,11 +13,6 @@
 #include "nsDOMClassInfo.h"
 #include "nsString.h"
 
-#define BLUEZ_DBUS_BASE_PATH      "/org/bluez"
-#define BLUEZ_DBUS_BASE_IFC       "org.bluez"
-#define DBUS_ADAPTER_IFACE BLUEZ_DBUS_BASE_IFC ".Adapter"
-#define DBUS_DEVICE_IFACE BLUEZ_DBUS_BASE_IFC ".Device"
-
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
 #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args)
@@ -46,13 +41,13 @@ BluetoothDevice::BluetoothDevice(const char* aAddress,
   mAddress = NS_ConvertASCIItoUTF16(aAddress);
   mName = NS_ConvertASCIItoUTF16(aName);
 
-  if (aObjectPath != NULL) {
+  if (!aObjectPath) {
+    LOG("OBJECT PATH is NULL in ctor of BluetoothDevice");
+  } else {
     mObjectPath = (char *)calloc(strlen(aObjectPath), sizeof(char));
     strcpy(mObjectPath, aObjectPath);
 
     UpdateProperties();
-  } else {
-    mObjectPath = NULL;
   }
 }
 
@@ -353,7 +348,7 @@ BluetoothDevice::UpdateProperties()
           break;
         case BT_DEVICE_NAME:
           mName = NS_ConvertASCIItoUTF16(prop_value.str_val);
-          break;
+          break;        
         case BT_DEVICE_CLASS:
           mClass = prop_value.int_val;
           break;        

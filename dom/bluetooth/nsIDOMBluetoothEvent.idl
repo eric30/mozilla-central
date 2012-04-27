@@ -7,4 +7,5 @@ interface nsIDOMBluetoothDevice;
 interface nsIDOMBluetoothEvent : nsIDOMEvent
 {
   readonly attribute nsIDOMBluetoothDevice device;
+  readonly attribute DOMString propertyName;
 };

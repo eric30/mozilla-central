@@ -24,11 +24,6 @@
 #include "dbus/dbus.h"
 #include "jsapi.h"
 
-#define BLUEZ_DBUS_BASE_PATH      "/org/bluez"
-#define BLUEZ_DBUS_BASE_IFC       "org.bluez"
-#define DBUS_ADAPTER_IFACE BLUEZ_DBUS_BASE_IFC ".Adapter"
-#define DBUS_DEVICE_IFACE BLUEZ_DBUS_BASE_IFC ".Device"
-
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
 #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args)
@@ -310,16 +305,18 @@ BluetoothAdapter::RunAdapterFunction(const char* function_name) {
   DBusMessage *reply;
   DBusError err;
   dbus_error_init(&err);
-  GetAdapterPath();
+
   reply = dbus_func_args(mAdapterPath,
                          DBUS_ADAPTER_IFACE, function_name,
                          DBUS_TYPE_INVALID);
+
   if (!reply) {
     if (dbus_error_is_set(&err)) {
-      //LOG_AND_FREE_DBUS_ERROR(&err);
-      LOG("Error!\n");
-    } else
-      LOG("DBus reply is NULL in function %s\n", __FUNCTION__);
+      dbus_error_free(&err);
+    }
+    
+    LOG("DBus reply is NULL in function %s\n", __FUNCTION__);
+
     return NS_ERROR_FAILURE;
   }
 
@@ -584,8 +581,11 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
       LOG("Adapter Property [%s] changed.", property_name);
     }
     
-    // TODO: Need to notify JS some properties have been changed
-    // GetProperties();
+    // Update properties and notify JS only when BT is enabled
+    if (mEnabled) {
+      GetProperties();
+      FirePropertyChanged(property_name);
+    }
   } else if (dbus_message_is_signal(msg,
                                     DBUS_DEVICE_IFACE,
                                     "PropertyChanged")) {
@@ -652,16 +652,17 @@ void BluetoothAdapter::GetAdapterPath() {
         if (dbus_error_has_name(&err,
                                 "org.freedesktop.DBus.Error.ServiceUnknown")) {
           // bluetoothd is still down, retry
-          //LOG_AND_FREE_DBUS_ERROR(&err);
           LOG("Service unknown\n");
+          dbus_error_free(&err);
           //usleep(10000);  // 10 ms
           continue;
         } else {
           // Some other error we weren't expecting
           LOG("other error\n");
-          //LOG_AND_FREE_DBUS_ERROR(&err);
+          dbus_error_free(&err);
         }
       }
+
       goto failed;
     }
   }
@@ -673,9 +674,9 @@ void BluetoothAdapter::GetAdapterPath() {
 
   if (!dbus_message_get_args(reply, &err, DBUS_TYPE_OBJECT_PATH,
                              &device_path, DBUS_TYPE_INVALID)
-      || !device_path){
+      || !device_path) {
     if (dbus_error_is_set(&err)) {
-      //LOG_AND_FREE_DBUS_ERROR(&err);
+      dbus_error_free(&err);
     }
     goto failed;
   }
@@ -773,6 +774,9 @@ BluetoothAdapter::GetProperties() {
           {
             mUuids.AppendElement(NS_ConvertASCIItoUTF16(prop_value.array_val[i]));
           }
+          break;
+        default:
+          LOG("New property!! %d", prop_index);
           break;
       }
     } while (dbus_message_iter_next(&dict));
@@ -1013,33 +1017,26 @@ BluetoothAdapter::GetUuids(JSContext* aCx, jsval* aUuids)
   return NS_OK;
 }
 
+nsresult
+BluetoothAdapter::FirePropertyChanged(const char* aPropertyName)
+{
+  nsString domPropertyName = NS_ConvertASCIItoUTF16(aPropertyName);
 
-// nsresult
-// BluetoothAdapter::firePropertyChanged()
-// {
-//   nsRefPtr<nsDOMEvent> event = new nsDOMEvent(nsnull, nsnull);
-//   nsresult rv = event->InitEvent(NS_STRING_LITERAL("propertychanged"), false, false);
-//   NS_ENSURE_SUCCESS(rv, rv);
-  
-//   bool dummy;
-//   rv = DispatchEvent(event, &dummy);
-//   NS_ENSURE_SUCCESS(rv, rv);
+  nsRefPtr<nsDOMEvent> event = new BluetoothEvent(nsnull, nsnull);
+  static_cast<BluetoothEvent*>(event.get())->SetPropertyNameInternal(domPropertyName);
 
-//   return NS_OK;
-// }
+  nsresult rv = event->InitEvent(NS_LITERAL_STRING("propertychanged"), false, false);
+  NS_ENSURE_SUCCESS(rv, rv);
 
-// /* static */ void
-// BluetoothAdapter::PropertyChanged(DBusGProxy* aProxy, const gchar* aObjectPath,
-//                                   GValue *value, BluetoothAdapter* aListener)
-// {
-//   aListener->UpdateProperties();
-// }
+  rv = event->SetTrusted(true);
+  NS_ENSURE_SUCCESS(rv, rv);
 
-// void
-// BluetoothAdapter::UpdateProperties() {
-//   AdapterPropertyChangeNotification p;
-//   mObservers.Broadcast(p);
-// }
+  bool dummy;
+  rv = DispatchEvent(event, &dummy);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  return NS_OK;
+}
 
 NS_IMETHODIMP
 BluetoothAdapter::StartDiscovery() {
@@ -1191,7 +1188,7 @@ BluetoothAdapter::BluezRegisterAgent(const char * agent_path, const char * capab
     if (!reply) {
       LOG("%s: Can't register agent!", __FUNCTION__);
       if (dbus_error_is_set(&err)) {
-        //LOG_AND_FREE_DBUS_ERROR(&err);
+        dbus_error_free(&err);
       }
       return NS_ERROR_FAILURE;
     }
@@ -1228,27 +1225,27 @@ BluetoothAdapter::SetupBluetoothAgents()
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::Pair(const nsAString& aAddress)
+BluetoothAdapter::Pair(const nsAString& aAddress, PRInt32 aTimeout)
 {
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
   const char *capabilities = "DisplayYesNo";
   const char *device_agent_path = "/B2G/bluetooth/remote_device_agent";
 
   char* backupAddress = new char[strlen(asciiAddress)];
-  memcpy(backupAddress, asciiAddress, strlen(asciiAddress));
+  strcpy(backupAddress, asciiAddress);
 
   // Then send CreatePairedDevice, it will register a temp device agent then 
   // unregister it after pairing process is over
-  bool ret = dbus_func_args_async(10000,
-      asyncCreatePairedDeviceCallback , // callback
-      (void*)backupAddress,
-      mAdapterPath,
-      DBUS_ADAPTER_IFACE,
-      "CreatePairedDevice",
-      DBUS_TYPE_STRING, &asciiAddress,
-      DBUS_TYPE_OBJECT_PATH, &device_agent_path,
-      DBUS_TYPE_STRING, &capabilities,
-      DBUS_TYPE_INVALID);
+  bool ret = dbus_func_args_async(aTimeout,
+                                  asyncCreatePairedDeviceCallback , // callback
+                                  (void*)backupAddress,
+                                  mAdapterPath,
+                                  DBUS_ADAPTER_IFACE,
+                                  "CreatePairedDevice",
+                                  DBUS_TYPE_STRING, &asciiAddress,
+                                  DBUS_TYPE_OBJECT_PATH, &device_agent_path,
+                                  DBUS_TYPE_STRING, &capabilities,
+                                  DBUS_TYPE_INVALID);
 
   return ret ? NS_OK : NS_ERROR_FAILURE;
 }
@@ -1269,34 +1266,6 @@ BluetoothAdapter::AddServiceRecord(const char* serviceName,
                          DBUS_TYPE_INVALID);
 
   return reply ? dbus_returns_uint32(reply) : -1;
-}
-
-int
-BluetoothAdapter::QueryServerChannelInternal(const char* aObjectPath)
-{
-  // Lookup the server channel of target profile
-  const char* serviceUuid = BluetoothServiceUuidStr::Handsfree;
-  int attributeId = 0x0004;
-
-  //TODO(Eric) 
-  //  We should do a service match check here to ensure the availability of
-  //  requested service, however now we're only testing HANDSFREE, so just 
-  //  skip this step until we actually has an array of devices.
-  DBusMessage *reply = dbus_func_args(aObjectPath,
-                                      DBUS_DEVICE_IFACE, "GetServiceAttributeValue",
-                                      DBUS_TYPE_STRING, &serviceUuid,
-                                      DBUS_TYPE_UINT16, &attributeId,
-                                      DBUS_TYPE_INVALID);
-
-  int channel = -1;
-
-  if (reply) {
-    channel = dbus_returns_int32(reply);
-  }
-
-  LOG("Handsfree: RFCOMM Server channel [%d]", channel);
-
-  return channel;
 }
 
 NS_IMETHODIMP
@@ -1323,30 +1292,32 @@ BluetoothAdapter::Listen(PRInt32 channel)
 const char*
 BluetoothAdapter::GetObjectPath(const char* aAddress)
 {
-  DBusMessage *reply;
-  char* retObjectPath = NULL;
+  // Why 22?
+  // The object path would be like /org/bluez/2906/hci0/dev_00_23_7F_CB_B4_F1,
+  // and the adapter path would be the first part of the object path, accoring 
+  // to the example above, it's /org/bluez/2906/hci0.
+  // So, the difference between these two strings is /dev_00_23_7F_CB_B4_F1, 
+  // and it's 22 chars long. 
+  int index = strlen(mAdapterPath);
+  char* retObjectPath = new char[index + 22];
 
-  reply = dbus_func_args(mAdapterPath,
-                         DBUS_ADAPTER_IFACE, "FindDevice",
-                         DBUS_TYPE_STRING, &aAddress,
-                         DBUS_TYPE_INVALID);
+  strcpy(retObjectPath, mAdapterPath);
+  strcat(retObjectPath, "/dev_");
+  strcat(retObjectPath, aAddress);
 
-  if (!reply)
-    return NULL;
-
-  DBusError err;
-
-  dbus_error_init(&err);
-  if (!dbus_message_get_args(reply, &err,
-                             DBUS_TYPE_OBJECT_PATH, &retObjectPath,
-                             DBUS_TYPE_INVALID)) {
-    //LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
+  char* pch = strchr(retObjectPath,':');
+  while (pch!=NULL)
+  {
+    *pch = '_';
+    pch = strchr(pch + 1,':');
   }
 
-  dbus_message_unref(reply);
+  LOG("Object Path: %s", retObjectPath);
 
   return retObjectPath;
 }
+
+// xxx The following are functions for testing, not actually needs to be implemented.
 
 NS_IMETHODIMP
 BluetoothAdapter::CheckAdapter()
@@ -1425,7 +1396,7 @@ nsresult
 BluetoothAdapter::GetDevice(const nsAString& aAddress, nsIDOMBluetoothDevice** aDevice)
 {
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
-  nsCOMPtr<nsIDOMBluetoothDevice> ptr = new BluetoothDevice(asciiAddress, "", GetObjectPath(asciiAddress));
+  nsCOMPtr<nsIDOMBluetoothDevice> ptr = new BluetoothDevice(asciiAddress, "unknown", GetObjectPath(asciiAddress));
 
   NS_ADDREF(*aDevice = ptr);
 
