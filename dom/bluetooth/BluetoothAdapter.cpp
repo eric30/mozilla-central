@@ -10,6 +10,7 @@
 #include "BluetoothSocket.h"
 #include "BluetoothServiceUuid.h"
 #include "BluetoothUtils.h"
+#include "BluetoothHfpManager.h"
 
 #include "AudioManager.h"
 #include "nsDOMClassInfo.h"
@@ -346,6 +347,15 @@ BluetoothAdapter::SetEnabled(bool aEnabled, nsIDOMDOMRequest** aDomRequest)
     return NS_ERROR_FAILURE;
   }
 
+  // Gracefully disconnect
+  if (!aEnabled) {
+    BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
+    
+    if (hfp->ReachedMaxConnection()) {
+      hfp->Disconnect();
+    }
+  }
+
   nsCOMPtr<nsIDOMDOMRequest> request;
   nsresult rv = rs->CreateRequest(GetOwner(), getter_AddRefs(request));
   NS_ENSURE_SUCCESS(rv, rv);
@@ -602,16 +612,6 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
 
     // TODO(Eric)
     //   Need to notify JS that device property has been changed
-    /*
-    jobjectArray str_array = parse_remote_device_property_change(env, msg);
-    if (str_array != NULL) {
-      const char *remote_device_path = dbus_message_get_path(msg);
-      env->CallVoidMethod(nat->me,
-          method_onDevicePropertyChanged,
-          env->NewStringUTF(remote_device_path),
-          str_array);
-    }
-    */
   } else if (dbus_message_is_signal(msg,
                                     DBUS_DEVICE_IFACE,
                                     "DisconnectRequested")) {
@@ -1399,6 +1399,15 @@ BluetoothAdapter::GetDevice(const nsAString& aAddress, nsIDOMBluetoothDevice** a
   nsCOMPtr<nsIDOMBluetoothDevice> ptr = new BluetoothDevice(asciiAddress, "unknown", GetObjectPath(asciiAddress));
 
   NS_ADDREF(*aDevice = ptr);
+
+  return NS_OK;
+}
+
+nsresult
+BluetoothAdapter::RouteAudioToBtSco()
+{
+  mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
+  mozilla::dom::gonk::AudioManager::SetAudioInput();
 
   return NS_OK;
 }

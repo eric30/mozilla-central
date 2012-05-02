@@ -42,10 +42,6 @@ protected:
 
   bool SetProperty(char* propertyName, int type, void* value);
   void UpdateProperties();
-
-private:
-  BluetoothSocket* mSocket;
-  BluetoothSocket* mScoSocket;
 };
 
 END_BLUETOOTH_NAMESPACE

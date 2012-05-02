@@ -50,4 +50,5 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   void checkDevice(in DOMString objectpath);
   void checkAdapter();
   nsIDOMBluetoothDevice getDevice(in DOMString address);
+  void routeAudioToBtSco();
 };

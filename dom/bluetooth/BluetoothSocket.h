@@ -24,7 +24,6 @@ public:
   int mFd;
   bool mAuth;
   bool mEncrypt;
-  bool mFlag;
 
   BluetoothSocket(int type);
   bool Connect(int channel, const char* bd_address);
@@ -32,12 +31,13 @@ public:
   void Listen(int channel);
   int Accept();
   bool Available();
+  static const char* get_line(int fd, char *buf, int len, int timeout_ms, int *err);
+  static int send_line(int fd, const char* line);
 
 protected:
   pthread_t mThread;
   pthread_t mAcceptThread;
   void InitSocketNative(int type, bool auth, bool encrypt);
-  static void* StartEventThread(void*);
   static void* AcceptInternal(void*);
 };
 

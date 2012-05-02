@@ -19,9 +19,9 @@ interface nsIDOMBluetoothDevice : nsISupports
   attribute boolean trusted;
   attribute DOMString alias;
 
-  void connect(in long channel);
-  void disconnect();
+  bool connect(in long channel);
+  bool disconnect();
   jsval discoverServices(in DOMString pattern);
   void cancelDiscovery();
-  long queryServerChannel();
+  long queryServerChannel(in DOMString uuid);
 };

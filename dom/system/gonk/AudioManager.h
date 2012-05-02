@@ -67,6 +67,7 @@ public:
   ~AudioManager();
 
   static void SetAudioRoute(int aRoutes);
+  static void SetAudioInput();
 protected:
   PRInt32 mPhoneState;
 

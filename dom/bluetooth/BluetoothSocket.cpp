@@ -96,7 +96,7 @@ BluetoothSocket::InitSocketNative(int type, bool auth, bool encrypt)
   return;
 }
 
-BluetoothSocket::BluetoothSocket(int type) : mPort(-1), mFlag(false)
+BluetoothSocket::BluetoothSocket(int type) : mPort(-1)
 {
   InitSocketNative(type, true, false);
 
@@ -176,15 +176,11 @@ BluetoothSocket::Connect(int channel, const char* bd_address)
 
   // Match android_bluetooth_HeadsetBase.cpp line 384
   // Skip many lines
-  // Start a thread to run an event loop
-  mFlag = true;
-  pthread_create(&(mThread), NULL, BluetoothSocket::StartEventThread, this);
-
   return true;
 }
 
-static const char* 
-get_line(int fd, char *buf, int len, int timeout_ms, int *err) {
+const char* 
+BluetoothSocket::get_line(int fd, char *buf, int len, int timeout_ms, int *err) {
   char *bufit=buf;
   int fd_flags = fcntl(fd, F_GETFL, 0);
   struct pollfd pfd;
@@ -273,8 +269,7 @@ static inline int write_error_check(int fd, const char* line, int len) {
   return 0;
 }
 
-static 
-int send_line(int fd, const char* line) {
+int BluetoothSocket::send_line(int fd, const char* line) {
   int nw;
   int len = strlen(line);
   int llen = len + CRLF_LEN * 2 + 1;
@@ -288,121 +283,6 @@ int send_line(int fd, const char* line) {
   }
   free(buffer);
   return 0;
-}
-
-void reply_ok(int fd)
-{
-  if (send_line(fd, "OK") != 0) {
-    LOG("Reply [OK] failed");
-  }
-}
-
-void reply_error(int fd)
-{
-  if (send_line(fd, "ERROR") != 0) {
-    LOG("Reply [ERROR] failed");
-  }
-}
-
-void reply_brsf(int fd)
-{
-  if (send_line(fd, "+BRSF: 23") != 0) {
-    LOG("Reply +BRSF failed");
-  }
-}
-
-void reply_cind_current_status(int fd)
-{
-  const char* str = "+CIND: 1,0,0,0,3,0,3";
-
-  if (send_line(fd, str) != 0) {
-    LOG("Reply +CIND failed");
-  }
-}
-
-void reply_cind_range(int fd)
-{
-  const char* str = "+CIND: (\"service\",(0-1)),(\"call\",(0-1)),(\"callsetup\",(0-3)), \
-                            (\"callheld\",(0-2)),(\"signal\",(0-5)),(\"roam\",(0-1)), \
-                            (\"battchg\",(0-5))";
-
-  if (send_line(fd, str) != 0) {
-    LOG("Reply +CIND=? failed");
-  }
-}
-
-void reply_cmer(int fd, bool enableIndicator)
-{
-  const char* str = enableIndicator ? "+CMER: 3,0,0,1" : "+CMER: 3,0,0,0";
-
-  if (send_line(fd, str) != 0) {
-    LOG("Reply +CMER= failed");
-  }
-}
-
-void reply_chld_range(int fd)
-{
-  const char* str = "+CHLD: (0,1,2,3)";
-
-  if (send_line(fd, str) != 0) {
-    LOG("Reply +CHLD=? failed");
-  }
-}
-
-void*
-BluetoothSocket::StartEventThread(void* ptr)
-{
-  BluetoothSocket* socket = static_cast<BluetoothSocket*>(ptr);
-  int err;
-
-  if (socket->mFd <= 0) {
-    LOG("%s: Fd is not valid", __FUNCTION__);
-  } else {
-    while (socket->mFlag)
-    {
-      int timeout = 500; //0.5 sec
-      char buf[256];
-      const char *ret = get_line(socket->mFd,
-                                 buf, sizeof(buf),
-                                 timeout,
-                                 &err);
-
-      if (ret == NULL) {
-        LOG("Read Nothing");
-      } else {
-        // TODO(Eric)
-        //   We need a Handsfree msg handler here!
-        LOG("Received:%s", ret);
-
-        if (!strncmp(ret, "AT+BRSF=", 8)) {
-          reply_brsf(socket->mFd);
-          reply_ok(socket->mFd);
-        } else if (!strncmp(ret, "AT+CIND=?", 9)) {
-          reply_cind_range(socket->mFd);
-          reply_ok(socket->mFd);
-        } else if (!strncmp(ret, "AT+CIND", 7)) {
-          reply_cind_current_status(socket->mFd);
-          reply_ok(socket->mFd);
-        } else if (!strncmp(ret, "AT+CMER=", 8)) {
-          reply_ok(socket->mFd);
-        } else if (!strncmp(ret, "AT+CHLD=?", 9)) {
-          reply_chld_range(socket->mFd);
-          reply_ok(socket->mFd);
-        } else if (!strncmp(ret, "AT+CHLD=", 9)) {
-          reply_ok(socket->mFd);
-        } else if (!strncmp(ret, "AT+VGS=", 7)) {
-          reply_ok(socket->mFd);
-        } else if (!strncmp(ret, "AT+VGM=", 7)) {
-          reply_ok(socket->mFd);
-        } else {
-          LOG("Not handled.");
-          reply_ok(socket->mFd);
-        }
-      }
-    }
-  }
-
-  return NULL;
 }
 
 void
@@ -498,9 +378,8 @@ BluetoothSocket::AcceptInternal(void* ptr)
     // Match android_bluetooth_HeadsetBase.cpp line 384
     // Skip many lines
     // Start a thread to run an event loop
-    socket->mFlag = true;
     socket->mFd = ret;
-    pthread_create(&(socket->mThread), NULL, BluetoothSocket::StartEventThread, ptr);
+    //pthread_create(&(socket->mThread), NULL, BluetoothSocket::StartEventThread, ptr);
   }
 
   return NULL;
@@ -524,7 +403,8 @@ BluetoothSocket::Disconnect()
 {
   void* ret;
 
-  mFlag = false;
+  LOG("Disconnect: FD=%d", mFd);
+
   pthread_join(mThread, &ret);
   close(mFd);
 

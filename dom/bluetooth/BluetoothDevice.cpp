@@ -7,6 +7,7 @@
 #include "BluetoothProperties.h"
 #include "BluetoothSocket.h"
 #include "BluetoothServiceUuid.h"
+#include "BluetoothHfpManager.h"
 
 #include "AudioManager.h"
 #include "dbus/dbus.h"
@@ -35,8 +36,7 @@ NS_IMPL_RELEASE(BluetoothDevice)
 
 BluetoothDevice::BluetoothDevice(const char* aAddress, 
                                  const char* aName,
-                                 const char* aObjectPath) : mSocket(NULL)
-                                                          , mScoSocket(NULL)
+                                 const char* aObjectPath)
 {
   mAddress = NS_ConvertASCIItoUTF16(aAddress);
   mName = NS_ConvertASCIItoUTF16(aName);
@@ -91,6 +91,7 @@ BluetoothDevice::GetClass(PRUint32* aClass)
 nsresult
 BluetoothDevice::GetConnected(bool* aConnected)
 {
+  UpdateProperties();
   *aConnected = mConnected;
   return NS_OK;
 }
@@ -163,38 +164,26 @@ BluetoothDevice::GetUuids(jsval* aUuids)
 }
 
 nsresult
-BluetoothDevice::Connect(PRInt32 channel)
+BluetoothDevice::Connect(PRInt32 channel, bool* success)
 {
-  if (mSocket == NULL || !mSocket->Available()) {
-    mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM);
-  }
-
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(mAddress).get();
 
-  if (mSocket->Connect(channel, asciiAddress)) {
-    // Connect ok, next : establish a SCO link
-    if (mScoSocket == NULL || !mScoSocket->Available()) {
-      mScoSocket = new BluetoothSocket(BluetoothSocket::TYPE_SCO);
-    }
-
-    if (mScoSocket->Connect(-1, asciiAddress)) {
-      mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
-    }
-  }
+  // TODO(Eric)
+  // Should dispatch to diff profiles according to requesting profiles
+  BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
+  *success = hfp->Connect(channel, asciiAddress);
 
   return NS_OK;
 }
 
 nsresult
-BluetoothDevice::Disconnect()
+BluetoothDevice::Disconnect(bool* success)
 {
-  if (mSocket != NULL) {
-    mSocket->Disconnect();
-  }
-
-  if (mScoSocket != NULL) { 
-    mScoSocket->Disconnect(); 
-  } 
+  // TODO(Eric)
+  // Should find each profile to see if this device has a connection
+  BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
+  hfp->Disconnect();
+  *success = true;
 
   return NS_OK;
 }
@@ -448,23 +437,19 @@ BluetoothDevice::CancelDiscovery()
   return reply ? NS_OK : NS_ERROR_FAILURE;
 }
 
+// Lookup the server channel of target uuid
 NS_IMETHODIMP
-BluetoothDevice::QueryServerChannel(PRInt32* aChannel)
+BluetoothDevice::QueryServerChannel(const nsAString& aServiceUuidStr, PRInt32* aChannel)
 {
-  // Lookup the server channel of target profile
-  const char* serviceUuid = BluetoothServiceUuidStr::Handsfree;
-  
   // 0x0004 represents ProtocolDescriptorList. For more information, 
   // see https://www.bluetooth.org/Technical/AssignedNumbers/service_discovery.htm
   int attributeId = 0x0004;
 
-  //TODO(Eric) 
-  //  We should do a service match check here to ensure the availability of
-  //  requested service, however now we're only testing HANDSFREE, so just 
-  //  skip this step until we actually has an array of devices.
+  const char* asciiServiceUuidStr = ToNewCString(aServiceUuidStr);
+
   DBusMessage *reply = dbus_func_args(mObjectPath,
                                       DBUS_DEVICE_IFACE, "GetServiceAttributeValue",
-                                      DBUS_TYPE_STRING, &serviceUuid,
+                                      DBUS_TYPE_STRING, &asciiServiceUuidStr,
                                       DBUS_TYPE_UINT16, &attributeId,
                                       DBUS_TYPE_INVALID);
 
