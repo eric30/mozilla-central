@@ -270,6 +270,8 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(BluetoothAdapter,
 NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(enabled)
 NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicefound)
 NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicecreated)
+NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(deviceconnected)
+NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicedisconnected)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothAdapter, 
@@ -277,6 +279,8 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothAdapter,
 NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(enabled)
 NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicefound)
 NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicecreated)
+NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(deviceconnected)
+NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicedisconnected)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(BluetoothAdapter)
@@ -541,7 +545,9 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
       } while (dbus_message_iter_next(&dict));
 
       // Fire event to JS
-      nsIDOMBluetoothDevice* devicePtr = new BluetoothDevice(c_address, tempName, GetObjectPath(c_address));
+      nsIDOMBluetoothDevice* devicePtr = new BluetoothDevice(c_address, 
+                                                             tempName, 
+                                                             GetObjectPathFromAddress(c_address));
       FireDeviceFound(devicePtr);
     }
   } else if (dbus_message_is_signal(msg,
@@ -599,7 +605,7 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
   } else if (dbus_message_is_signal(msg,
                                     DBUS_DEVICE_IFACE,
                                     "PropertyChanged")) {
-    DBusMessageIter iter;
+    DBusMessageIter iter, subIter;
     char* property_name;
 
     if (!dbus_message_iter_init(msg, &iter)) {
@@ -610,8 +616,24 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
       LOG("Device Property [%s] changed.", property_name);
     }
 
-    // TODO(Eric)
-    //   Need to notify JS that device property has been changed
+    if (!strcmp(property_name, "Connected")) {
+      const char* address = GetAddressFromObjectPath(dbus_message_get_path(msg));
+      int isConnected;
+
+      dbus_message_iter_next(&iter);
+      dbus_message_iter_recurse(&iter, &subIter);
+      dbus_message_iter_get_basic(&subIter, &isConnected);
+
+      if (isConnected) {
+        nsIDOMBluetoothDevice* device = new BluetoothDevice(address, 
+                                                            "unknown", 
+                                                            dbus_message_get_path(msg));
+        FireDeviceConnected(device);
+      } else {
+        FireDeviceDisconnected(address);
+      }
+    }
+
   } else if (dbus_message_is_signal(msg,
                                     DBUS_DEVICE_IFACE,
                                     "DisconnectRequested")) {
@@ -1018,6 +1040,46 @@ BluetoothAdapter::GetUuids(JSContext* aCx, jsval* aUuids)
 }
 
 nsresult
+BluetoothAdapter::FireDeviceConnected(nsIDOMBluetoothDevice* aDevice)
+{
+  nsRefPtr<nsDOMEvent> event = new BluetoothEvent(nsnull, nsnull);
+  static_cast<BluetoothEvent*>(event.get())->SetDeviceInternal(aDevice);
+
+  nsresult rv = event->InitEvent(NS_LITERAL_STRING("deviceconnected"), false, false);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  rv = event->SetTrusted(true);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  bool dummy;
+  rv = DispatchEvent(event, &dummy);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  return NS_OK;
+}
+
+nsresult
+BluetoothAdapter::FireDeviceDisconnected(const char* aDeviceAddress)
+{
+  nsString domDeviceAddress = NS_ConvertASCIItoUTF16(aDeviceAddress);
+
+  nsRefPtr<nsDOMEvent> event = new BluetoothEvent(nsnull, nsnull);
+  static_cast<BluetoothEvent*>(event.get())->SetDeviceAddressInternal(domDeviceAddress);
+
+  nsresult rv = event->InitEvent(NS_LITERAL_STRING("devicedisconnected"), false, false);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  rv = event->SetTrusted(true);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  bool dummy;
+  rv = DispatchEvent(event, &dummy);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  return NS_OK;
+}
+
+nsresult
 BluetoothAdapter::FirePropertyChanged(const char* aPropertyName)
 {
   nsString domPropertyName = NS_ConvertASCIItoUTF16(aPropertyName);
@@ -1290,7 +1352,29 @@ BluetoothAdapter::Listen(PRInt32 channel)
 }
 
 const char*
-BluetoothAdapter::GetObjectPath(const char* aAddress)
+BluetoothAdapter::GetAddressFromObjectPath(const char* aObjectPath)
+{
+  char* retAddress = new char[18];
+
+  strncpy(retAddress, &aObjectPath[strlen(aObjectPath) - 17], 17);
+  retAddress[18] = '\0';
+
+  char* c = retAddress;
+  
+  while (*c) {
+    if (*c == '_')
+      *c = ':';
+
+    c++;
+  }
+
+  LOG("Get Address : %s", retAddress);
+
+  return retAddress;
+}
+
+const char*
+BluetoothAdapter::GetObjectPathFromAddress(const char* aAddress)
 {
   // Why 22?
   // The object path would be like /org/bluez/2906/hci0/dev_00_23_7F_CB_B4_F1,
@@ -1311,8 +1395,6 @@ BluetoothAdapter::GetObjectPath(const char* aAddress)
     *pch = '_';
     pch = strchr(pch + 1,':');
   }
-
-  LOG("Object Path: %s", retObjectPath);
 
   return retObjectPath;
 }
@@ -1396,7 +1478,9 @@ nsresult
 BluetoothAdapter::GetDevice(const nsAString& aAddress, nsIDOMBluetoothDevice** aDevice)
 {
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
-  nsCOMPtr<nsIDOMBluetoothDevice> ptr = new BluetoothDevice(asciiAddress, "unknown", GetObjectPath(asciiAddress));
+  nsCOMPtr<nsIDOMBluetoothDevice> ptr = new BluetoothDevice(asciiAddress, 
+                                                            "unknown", 
+                                                            GetObjectPathFromAddress(asciiAddress));
 
   NS_ADDREF(*aDevice = ptr);
 
@@ -1417,3 +1501,5 @@ NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicefound)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicedisappeared)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicecreated)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, deviceremoved)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, deviceconnected)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicedisconnected)

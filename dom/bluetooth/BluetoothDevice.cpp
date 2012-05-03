@@ -77,6 +77,7 @@ BluetoothDevice::GetAddress(nsAString& aAddress)
 nsresult
 BluetoothDevice::GetName(nsAString& aName)
 {
+  UpdateProperties();
   aName = mName;
   return NS_OK;
 }

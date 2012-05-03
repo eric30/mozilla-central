@@ -33,6 +33,13 @@ BluetoothEvent::GetDevice(nsIDOMBluetoothDevice** aDevice)
 }
 
 NS_IMETHODIMP
+BluetoothEvent::GetDeviceAddress(nsAString& aDeviceAddress)
+{
+  aDeviceAddress = mDeviceAddress;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 BluetoothEvent::GetPropertyName(nsAString& aPropertyName)
 {
   aPropertyName = mPropertyName;
@@ -49,6 +56,12 @@ void
 BluetoothEvent::SetPropertyNameInternal(const nsString& aPropertyName)
 {
   mPropertyName = aPropertyName;
+}
+
+void
+BluetoothEvent::SetDeviceAddressInternal(const nsString& aDeviceAddress)
+{
+  mDeviceAddress = aDeviceAddress;
 }
 
 nsresult

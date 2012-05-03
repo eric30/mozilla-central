@@ -42,7 +42,9 @@ public:
   inline void SetEnabledInternal(bool aEnabled) {mEnabled = aEnabled;}
 
   nsresult FireDeviceFound(nsIDOMBluetoothDevice* aDevice);
-  nsresult FirePropertyChanged(const char* propertyName);
+  nsresult FirePropertyChanged(const char* aPropertyName);
+  nsresult FireDeviceConnected(nsIDOMBluetoothDevice* aDevice);
+  nsresult FireDeviceDisconnected(const char* aDeviceAddress);
   virtual nsresult HandleEvent(DBusMessage* msg);
   nsresult SetupBluetoothAgents(void);
   nsresult SetupBluetooth(void);
@@ -53,7 +55,8 @@ protected:
   void GetProperties();
   bool SetProperty(char* propertyName, int type, void* value);
   void GetAdapterPath();
-  const char* GetObjectPath(const char * aAddress);
+  const char* GetObjectPathFromAddress(const char* aAddress);
+  const char* GetAddressFromObjectPath(const char* aObjectPath);
   int QueryServerChannelInternal(const char* aObjectPath);
   nsresult RunAdapterFunction(const char* function_name);
   nsresult BluezRegisterAgent(const char * agent_path, const char * capabilities);
@@ -81,6 +84,8 @@ protected:
   NS_DECL_EVENT_HANDLER(devicedisappeared)
   NS_DECL_EVENT_HANDLER(devicecreated)
   NS_DECL_EVENT_HANDLER(deviceremoved)
+  NS_DECL_EVENT_HANDLER(deviceconnected)
+  NS_DECL_EVENT_HANDLER(devicedisconnected)
 private:
   nsCOMPtr<nsIEventTarget> mToggleBtThread;
 };

@@ -8,4 +8,5 @@ interface nsIDOMBluetoothEvent : nsIDOMEvent
 {
   readonly attribute nsIDOMBluetoothDevice device;
   readonly attribute DOMString propertyName;
+  readonly attribute DOMString deviceAddress;
 };
