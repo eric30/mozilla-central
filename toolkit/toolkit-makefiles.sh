@@ -1536,12 +1536,6 @@ if [ "$MOZ_JPROF" ]; then
   "
 fi
 
-if [ "$MOZ_LEAKY" ]; then
-  add_makefiles "
-    tools/leaky/Makefile
-  "
-fi
-
 if [ "$NS_TRACE_MALLOC" ]; then
   add_makefiles "
     tools/trace-malloc/Makefile
@@ -1584,6 +1578,12 @@ if [ "$MOZ_TREMOR" ]; then
     media/libtremor/lib/Makefile
     media/libtremor/include/tremor/Makefile
   "
+fi
+
+if [ "$MOZ_OPUS" ]; then
+ add_makefiles "
+   media/libopus/Makefile
+ "
 fi
 
 if [ "$MOZ_OGG" ]; then
