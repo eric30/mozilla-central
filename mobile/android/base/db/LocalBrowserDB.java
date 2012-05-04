@@ -167,8 +167,10 @@ public class LocalBrowserDB implements BrowserDB.BrowserDBIface {
         // approximation using the Cauchy distribution: multiplier = 15^2 / (age^2 + 15^2).
         // Using 15 as our scale parameter, we get a constant 15^2 = 225. Following this math,
         // frecencyScore = numVisits * max(1, 100 * 225 / (age*age + 225)). (See bug 704977)
+        // We also give bookmarks an extra bonus boost by adding 100 points to their frecency score.
         final String age = "(" + Combined.DATE_LAST_VISITED + " - " + System.currentTimeMillis() + ") / 86400000";
-        final String sortOrder = Combined.VISITS + " * MAX(1, 100 * 225 / (" + age + "*" + age + " + 225)) DESC";
+        final String sortOrder = "(CASE WHEN " + Combined.BOOKMARK_ID + " > -1 THEN 100 ELSE 0 END) + " +
+                                 Combined.VISITS + " * MAX(1, 100 * 225 / (" + age + "*" + age + " + 225)) DESC";
 
         Cursor c = cr.query(combinedUriWithLimit(limit),
                             projection,
@@ -184,7 +186,8 @@ public class LocalBrowserDB implements BrowserDB.BrowserDBIface {
                               new String[] { Combined._ID,
                                              Combined.URL,
                                              Combined.TITLE,
-                                             Combined.FAVICON },
+                                             Combined.FAVICON,
+                                             Combined.BOOKMARK_ID },
                               constraint,
                               limit,
                               null);
@@ -269,13 +272,14 @@ public class LocalBrowserDB implements BrowserDB.BrowserDBIface {
     }
 
     public Cursor getRecentHistory(ContentResolver cr, int limit) {
-        Cursor c = cr.query(historyUriWithLimit(limit),
-                            new String[] { History._ID,
-                                           History.URL,
-                                           History.TITLE,
-                                           History.FAVICON,
-                                           History.DATE_LAST_VISITED,
-                                           History.VISITS },
+        Cursor c = cr.query(combinedUriWithLimit(limit),
+                            new String[] { Combined._ID,
+                                           Combined.BOOKMARK_ID,
+                                           Combined.URL,
+                                           Combined.TITLE,
+                                           Combined.FAVICON,
+                                           Combined.DATE_LAST_VISITED,
+                                           Combined.VISITS },
                             History.DATE_LAST_VISITED + " > 0",
                             null,
                             History.DATE_LAST_VISITED + " DESC");

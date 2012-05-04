@@ -520,7 +520,14 @@ AndroidGeckoEvent::Init(JNIEnv *jenv, jobject jobj)
 
         case SCREENSHOT: {
             mMetaState = jenv->GetIntField(jobj, jMetaStateField);
-            ReadPointArray(mPoints, jenv, jPoints, 2);
+            mFlags = jenv->GetIntField(jobj, jFlagsField);
+            ReadPointArray(mPoints, jenv, jPoints, 4);
+            break;
+        }
+
+        case PAINT_LISTEN_START_EVENT: {
+            mMetaState = jenv->GetIntField(jobj, jMetaStateField);
+            break;
         }
 
         case SCREENORIENTATION_CHANGED: {
@@ -702,8 +709,8 @@ AndroidGeckoLayerClient::SyncViewportInfo(const nsIntRect& aDisplayPort, float a
     NS_ABORT_IF_FALSE(viewTransformJObj, "No view transform object!");
     viewTransform.Init(viewTransformJObj);
 
-    aScrollOffset = nsIntPoint(viewTransform.GetX(), viewTransform.GetY());
-    aScaleX = aScaleY = viewTransform.GetScale();
+    aScrollOffset = nsIntPoint(viewTransform.GetX(env), viewTransform.GetY(env));
+    aScaleX = aScaleY = viewTransform.GetScale(env);
 }
 
 jobject
@@ -739,7 +746,11 @@ AndroidGeckoSurfaceView::GetSurface()
 jobject
 AndroidGeckoSurfaceView::GetSurfaceHolder()
 {
-    return GetJNIForThread()->CallObjectMethod(wrapped_obj, jGetHolderMethod);
+    JNIEnv *env = GetJNIForThread();
+    if (!env)
+        return nsnull;
+
+    return env->CallObjectMethod(wrapped_obj, jGetHolderMethod);
 }
 
 void
@@ -829,27 +840,24 @@ AndroidLayerRendererFrame::EndDrawing()
 }
 
 float
-AndroidViewTransform::GetX()
+AndroidViewTransform::GetX(JNIEnv *env)
 {
-    JNIEnv *env = GetJNIForThread();
     if (!env)
         return 0.0f;
     return env->GetFloatField(wrapped_obj, jXField);
 }
 
 float
-AndroidViewTransform::GetY()
+AndroidViewTransform::GetY(JNIEnv *env)
 {
-    JNIEnv *env = GetJNIForThread();
     if (!env)
         return 0.0f;
     return env->GetFloatField(wrapped_obj, jYField);
 }
 
 float
-AndroidViewTransform::GetScale()
+AndroidViewTransform::GetScale(JNIEnv *env)
 {
-    JNIEnv *env = GetJNIForThread();
     if (!env)
         return 0.0f;
     return env->GetFloatField(wrapped_obj, jScaleField);
@@ -882,8 +890,13 @@ nsJNIString::nsJNIString(jstring jstr, JNIEnv *jenv)
         return;
     }
     JNIEnv *jni = jenv;
-    if (!jni)
+    if (!jni) {
         jni = AndroidBridge::GetJNIEnv();
+        if (!jni) {
+            SetIsVoid(true);
+            return;
+        }
+    }
     const jchar* jCharPtr = jni->GetStringChars(jstr, NULL);
 
     if (!jCharPtr) {

@@ -231,12 +231,15 @@ ImageContainer::GetCurrentAsSurface(gfxIntSize *aSize)
     CrossProcessMutexAutoLock autoLock(*mRemoteDataMutex);
     EnsureActiveImage();
 
+    if (!mActiveImage)
+      return nsnull;
     *aSize = mRemoteData->mSize;
-    return mActiveImage ? mActiveImage->GetAsSurface() : nsnull;
+  } else {
+    if (!mActiveImage)
+      return nsnull;
+    *aSize = mActiveImage->GetSize();
   }
-
-  *aSize = mActiveImage->GetSize();
-  return mActiveImage ? mActiveImage->GetAsSurface() : nsnull;
+  return mActiveImage->GetAsSurface();
 }
 
 gfxIntSize
@@ -320,13 +323,43 @@ PlanarYCbCrImage::AllocateBuffer(PRUint32 aSize)
   return mRecycleBin->GetBuffer(aSize); 
 }
 
+static void
+CopyPlane(PRUint8 *aDst, PRUint8 *aSrc,
+          const gfxIntSize &aSize, PRInt32 aStride,
+          PRInt32 aOffset, PRInt32 aSkip)
+{
+  if (!aOffset && !aSkip) {
+    // Fast path: planar input.
+    memcpy(aDst, aSrc, aSize.height * aStride);
+  } else {
+    PRInt32 height = aSize.height;
+    PRInt32 width = aSize.width;
+    for (int y = 0; y < height; ++y) {
+      PRUint8 *src = aSrc + aOffset;
+      PRUint8 *dst = aDst;
+      if (!aSkip) {
+        // Fast path: offset only, no per-pixel skip.
+        memcpy(dst, src, width);
+      } else {
+        // Slow path
+        for (int x = 0; x < width; ++x) {
+          *dst++ = *src++;
+          src += aSkip;
+        }
+      }
+      aSrc += aStride;
+      aDst += aStride;
+    }
+  }
+}
+
 void
-PlanarYCbCrImage::CopyData(const Data& aData)
+PlanarYCbCrImage::CopyData(const Data& aData,
+                           PRInt32 aYOffset, PRInt32 aYSkip,
+                           PRInt32 aCbOffset, PRInt32 aCbSkip,
+                           PRInt32 aCrOffset, PRInt32 aCrSkip)
 {
   mData = aData;
-
-  mData.mYStride = mData.mYSize.width;
-  mData.mCbCrStride = mData.mCbCrSize.width;
 
   // update buffer size
   mBufferSize = mData.mCbCrStride * mData.mCbCrSize.height * 2 +
@@ -341,19 +374,15 @@ PlanarYCbCrImage::CopyData(const Data& aData)
   mData.mCbChannel = mData.mYChannel + mData.mYStride * mData.mYSize.height;
   mData.mCrChannel = mData.mCbChannel + mData.mCbCrStride * mData.mCbCrSize.height;
 
-  for (int i = 0; i < mData.mYSize.height; i++) {
-    memcpy(mData.mYChannel + i * mData.mYStride,
-           aData.mYChannel + i * aData.mYStride,
-           mData.mYStride);
-  }
-  for (int i = 0; i < mData.mCbCrSize.height; i++) {
-    memcpy(mData.mCbChannel + i * mData.mCbCrStride,
-           aData.mCbChannel + i * aData.mCbCrStride,
-           mData.mCbCrStride);
-    memcpy(mData.mCrChannel + i * mData.mCbCrStride,
-           aData.mCrChannel + i * aData.mCbCrStride,
-           mData.mCbCrStride);
-  }
+  CopyPlane(mData.mYChannel, aData.mYChannel,
+            mData.mYSize, mData.mYStride,
+            aYOffset, aYSkip);
+  CopyPlane(mData.mCbChannel, aData.mCbChannel,
+            mData.mCbCrSize, mData.mCbCrStride,
+            aCbOffset, aCbSkip);
+  CopyPlane(mData.mCrChannel, aData.mCrChannel,
+            mData.mCbCrSize, mData.mCbCrStride,
+            aCrOffset, aCrSkip);
 
   mSize = aData.mPicSize;
 }

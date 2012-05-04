@@ -11,7 +11,7 @@ let subscriptLoader = Cc["@mozilla.org/moz/jssubscript-loader;1"]
 
 /**
  * Start a new RIL worker.
- * 
+ *
  * @param custom_ns
  *        Namespace with symbols to be injected into the new worker
  *        namespace.
@@ -162,4 +162,3 @@ function do_check_throws(func, result, stack)
     do_throw("expected result " + result + ", none thrown", stack);
   }
 }
-

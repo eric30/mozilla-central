@@ -503,6 +503,11 @@ MAKEFILES_xulapp="
   toolkit/xre/Makefile
 "
 
+MAKEFILES_jsctypes="
+  toolkit/components/ctypes/Makefile
+  toolkit/components/ctypes/tests/Makefile
+"
+
 MAKEFILES_debugger="
   toolkit/devtools/debugger/Makefile
 "
@@ -1613,6 +1618,18 @@ if [ "$MOZ_WEBM" ]; then
       media/libvpx/Makefile
     "
   fi
+fi
+
+if [ "$MOZ_MEDIA_PLUGINS" ]; then
+  add_makefiles "
+    content/media/plugins/Makefile
+  "
+fi
+
+if [ "$MOZ_OMX_PLUGIN" ]; then
+  add_makefiles "
+    toolkit/mozapps/omx-plugin/Makefile
+  "
 fi
 
 if [ "$MOZ_WAVE" ]; then

@@ -183,6 +183,12 @@ SHARED_LIBRARY_LIBS 	+= \
 	$(NULL)
 endif
 
+ifdef MOZ_MEDIA_PLUGINS
+SHARED_LIBRARY_LIBS 	+= \
+	$(DEPTH)/content/media/plugins/$(LIB_PREFIX)gkconmediaplugins_s.$(LIB_SUFFIX) \
+	$(NULL)
+endif
+
 ifdef MOZ_GSTREAMER
 SHARED_LIBRARY_LIBS 	+= \
 	$(DEPTH)/content/media/gstreamer/$(LIB_PREFIX)gkcongstreamer_s.$(LIB_SUFFIX) \

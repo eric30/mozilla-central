@@ -121,8 +121,11 @@ class GeckoSurfaceView
 
         Resources res = getResources();
 
+// Not used on B2G
+/*
         File watchDir = new File(GeckoApp.sGREDir, "components");
         if (watchDir.exists() == false) {
+*/
             // Just show the simple splash screen for "new profile" startup
             c.drawColor(res.getColor(R.color.splash_background));
             Drawable drawable = res.getDrawable(R.drawable.splash);
@@ -139,6 +142,7 @@ class GeckoSurfaceView
             p.setAntiAlias(true);
             p.setColor(res.getColor(R.color.splash_msgfont));
             c.drawText(res.getString(R.string.splash_firstrun), width / 2, y + h + 16, p);
+/*
         } else {
             // Show the static UI for normal startup
             DisplayMetrics metrics = new DisplayMetrics();
@@ -180,6 +184,7 @@ class GeckoSurfaceView
                 c.drawText(url, urlOffsetX, urlOffsetY, p);
             }
         }
+*/
         holder.unlockCanvasAndPost(c);
     }
 
@@ -636,8 +641,15 @@ class GeckoSurfaceView
                 }
             case KeyEvent.KEYCODE_MENU:
                 if (event.getRepeatCount() == 0) {
-                    event.startTracking();
-                    break;
+                    // FIXME: this is a temporary hack to allow
+                    // removing the default home screen.  We should
+                    // probably allow content to listen for
+                    // menu-button clicks, in the long run.
+                    Intent settings = new Intent(android.provider.Settings.ACTION_SETTINGS);
+                    settings.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
+                                      Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+                    getContext().startActivity(settings);
+                    return true;
                 } else if ((event.getFlags() & KeyEvent.FLAG_LONG_PRESS) != 0) {
                     break;
                 }

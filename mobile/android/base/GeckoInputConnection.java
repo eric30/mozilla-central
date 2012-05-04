@@ -592,7 +592,8 @@ public class GeckoInputConnection
             }
         }
 
-        if (!hasCompositionString()) {
+        boolean needCompositionString = !hasCompositionString();
+        if (needCompositionString) {
             if (DEBUG) Log.d(LOGTAG, ". . . onTextChanged: IME_COMPOSITION_BEGIN");
             GeckoAppShell.sendEventToGecko(
                 GeckoEvent.createIMEEvent(GeckoEvent.IME_COMPOSITION_BEGIN, 0, 0));
@@ -619,7 +620,7 @@ public class GeckoInputConnection
 
         // End composition if all characters in the word have been deleted.
         // This fixes autocomplete results not appearing.
-        if (count == 0)
+        if (count == 0 || needCompositionString)
             endComposition();
 
         // Block this thread until all pending events are processed
@@ -1028,10 +1029,10 @@ public class GeckoInputConnection
                 instance = null;
             }
 
-            View v = GeckoApp.mAppContext.getLayerController().getView();
+            final View v = GeckoApp.mAppContext.getLayerController().getView();
             if (DEBUG) Log.d(LOGTAG, "IME: v=" + v);
 
-            InputMethodManager imm = getInputMethodManager();
+            final InputMethodManager imm = getInputMethodManager();
             if (imm == null)
                 return;
 
@@ -1041,10 +1042,20 @@ public class GeckoInputConnection
             if (!mEnable)
                 return;
 
-            if (mIMEState != IME_STATE_DISABLED)
-                imm.showSoftInput(v, 0);
-            else
+            if (mIMEState != IME_STATE_DISABLED) {
+                if (!v.isFocused()) {
+                    GeckoApp.mAppContext.mMainHandler.post(new Runnable() {
+                        public void run() {
+                            v.requestFocus();
+                            imm.showSoftInput(v, 0);
+                        }
+                    });
+                } else {
+                    imm.showSoftInput(v, 0);
+                }
+            } else {
                 imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+            }
         }
     }
 

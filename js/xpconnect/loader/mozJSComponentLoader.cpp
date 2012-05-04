@@ -213,8 +213,9 @@ Dump(JSContext *cx, unsigned argc, jsval *vp)
     NS_ConvertUTF16toUTF8 utf8str(reinterpret_cast<const PRUnichar*>(chars));
 #ifdef ANDROID
     __android_log_print(ANDROID_LOG_INFO, "Gecko", utf8str.get());
-#endif
+#else
     fputs(utf8str.get(), stdout);
+#endif
     fflush(stdout);
     return true;
 }
@@ -669,10 +670,6 @@ mozJSComponentLoader::GlobalForLocation(nsILocalFile *aComponentFile,
     nsCOMPtr<nsIXPConnect> xpc =
         do_GetService(kXPConnectServiceContractID, &rv);
     NS_ENSURE_SUCCESS(rv, rv);
-
-    // Make sure InitClassesWithNewWrappedGlobal() installs the
-    // backstage pass as the global in our compilation context.
-    JS_SetGlobalObject(cx, nsnull);
 
     nsCOMPtr<nsIXPConnectJSObjectHolder> holder;
     rv = xpc->InitClassesWithNewWrappedGlobal(cx, backstagePass,

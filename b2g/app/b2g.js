@@ -319,6 +319,7 @@ pref("dom.indexedDB.warningQuota", 5);
 // prevent video elements from preloading too much data
 pref("media.preload.default", 1); // default to preload none
 pref("media.preload.auto", 2);    // preload metadata if preload=auto
+pref("media.cache_size", 128);    // 4MB media cache
 
 //  0: don't show fullscreen keyboard
 //  1: always show fullscreen keyboard
@@ -425,16 +426,17 @@ pref("browser.link.open_newwindow", 3);
 // 2: don't divert window.open with features
 pref("browser.link.open_newwindow.restriction", 0);
 
-// Enable browser frame
+// Enable browser frames, but not OOP.
 pref("dom.mozBrowserFramesEnabled", true);
 pref("dom.mozBrowserFramesWhitelist", "http://homescreen.gaiamobile.org,http://browser.gaiamobile.org");
+pref("dom.ipc.tabs.disabled", true);
 
 // Temporary permission hack for WebSMS
 pref("dom.sms.enabled", true);
 pref("dom.sms.whitelist", "file://,http://homescreen.gaiamobile.org,http://sms.gaiamobile.org");
 
 // Temporary permission hack for WebMobileConnection
-pref("dom.mobileconnection.whitelist", "http://homescreen.gaiamobile.org");
+pref("dom.mobileconnection.whitelist", "http://system.gaiamobile.org,http://homescreen.gaiamobile.org,http://dialer.gaiamobile.org");
 
 // Temporary permission hack for WebContacts
 pref("dom.mozContacts.enabled", true);
@@ -475,14 +477,10 @@ pref("full-screen-api.enabled", true);
 
 pref("media.volume.steps", 10);
 
-// Data connection settings. These will eventually live in the
-// navigator.settings API, or even in a database where we can look
-// it up automatically (bug 729440), but for this will have to do.
-pref("ril.data.enabled", false);
-pref("ril.data.roaming.enabled", false);
-pref("ril.data.apn", "");
-pref("ril.data.user", "");
-pref("ril.data.passwd", "");
+// Screen orientation
+pref("b2g.sensor.orientation.enabled", false);
+
+pref("media.plugins.enabled", true);
 
 //Enable/disable marionette server, set listening port
 pref("marionette.defaultPrefs.enabled", true);

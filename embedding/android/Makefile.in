@@ -176,7 +176,7 @@ classes.dex: $(JAVAFILES) $(PROCESSEDJAVAFILES) R.java
 	$(JAVAC) $(JAVAC_FLAGS) -d classes  $(addprefix $(srcdir)/,$(JAVAFILES)) $(PROCESSEDJAVAFILES) R.java
 	$(DX) --dex --output=$@ classes
 
-AndroidManifest.xml $(PROCESSEDJAVAFILES): % : %.in
+AndroidManifest.xml $(PROCESSEDJAVAFILES): % : %.in FORCE
 	$(PYTHON) $(topsrcdir)/config/Preprocessor.py \
              $(AUTOMATION_PPARGS) $(DEFINES) $(ACDEFINES) $< > $@
 

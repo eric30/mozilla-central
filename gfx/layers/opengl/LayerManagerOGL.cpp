@@ -48,6 +48,7 @@
 #include "ImageLayerOGL.h"
 #include "ColorLayerOGL.h"
 #include "CanvasLayerOGL.h"
+#include "TiledThebesLayerOGL.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Preferences.h"
 
@@ -816,8 +817,13 @@ LayerManagerOGL::Render()
 
   mGLContext->fEnable(LOCAL_GL_SCISSOR_TEST);
 
+  // If the Java compositor is being used, this clear will be done in
+  // DrawWindowUnderlay. Make sure the bits used here match up with those used
+  // in mobile/android/base/gfx/LayerRenderer.java
+#ifndef MOZ_JAVA_COMPOSITOR
   mGLContext->fClearColor(0.0, 0.0, 0.0, 0.0);
   mGLContext->fClear(LOCAL_GL_COLOR_BUFFER_BIT | LOCAL_GL_DEPTH_BUFFER_BIT);
+#endif
 
   // Allow widget to render a custom background.
   mWidget->DrawWindowUnderlay(this, rect);
@@ -1264,7 +1270,11 @@ LayerManagerOGL::CreateShadowThebesLayer()
     NS_WARNING("Call on destroyed layer manager");
     return nsnull;
   }
+#ifdef FORCE_BASICTILEDTHEBESLAYER
+  return nsRefPtr<ShadowThebesLayer>(new TiledThebesLayerOGL(this)).forget();
+#else
   return nsRefPtr<ShadowThebesLayerOGL>(new ShadowThebesLayerOGL(this)).forget();
+#endif
 }
 
 already_AddRefed<ShadowContainerLayer>

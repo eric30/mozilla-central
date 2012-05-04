@@ -43,6 +43,7 @@ import org.mozilla.gecko.GeckoApp;
 import org.mozilla.gecko.GeckoAppShell;
 import org.mozilla.gecko.GeckoEvent;
 import org.mozilla.gecko.GeckoEventResponder;
+import org.mozilla.gecko.Tabs;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -73,6 +74,9 @@ public class GeckoLayerClient implements GeckoEventResponder,
     private DisplayPortMetrics mDisplayPort;
     private DisplayPortMetrics mReturnDisplayPort;
 
+    private boolean mRecordDrawTimes;
+    private DrawTimingQueue mDrawTimingQueue;
+
     private VirtualLayer mRootLayer;
 
     /* The Gecko viewport as per the UI thread. Must be touched only on the UI thread. */
@@ -98,6 +102,8 @@ public class GeckoLayerClient implements GeckoEventResponder,
         mScreenSize = new IntSize(0, 0);
         mWindowSize = new IntSize(0, 0);
         mDisplayPort = new DisplayPortMetrics();
+        mRecordDrawTimes = true;
+        mDrawTimingQueue = new DrawTimingQueue();
         mCurrentViewTransform = new ViewTransform(0, 0, 1);
     }
 
@@ -124,6 +130,7 @@ public class GeckoLayerClient implements GeckoEventResponder,
 
         JSONArray prefs = new JSONArray();
         DisplayPortCalculator.addPrefNames(prefs);
+        PluginLayer.addPrefNames(prefs);
         GeckoAppShell.sendEventToGecko(GeckoEvent.createBroadcastEvent("Preferences:Get", prefs.toString()));
     }
 
@@ -191,6 +198,10 @@ public class GeckoLayerClient implements GeckoEventResponder,
 
         mDisplayPort = displayPort;
         mGeckoViewport = clampedMetrics;
+
+        if (mRecordDrawTimes) {
+            mDrawTimingQueue.add(displayPort);
+        }
 
         GeckoAppShell.sendEventToGecko(GeckoEvent.createViewportEvent(clampedMetrics, displayPort));
     }
@@ -271,7 +282,7 @@ public class GeckoLayerClient implements GeckoEventResponder,
                 // check return value from setStrategy to make sure that this is the
                 // right batch of prefs, since other java code may also have sent requests
                 // for prefs.
-                if (DisplayPortCalculator.setStrategy(prefValues)) {
+                if (DisplayPortCalculator.setStrategy(prefValues) && PluginLayer.setUsePlaceholder(prefValues)) {
                     GeckoAppShell.unregisterGeckoEventListener("Preferences:Data", this);
                 }
             }
@@ -341,6 +352,10 @@ public class GeckoLayerClient implements GeckoEventResponder,
             mLayerController.abortPanZoomAnimation();
             mLayerController.getView().setPaintState(LayerView.PAINT_BEFORE_FIRST);
         }
+        DisplayPortCalculator.resetPageState();
+        mDrawTimingQueue.reset();
+        mLayerController.getView().getRenderer().resetCheckerboard();
+        GeckoAppShell.screenshotWholePage(Tabs.getInstance().getSelectedTab());
     }
 
     /** This function is invoked by Gecko via JNI; be careful when modifying signature.
@@ -389,6 +404,19 @@ public class GeckoLayerClient implements GeckoEventResponder,
         mCurrentViewTransform.scale = mFrameMetrics.zoomFactor;
 
         mRootLayer.setPositionAndResolution(x, y, x + width, y + height, resolution);
+
+        if (layersUpdated && mRecordDrawTimes) {
+            // If we got a layers update, that means a draw finished. Check to see if the area drawn matches
+            // one of our requested displayports; if it does calculate the draw time and notify the
+            // DisplayPortCalculator
+            DisplayPortMetrics drawn = new DisplayPortMetrics(x, y, x + width, y + height, resolution);
+            long time = mDrawTimingQueue.findTimeFor(drawn);
+            if (time >= 0) {
+                long now = SystemClock.uptimeMillis();
+                time = now - time;
+                mRecordDrawTimes = DisplayPortCalculator.drawTimeUpdate(time, width * height);
+            }
+        }
 
         if (layersUpdated && mDrawListener != null) {
             /* Used by robocop for testing purposes */

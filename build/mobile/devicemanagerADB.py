@@ -1,3 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this file,
+# You can obtain one at http://mozilla.org/MPL/2.0/.
+
 import subprocess
 from devicemanager import DeviceManager, DMError, _pop_last_line
 import re
@@ -219,7 +223,7 @@ class DeviceManagerADB(DeviceManager):
           self.useZip = False
           self.pushDir(localDir, remoteDir)
       else:
-        for root, dirs, files in os.walk(localDir, followlinks='true'):
+        for root, dirs, files in os.walk(localDir, followlinks=True):
           relRoot = os.path.relpath(root, localDir)
           for file in files:
             localFile = os.path.join(root, file)

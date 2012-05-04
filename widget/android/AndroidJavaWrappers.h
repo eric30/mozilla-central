@@ -162,9 +162,9 @@ public:
     AndroidViewTransform() {}
     AndroidViewTransform(jobject jobj) { Init(jobj); }
 
-    float GetX();
-    float GetY();
-    float GetScale();
+    float GetX(JNIEnv *env);
+    float GetY(JNIEnv *env);
+    float GetScale(JNIEnv *env);
 
 private:
     static jclass jViewTransformClass;
@@ -719,6 +719,7 @@ public:
         SCREENORIENTATION_CHANGED = 27,
         COMPOSITOR_PAUSE = 28,
         COMPOSITOR_RESUME = 29,
+        PAINT_LISTEN_START_EVENT = 30,
         dummy_java_enum_list_end
     };
 

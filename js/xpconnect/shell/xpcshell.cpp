@@ -458,9 +458,10 @@ Dump(JSContext *cx, unsigned argc, jsval *vp)
 
 #ifdef ANDROID
     __android_log_print(ANDROID_LOG_INFO, "Gecko", bytes.ptr());
-#endif
+#else
     fputs(bytes.ptr(), gOutFile);
     fflush(gOutFile);
+#endif
     return true;
 }
 

@@ -36,6 +36,8 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
+#include "mozilla/FloatingPoint.h"
+
 #include "jsclone.h"
 #include "jsdate.h"
 #include "jstypedarray.h"
@@ -424,6 +426,13 @@ JSStructuredCloneWriter::checkStack()
 #endif
 }
 
+JS_PUBLIC_API(JSBool)
+JS_WriteTypedArray(JSStructuredCloneWriter *w, jsval v)
+{
+    JS_ASSERT(v.isObject());
+    return w->writeTypedArray(&v.toObject());
+}
+
 bool
 JSStructuredCloneWriter::writeTypedArray(JSObject *obj)
 {
@@ -454,9 +463,9 @@ JSStructuredCloneWriter::writeTypedArray(JSObject *obj)
 bool
 JSStructuredCloneWriter::writeArrayBuffer(JSObject *obj)
 {
-    obj = ArrayBuffer::getArrayBuffer(obj);
-    return out.writePair(SCTAG_ARRAY_BUFFER_OBJECT, obj->arrayBufferByteLength()) &&
-           out.writeBytes(obj->arrayBufferDataOffset(), obj->arrayBufferByteLength());
+    ArrayBufferObject &buffer = obj->asArrayBuffer();
+    return out.writePair(SCTAG_ARRAY_BUFFER_OBJECT, buffer.byteLength()) &&
+           out.writeBytes(buffer.dataPointer(), buffer.byteLength());
 }
 
 bool
@@ -566,7 +575,7 @@ JSStructuredCloneWriter::startWrite(const Value &v)
             return startObject(obj);
         } else if (obj->isTypedArray()) {
             return writeTypedArray(obj);
-        } else if (obj->isArrayBuffer()) {
+        } else if (obj->isArrayBuffer() && obj->asArrayBuffer().hasData()) {
             return writeArrayBuffer(obj);
         } else if (obj->isBoolean()) {
             return out.writePair(SCTAG_BOOLEAN_OBJECT, obj->asBoolean().unbox());
@@ -689,6 +698,16 @@ JSStructuredCloneReader::readString(uint32_t nchars)
     return str;
 }
 
+JS_PUBLIC_API(JSBool)
+JS_ReadTypedArray(JSStructuredCloneReader *r, jsval *vp)
+{
+    uint32_t tag, nelems;
+    if (!r->input().readPair(&tag, &nelems))
+        return false;
+    JS_ASSERT(tag >= SCTAG_TYPED_ARRAY_MIN && tag <= SCTAG_TYPED_ARRAY_MAX);
+    return r->readTypedArray(tag, nelems, vp);
+}
+
 bool
 JSStructuredCloneReader::readTypedArray(uint32_t tag, uint32_t nelems, Value *vp)
 {
@@ -761,12 +780,13 @@ JSStructuredCloneReader::readTypedArray(uint32_t tag, uint32_t nelems, Value *vp
 bool
 JSStructuredCloneReader::readArrayBuffer(uint32_t nbytes, Value *vp)
 {
-    JSObject *obj = ArrayBuffer::create(context(), nbytes);
+    JSObject *obj = ArrayBufferObject::create(context(), nbytes);
     if (!obj)
         return false;
     vp->setObject(*obj);
-    JS_ASSERT(obj->arrayBufferByteLength() == nbytes);
-    return in.readArray(obj->arrayBufferDataOffset(), nbytes);
+    ArrayBufferObject &buffer = obj->asArrayBuffer();
+    JS_ASSERT(buffer.byteLength() == nbytes);
+    return in.readArray(buffer.dataPointer(), nbytes);
 }
 
 bool
@@ -817,7 +837,7 @@ JSStructuredCloneReader::startRead(Value *vp)
         double d;
         if (!in.readDouble(&d) || !checkDouble(d))
             return false;
-        if (d == d && d != TIMECLIP(d)) {
+        if (!MOZ_DOUBLE_IS_NaN(d) && d != TimeClip(d)) {
             JS_ReportErrorNumber(context(), js_GetErrorMessage, NULL, JSMSG_SC_BAD_SERIALIZED_DATA,
                                  "date");
             return false;
