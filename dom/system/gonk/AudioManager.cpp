@@ -234,9 +234,11 @@ AudioManager::SetAudioRoute(int aRoutes) {
 
 void
 AudioManager::SetAudioInput() {
+  /*
   audio_io_handle_t handle = AudioSystem::getInput(AudioSystem::SYSTEM);
 
   String8 cmd;
   cmd.appendFormat("%s=%d", AudioParameter::keyRouting, AudioSystem::DEVICE_IN_BLUETOOTH_SCO_HEADSET);
   AudioSystem::setParameters(handle, cmd);
+  */
 }

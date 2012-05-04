@@ -332,11 +332,20 @@ nsresult
 BluetoothAdapter::SetupBluetooth()
 {
   GetAdapterPath();
-  GetProperties();
+  //GetProperties();
 
   nsresult rv = SetupBluetoothAgents();
 
-  Listen(BluetoothUtils::NextAvailableChannel());
+  int hfpChannel = BluetoothUtils::NextAvailableChannel();
+
+  AddServiceRecord("Voice gateway",
+                   BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
+                   BluetoothServiceUuid::BaseLSB,
+                   hfpChannel);
+
+  BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
+  hfp->Listen(hfpChannel);
+  //Listen(BluetoothUtils::NextAvailableChannel());
 
   return rv;
 }
@@ -493,9 +502,26 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
     LOG("Null message, ignoring\n");
     return NS_ERROR_FAILURE;
   } 
+
+  void* tempPtr = (void*)msg;
+  char* tempPtr2 = (char*)tempPtr;
+
+  if (*(tempPtr2 + 8) == 0)
+  {
+    LOG("dummy2 = headerlength = 0");
+    return NS_OK;
+  }
   
   DBusError err;
   dbus_error_init(&err);
+
+  int test = dbus_message_get_type(msg);
+  LOG("MSG : %d", test);
+
+  if (dbus_message_get_type(msg) != DBUS_MESSAGE_TYPE_SIGNAL) {
+    LOG("%s: not interested (not a signal).", __FUNCTION__);
+    return NS_OK;
+  }
 
   LOG("%s: Received signal %s:%s from %s", __FUNCTION__,
       dbus_message_get_interface(msg), dbus_message_get_member(msg),
@@ -684,8 +710,6 @@ void BluetoothAdapter::GetAdapterPath() {
           dbus_error_free(&err);
         }
       }
-
-      goto failed;
     }
   }
   if (attempt == 1000) {
@@ -715,6 +739,10 @@ BluetoothAdapter::GetProperties() {
   DBusMessage *reply;
   DBusError err;
   dbus_error_init(&err);
+
+  GetAdapterPath();
+
+  LOG("AdapterPath:%s", mAdapterPath);
 
   reply = dbus_func_args(mAdapterPath,
                          DBUS_ADAPTER_IFACE, "GetProperties",
@@ -1218,7 +1246,9 @@ NS_IMETHODIMP
 BluetoothAdapter::BluezRegisterAgent(const char * agent_path, const char * capabilities) {
     DBusMessage *msg, *reply;
     DBusError err;
-    int oob = 0;
+    // TODO(Eric)
+    // Signature of method RegisterAgent is os, not osb
+    // int oob = 0;
 
     if (!dbus_connection_register_object_path(mConnection, agent_path,
                                               &agent_vtable, NULL)) {
@@ -1238,7 +1268,7 @@ BluetoothAdapter::BluezRegisterAgent(const char * agent_path, const char * capab
     dbus_message_append_args(msg, 
                              DBUS_TYPE_OBJECT_PATH, &agent_path,
                              DBUS_TYPE_STRING, &capabilities,
-                             DBUS_TYPE_BOOLEAN, &oob,
+       //                      DBUS_TYPE_BOOLEAN, &oob,
                              DBUS_TYPE_INVALID);
 
     LOG("Prepare to RegisterAgent");
@@ -1298,6 +1328,10 @@ BluetoothAdapter::Pair(const nsAString& aAddress, PRInt32 aTimeout)
 
   // Then send CreatePairedDevice, it will register a temp device agent then 
   // unregister it after pairing process is over
+  GetAdapterPath();
+
+  LOG("PATH!! %s", mAdapterPath);
+
   bool ret = dbus_func_args_async(aTimeout,
                                   asyncCreatePairedDeviceCallback , // callback
                                   (void*)backupAddress,

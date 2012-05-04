@@ -336,10 +336,10 @@ BluetoothSocket::Listen(int channel)
   }
 }
 
-void*
-BluetoothSocket::AcceptInternal(void* ptr)
+int
+BluetoothSocket::Accept()
 {
-  BluetoothSocket* socket = static_cast<BluetoothSocket*>(ptr);  
+  BluetoothSocket* socket = this;
 
   int ret;
   socklen_t addr_sz;
@@ -382,9 +382,10 @@ BluetoothSocket::AcceptInternal(void* ptr)
     //pthread_create(&(socket->mThread), NULL, BluetoothSocket::StartEventThread, ptr);
   }
 
-  return NULL;
+  return ret;
 }
 
+/*
 int
 BluetoothSocket::Accept()
 {
@@ -397,6 +398,7 @@ BluetoothSocket::Accept()
 
   return 0;
 }
+*/
 
 void
 BluetoothSocket::Disconnect()

@@ -18,6 +18,9 @@
 #include <sys/socket.h>
 #include <poll.h>
 
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args)
+
 // size of the dbus event loops pollfd structure, hopefully never to be grown
 #define DEFAULT_INITIAL_POLLFD_COUNT 8
 #define BLUEZ_DBUS_BASE_PATH      "/org/bluez"
@@ -74,11 +77,11 @@ DBusThread::~DBusThread()
 }
 
 static dbus_bool_t addWatch(DBusWatch *watch, void *data) {
-  printf("add Watch!\n");
+  LOG("add Watch!\n");
   DBusThread *dbt = (DBusThread *)data;
 
   if (dbus_watch_get_enabled(watch)) {
-    printf("enabled Watch!\n");
+    LOG("enabled Watch!\n");
     // note that we can't just send the watch and inspect it later
     // because we may get a removeWatch call before this data is reacted
     // to by our eventloop and remove this watch..  reading the add first
@@ -98,7 +101,7 @@ static dbus_bool_t addWatch(DBusWatch *watch, void *data) {
 }
 
 static void removeWatch(DBusWatch *watch, void *data) {
-  printf("remove Watch!\n");
+  LOG("remove Watch!\n");
   DBusThread *dbt = (DBusThread *)data;
 
   char control = EVENT_LOOP_REMOVE;
@@ -112,7 +115,7 @@ static void removeWatch(DBusWatch *watch, void *data) {
 }
 
 static void toggleWatch(DBusWatch *watch, void *data) {
-  printf("toggle Watch!\n");
+  LOG("toggle Watch!\n");
   if (dbus_watch_get_enabled(watch)) {
     addWatch(watch, data);
   } else {
@@ -124,7 +127,7 @@ static void handleWatchAdd(DBusThread* dbt) {
   DBusWatch *watch;
   int newFD;
   unsigned int flags;
-  printf("Handling watch addition!\n");
+  LOG("Handling watch addition!\n");
   read(dbt->controlFdR, &newFD, sizeof(int));
   read(dbt->controlFdR, &flags, sizeof(unsigned int));
   read(dbt->controlFdR, &watch, sizeof(DBusWatch *));
@@ -133,12 +136,12 @@ static void handleWatchAdd(DBusThread* dbt) {
   for (int y = 0; y<dbt->pollMemberCount; y++) {
     if ((dbt->pollData[y].fd == newFD) &&
         (dbt->pollData[y].events == events)) {
-      printf("DBusWatch duplicate add\n");
+      LOG("DBusWatch duplicate add\n");
       return;
     }
   }
   if (dbt->pollMemberCount == dbt->pollDataSize) {
-    printf("Bluetooth EventLoop poll struct growing\n");
+    LOG("Bluetooth EventLoop poll struct growing\n");
     struct pollfd *temp = (struct pollfd *)malloc(
       sizeof(struct pollfd) * (dbt->pollMemberCount+1));
     if (!temp) {
@@ -180,19 +183,21 @@ static DBusHandlerResult event_filter(DBusConnection *conn, DBusMessage *msg,
 //     nat = (native_data_t *)data;
 //     dbt->vm->GetEnv((void**)&env, dbt->envVer);
   if (dbus_message_get_type(msg) != DBUS_MESSAGE_TYPE_SIGNAL) {
-    printf("%s: not interested (not a signal).\n", __FUNCTION__);
+    LOG("%s: not interested (not a signal).\n", __FUNCTION__);
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
   }
 
-  printf("%s: Received signal %s:%s from %s\n", __FUNCTION__,
-         dbus_message_get_interface(msg), dbus_message_get_member(msg),
-         dbus_message_get_path(msg));
+  LOG("%s: Received signal %s:%s from %s\n", __FUNCTION__,
+      dbus_message_get_interface(msg), dbus_message_get_member(msg),
+      dbus_message_get_path(msg));
+
   if(!dbt->mEventHandler) {
-    printf("No handler set!\n");
+    LOG("No handler set!\n");
     return DBUS_HANDLER_RESULT_HANDLED;    
   }
-  printf("Dispatching handle to main thread!\n");
-  nsCOMPtr<DBusHandleMessage> d = new DBusHandleMessage(dbt->mEventHandler, msg);
+
+  LOG("Dispatching handle to main thread!\n");
+  nsRefPtr<DBusHandleMessage> d = new DBusHandleMessage(dbt->mEventHandler, msg);
   NS_DispatchToMainThread(d);
   return DBUS_HANDLER_RESULT_HANDLED;
 }
@@ -318,7 +323,7 @@ void* DBusThread::eventLoop(void *ptr) {
       }
 
       if (dbt->pollData[i].fd == dbt->controlFdR) {
-        printf("Got a watch request!\n");
+        LOG("Got a watch request!\n");
         char data;
         while (recv(dbt->controlFdR, &data, sizeof(char), MSG_DONTWAIT)
                != -1) {
@@ -346,7 +351,7 @@ void* DBusThread::eventLoop(void *ptr) {
           }
         }
       } else {
-        printf("Got an watch handle!\n");
+        LOG("Got an watch handle!\n");
         short events = dbt->pollData[i].revents;
         unsigned int flags = unix_events_to_dbus_flags(events);
         dbus_watch_handle(dbt->watchData[i], flags);
@@ -357,7 +362,7 @@ void* DBusThread::eventLoop(void *ptr) {
     }
     while (dbus_connection_dispatch(dbt->mConnection) ==
            DBUS_DISPATCH_DATA_REMAINS) {
-      printf("Got an event!\n");
+      LOG("Got an event!\n");
 
     }
 
@@ -369,23 +374,23 @@ bool DBusThread::startEventLoop() {
   pthread_mutex_lock(&(thread_mutex));
   bool result = false;
   running = false;
-  printf("Hey, what's controlFdR right now? %d\n", controlFdR);
+  LOG("Hey, what's controlFdR right now? %d\n", controlFdR);
   if (pollData) {
-    printf("trying to start EventLoop a second time!\n");
+    LOG("trying to start EventLoop a second time!\n");
     pthread_mutex_unlock( &(thread_mutex) );
     return false;
   }
   pollData = (struct pollfd *)malloc(sizeof(struct pollfd) *
                                      DEFAULT_INITIAL_POLLFD_COUNT);
   if (!pollData) {
-    printf("out of memory error starting EventLoop!\n");
+    LOG("out of memory error starting EventLoop!\n");
     goto done;
   }
 
   watchData = (DBusWatch **)malloc(sizeof(DBusWatch *) *
                                    DEFAULT_INITIAL_POLLFD_COUNT);
   if (!watchData) {
-    printf("out of memory error starting EventLoop!\n");
+    LOG("out of memory error starting EventLoop!\n");
     goto done;
   }
 
@@ -396,16 +401,16 @@ bool DBusThread::startEventLoop() {
   pollDataSize = DEFAULT_INITIAL_POLLFD_COUNT;
   pollMemberCount = 1;
   if (socketpair(AF_LOCAL, SOCK_STREAM, 0, &(controlFdR))) {
-    printf("Error getting BT control socket\n");
+    LOG("Error getting BT control socket\n");
     goto done;
   }
   pollData[0].fd = controlFdR;
   pollData[0].events = POLLIN;
   if (setUpEventLoop() != true) {
-    printf("failure setting up Event Loop!\n");
+    LOG("failure setting up Event Loop!\n");
     goto done;
   }
-  printf("Control file descriptor: %d\n", controlFdR);
+  LOG("Control file descriptor: %d\n", controlFdR);
   pthread_create(&(thread), NULL, DBusThread::eventLoop, this);
   result = true;
 done:
@@ -453,7 +458,7 @@ void DBusThread::stopEventLoop() {
   }
   running = false;
   pthread_mutex_unlock(&(thread_mutex));
-  printf("Event loop stopped!\n");	
+  LOG("Event loop stopped!\n");	
 }
 
 void DBusThread::SetBluetoothAdapter(DBusEventHandler* m)

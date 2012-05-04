@@ -95,6 +95,20 @@ BluetoothHfpManager::Connect(int channel, const char* asciiAddress)
   return true;
 }
 
+bool
+BluetoothHfpManager::Listen(int channel)
+{
+  if (mSocket == NULL || !mSocket->Available()) {
+    mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM);
+  }
+
+  mSocket->Listen(channel);
+  pthread_create(&(mAcceptThread), NULL, BluetoothHfpManager::AcceptInternal, mSocket);
+
+  return true;
+}
+
+
 void reply_ok(int fd)
 {
   if (BluetoothSocket::send_line(fd, "OK") != 0) {
@@ -152,6 +166,18 @@ void reply_chld_range(int fd)
   if (BluetoothSocket::send_line(fd, str) != 0) {
     LOG("Reply +CHLD=? failed");
   }
+}
+
+void*
+BluetoothHfpManager::AcceptInternal(void* ptr)
+{
+  BluetoothSocket* socket = static_cast<BluetoothSocket*>(ptr);
+  int newFd = socket->Accept();
+
+  BluetoothHfpManager* manager = BluetoothHfpManager::GetManager();
+  pthread_create(&manager->mEventThread, NULL, BluetoothHfpManager::MessageHandler, ptr);
+
+  return NULL;
 }
 
 void*

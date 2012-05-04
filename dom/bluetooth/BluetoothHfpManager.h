@@ -19,12 +19,14 @@ public:
   bool Connect(int channel, const char* asciiAddress);
   void Disconnect();
   bool ReachedMaxConnection();
+  bool Listen(int channel);
+  pthread_t mEventThread;
 
 protected:
   BluetoothHfpManager();
   static void* MessageHandler(void* ptr);
+  static void* AcceptInternal(void* ptr);
  
-  pthread_t mEventThread;
   pthread_t mAcceptThread;
   BluetoothSocket* mSocket;
   BluetoothSocket* mScoSocket;
