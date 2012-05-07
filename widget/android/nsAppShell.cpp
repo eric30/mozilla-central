@@ -334,6 +334,7 @@ nsAppShell::ProcessNextNativeEvent(bool mayWait)
             values.AppendElement(curEvent->Z());
             break;
 
+        case hal::SENSOR_LIGHT:
         case hal::SENSOR_PROXIMITY:
             values.AppendElement(curEvent->X());
             break;
@@ -469,11 +470,6 @@ nsAppShell::ProcessNextNativeEvent(bool mayWait)
             break;
 
         float scale = 1.0;
-        if (token == AndroidBridge::SCREENSHOT_THUMBNAIL) {
-            if (NS_FAILED(tab->GetScale(&scale)))
-                break;
-        }
-
         nsTArray<nsIntPoint> points = curEvent->Points();
         NS_ASSERTION(points.Length() == 4, "Screenshot event does not have enough coordinates");
         bridge->TakeScreenshot(domWindow, points[0].x, points[0].y, points[1].x, points[1].y, points[3].x, points[3].y, curEvent->MetaState(), scale, curEvent->Flags());

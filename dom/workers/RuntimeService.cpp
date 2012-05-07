@@ -53,7 +53,7 @@
 #include "nsITimer.h"
 #include "nsPIDOMWindow.h"
 
-#include "mozilla/dom/bindings/EventTargetBinding.h"
+#include "mozilla/dom/EventTargetBinding.h"
 #include "mozilla/Preferences.h"
 #include "nsContentUtils.h"
 #include "nsDOMJSUtils.h"
@@ -70,7 +70,7 @@
 #include "WorkerPrivate.h"
 
 using namespace mozilla;
-using namespace mozilla::dom::bindings::prototypes;
+using namespace mozilla::dom;
 
 USING_WORKERS_NAMESPACE
 
@@ -449,7 +449,7 @@ ResolveWorkerClasses(JSContext* aCx, JSObject* aObj, jsid aId, unsigned aFlags,
       return true;
     }
 
-    JSObject* eventTarget = EventTarget_workers::GetProtoObject(aCx, aObj, aObj);
+    JSObject* eventTarget = EventTargetBinding_workers::GetProtoObject(aCx, aObj, aObj);
     if (!eventTarget) {
       return false;
     }
@@ -1336,8 +1336,8 @@ RuntimeService::AutoSafeJSContext::GetSafeContext()
   nsIThreadJSContextStack* stack = nsContentUtils::ThreadJSContextStack();
   NS_ASSERTION(stack, "This should never be null!");
 
-  JSContext* cx;
-  if (NS_FAILED(stack->GetSafeJSContext(&cx))) {
+  JSContext* cx = stack->GetSafeJSContext();
+  if (!cx) {
     NS_ERROR("Couldn't get safe JSContext!");
     return nsnull;
   }

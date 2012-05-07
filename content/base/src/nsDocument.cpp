@@ -2783,8 +2783,13 @@ nsDocument::GetActiveElement(nsIDOMElement **aElement)
                                            getter_AddRefs(focusedWindow));
     // be safe and make sure the element is from this document
     if (focusedContent && focusedContent->OwnerDoc() == this) {
-      CallQueryInterface(focusedContent, aElement);
-      return NS_OK;
+      if (focusedContent->IsInNativeAnonymousSubtree()) {
+        focusedContent = focusedContent->FindFirstNonNativeAnonymous();
+      }
+      if (focusedContent) {
+        CallQueryInterface(focusedContent, aElement);
+        return NS_OK;
+      }
     }
   }
 
@@ -3858,7 +3863,7 @@ nsDocument::SetScriptGlobalObject(nsIScriptGlobalObject *aScriptGlobalObject)
         if (!cx) {
           nsContentUtils::ThreadJSContextStack()->Peek(&cx);
           if (!cx) {
-            nsContentUtils::ThreadJSContextStack()->GetSafeJSContext(&cx);
+            cx = nsContentUtils::ThreadJSContextStack()->GetSafeJSContext();
             NS_ASSERTION(cx, "Uhoh, no context, this is bad!");
           }
         }
@@ -6067,7 +6072,7 @@ GetContextAndScope(nsIDocument* aOldDocument, nsIDocument* aNewDocument,
       stack->Peek(&cx);
 
       if (!cx) {
-        stack->GetSafeJSContext(&cx);
+        cx = stack->GetSafeJSContext();
 
         if (!cx) {
           // No safe context reachable, bail.
@@ -6632,9 +6637,9 @@ nsDocument::RemoveFromRadioGroup(const nsAString& aName,
   nsCOMPtr<nsIContent> element = do_QueryInterface(aRadio);
   NS_ASSERTION(element, "radio controls have to be content elements");
   if (element->HasAttr(kNameSpaceID_None, nsGkAtoms::required)) {
+    NS_ASSERTION(radioGroup->mRequiredRadioCount != 0,
+                 "mRequiredRadioCount about to wrap below 0!");
     radioGroup->mRequiredRadioCount--;
-    NS_ASSERTION(radioGroup->mRequiredRadioCount >= 0,
-                 "mRequiredRadioCount shouldn't be negative!");
   }
   return NS_OK;
 }
@@ -6685,9 +6690,9 @@ nsDocument::RadioRequiredChanged(const nsAString& aName, nsIFormControl* aRadio)
   if (element->HasAttr(kNameSpaceID_None, nsGkAtoms::required)) {
     radioGroup->mRequiredRadioCount++;
   } else {
+    NS_ASSERTION(radioGroup->mRequiredRadioCount != 0,
+                 "mRequiredRadioCount about to wrap below 0!");
     radioGroup->mRequiredRadioCount--;
-    NS_ASSERTION(radioGroup->mRequiredRadioCount >= 0,
-                 "mRequiredRadioCount shouldn't be negative!");
   }
 }
 

@@ -94,7 +94,7 @@
 #include "nsIContentSecurityPolicy.h"
 #include "nsIAsyncVerifyRedirectCallback.h"
 #include "mozilla/Preferences.h"
-#include "mozilla/dom/bindings/Utils.h"
+#include "mozilla/dom/BindingUtils.h"
 #include "mozilla/StandardInteger.h"
 
 using namespace mozilla;
@@ -363,10 +363,7 @@ JSContext *
 nsScriptSecurityManager::GetSafeJSContext()
 {
     // Get JSContext from stack.
-    JSContext *cx;
-    if (NS_FAILED(sJSContextStack->GetSafeJSContext(&cx)))
-        return nsnull;
-    return cx;
+    return sJSContextStack->GetSafeJSContext();
 }
 
 /* static */
@@ -2483,8 +2480,8 @@ nsScriptSecurityManager::doGetObjectPrincipal(JSObject *aObj
                                      JSCLASS_PRIVATE_IS_NSISUPPORTS))) {
                 priv = (nsISupports *) js::GetObjectPrivate(aObj);
             } else if ((jsClass->flags & JSCLASS_IS_DOMJSCLASS) &&
-                       bindings::DOMJSClass::FromJSClass(jsClass)->mDOMObjectIsISupports) {
-                priv = bindings::UnwrapDOMObject<nsISupports>(aObj, jsClass);
+                       DOMJSClass::FromJSClass(jsClass)->mDOMObjectIsISupports) {
+                priv = UnwrapDOMObject<nsISupports>(aObj, jsClass);
             } else {
                 priv = nsnull;
             }

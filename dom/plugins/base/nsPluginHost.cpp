@@ -2553,7 +2553,7 @@ nsPluginHost::WritePluginInfo()
         (tag->mName.get()),
         PLUGIN_REGISTRY_FIELD_DELIMITER,
         PLUGIN_REGISTRY_END_OF_LINE_MARKER,
-        tag->mMimeTypes.Length() + 1);
+        tag->mMimeTypes.Length());
 
       // Add in each mimetype this plugin supports
       for (PRUint32 i = 0; i < tag->mMimeTypes.Length(); i++) {
@@ -2567,18 +2567,6 @@ nsPluginHost::WritePluginInfo()
           PLUGIN_REGISTRY_FIELD_DELIMITER,
           PLUGIN_REGISTRY_END_OF_LINE_MARKER);
       }
-
-      // This used to depend on whether or not we had an npruntime-enabled
-      // Java plugin but we don't care any more, we just assume we do.
-      PR_fprintf(fd, "%d%c%s%c%s%c%s%c%c\n",
-        tag->mMimeTypes.Length(), PLUGIN_REGISTRY_FIELD_DELIMITER,
-        "application/x-java-vm-npruntime",
-        PLUGIN_REGISTRY_FIELD_DELIMITER,
-        "",
-        PLUGIN_REGISTRY_FIELD_DELIMITER,
-        "",
-        PLUGIN_REGISTRY_FIELD_DELIMITER,
-        PLUGIN_REGISTRY_END_OF_LINE_MARKER);
     }
   }
   
@@ -3292,6 +3280,15 @@ NS_IMETHODIMP nsPluginHost::Observe(nsISupports *aSubject,
     OnShutdown();
     UnloadPlugins();
     sInst->Release();
+  }
+  if (!nsCRT::strcmp(NS_PREFBRANCH_PREFCHANGE_TOPIC_ID, aTopic)) {
+    mPluginsDisabled = Preferences::GetBool("plugin.disable", false);
+    // Unload or load plugins as needed
+    if (mPluginsDisabled) {
+      UnloadPlugins();
+    } else {
+      LoadPlugins();
+    }
   }
 #ifdef MOZ_WIDGET_ANDROID
   if (!nsCRT::strcmp("application-background", aTopic)) {

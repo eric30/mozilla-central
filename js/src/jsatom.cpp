@@ -54,7 +54,6 @@
 #include "jsatom.h"
 #include "jscntxt.h"
 #include "jsgc.h"
-#include "jsgcmark.h"
 #include "jslock.h"
 #include "jsnum.h"
 #include "jsstr.h"
@@ -62,6 +61,7 @@
 #include "jsxml.h"
 
 #include "frontend/Parser.h"
+#include "gc/Marking.h"
 
 #include "jsstrinlines.h"
 #include "jsatominlines.h"
@@ -395,9 +395,6 @@ js_AtomizeString(JSContext *cx, JSString *str, InternBehavior ib)
         p->setTagged(bool(ib));
         return &atom;
     }
-
-    if (str->isAtom())
-        return &str->asAtom();
 
     size_t length = str->length();
     const jschar *chars = str->getChars(cx);
