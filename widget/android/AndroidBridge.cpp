@@ -1154,7 +1154,7 @@ AndroidBridge::CallEglCreateWindowSurface(void *dpy, void *config, AndroidGeckoS
      * We can't do it from java, because the EGLConfigImpl constructor is private.
      */
 
-    jobject surfaceHolder = sview.GetSurfaceHolder(env, &jniFrame);
+    jobject surfaceHolder = sview.GetSurfaceHolder(&jniFrame);
     if (!surfaceHolder)
         return nsnull;
 
@@ -2402,10 +2402,14 @@ nsresult AndroidBridge::TakeScreenshot(nsIDOMWindow *window, PRInt32 srcX, PRInt
         nsCOMPtr<nsIDOMDocument> doc;
         rv = window->GetDocument(getter_AddRefs(doc));
         NS_ENSURE_SUCCESS(rv, rv);
+        if (!doc)
+            return NS_ERROR_FAILURE;
 
         nsCOMPtr<nsIDOMElement> docElement;
         rv = doc->GetDocumentElement(getter_AddRefs(docElement));
         NS_ENSURE_SUCCESS(rv, rv);
+        if (!docElement)
+            return NS_ERROR_FAILURE;
 
         PRInt32 viewportHeight;
         PRInt32 pageWidth;
