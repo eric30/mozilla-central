@@ -131,6 +131,9 @@ BluetoothSocket::Connect(int channel, const char* bd_address)
 
   mPort = channel;
 
+  mAddress[17] = '\0';
+  strncpy(&mAddress[0], bd_address, 17);
+
   if (get_bdaddr(bd_address, &bd_address_obj)) {
     LOG("Terrible");
     return false;
@@ -269,6 +272,13 @@ static inline int write_error_check(int fd, const char* line, int len) {
   return 0;
 }
 
+void get_bdaddr_as_string(const bdaddr_t *ba, char *str) {
+  const uint8_t *b = (const uint8_t *)ba;
+  sprintf(str, "%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X",
+      b[5], b[4], b[3], b[2], b[1], b[0]);
+}
+
+
 int BluetoothSocket::send_line(int fd, const char* line) {
   int nw;
   int len = strlen(line);
@@ -379,26 +389,11 @@ BluetoothSocket::Accept()
     // Skip many lines
     // Start a thread to run an event loop
     socket->mFd = ret;
-    //pthread_create(&(socket->mThread), NULL, BluetoothSocket::StartEventThread, ptr);
+    get_bdaddr_as_string(bdaddr, mAddress);
   }
 
   return ret;
 }
-
-/*
-int
-BluetoothSocket::Accept()
-{
-  if (mFd <= 0) {
-    LOG("Fd is not valid");
-    return -1;
-  }
-
-  pthread_create(&(mAcceptThread), NULL, BluetoothSocket::AcceptInternal, this);
-
-  return 0;
-}
-*/
 
 void
 BluetoothSocket::Disconnect()
@@ -407,7 +402,9 @@ BluetoothSocket::Disconnect()
 
   LOG("Disconnect: FD=%d", mFd);
 
-  pthread_join(mThread, &ret);
+  /* Prevent further use of fd, without yet releasing the fd */
+  shutdown(mFd, SHUT_RDWR);
+
   close(mFd);
 
   LOG("Disconnected");
@@ -425,4 +422,10 @@ BluetoothSocket::Available()
   }
 
   return true;
+}
+
+const char*
+BluetoothSocket::GetAddress()
+{
+  return mAddress;
 }

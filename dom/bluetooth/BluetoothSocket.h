@@ -31,12 +31,14 @@ public:
   void Listen(int channel);
   int Accept();
   bool Available();
+  const char* GetAddress();
   static const char* get_line(int fd, char *buf, int len, int timeout_ms, int *err);
   static int send_line(int fd, const char* line);
 
 protected:
   pthread_t mThread;
   pthread_t mAcceptThread;
+  char mAddress[18];
   void InitSocketNative(int type, bool auth, bool encrypt);
 };
 

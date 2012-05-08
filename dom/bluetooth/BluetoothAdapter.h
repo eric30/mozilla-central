@@ -40,6 +40,7 @@ public:
   BluetoothAdapter(nsPIDOMWindow*);
 
   inline void SetEnabledInternal(bool aEnabled) {mEnabled = aEnabled;}
+  void Pair(const char* address, int timeout);
 
   nsresult FireDeviceFound(nsIDOMBluetoothDevice* aDevice);
   nsresult FirePropertyChanged(const char* aPropertyName);
@@ -74,6 +75,7 @@ protected:
   bool mDiscovering;
   const char* mAdapterPath;
   bool mEnabled;
+  int mChannel;
   nsTArray<nsString> mDevices;
   nsTArray<nsString> mUuids;
   BluetoothSocket* mSocket;

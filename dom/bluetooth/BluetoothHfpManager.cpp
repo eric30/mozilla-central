@@ -1,4 +1,5 @@
 #include "BluetoothHfpManager.h"
+#include "BluetoothScoManager.h"
 #include "BluetoothSocket.h"
 #include "AudioManager.h"
 
@@ -15,11 +16,10 @@ static BluetoothHfpManager* sInstance = NULL;
 static bool sStopEventLoopFlag = false;
 
 BluetoothHfpManager::BluetoothHfpManager() : mSocket(NULL)
-                                           , mScoSocket(NULL)
                                            , mConnected(false)
                                            , mChannel(-1)
+                                           , mAddress(NULL)
 {
-  // Do nothing
 }
 
 BluetoothHfpManager*
@@ -43,24 +43,29 @@ BluetoothHfpManager::ReachedMaxConnection()
 void
 BluetoothHfpManager::Disconnect()
 {
+  void* ret;
+
+  LOG("Disconnect");
+
   if (mSocket != NULL)
   {
     mSocket->Disconnect();
+
+    LOG("Threadjoin!");
+
+    sStopEventLoopFlag = true;
+    pthread_join(mEventThread, &ret);
 
     delete mSocket;
     mSocket = NULL;
   }
 
-  if (mScoSocket != NULL)
-  {
-    mScoSocket->Disconnect();
+  Listen(mChannel);
 
-    delete mScoSocket;
-    mScoSocket = NULL;
-  }
+  BluetoothScoManager* scoManager = BluetoothScoManager::GetManager(); 
+  scoManager->Disconnect();
 
   mConnected = false;
-  sStopEventLoopFlag = true;
 }
 
 bool 
@@ -71,21 +76,18 @@ BluetoothHfpManager::Connect(int channel, const char* asciiAddress)
   }
 
   if (mSocket->Connect(channel, asciiAddress)) {
+    LOG("Connect successfully");
     mConnected = true;
     pthread_create(&mEventThread, NULL, BluetoothHfpManager::MessageHandler, mSocket);
 
     // Connect ok, next : establish a SCO link
-    if (mScoSocket == NULL || !mScoSocket->Available()) {
-      mScoSocket = new BluetoothSocket(BluetoothSocket::TYPE_SCO);
-    }
+    BluetoothScoManager* scoManager = BluetoothScoManager::GetManager();
 
-    if (mScoSocket->Connect(-1, asciiAddress)) {
-      mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
-    } else {
-      delete mScoSocket;
-      mScoSocket = NULL;
+    if (!scoManager->IsConnected()) {
+      scoManager->Connect(asciiAddress);
     }
   } else {
+    LOG("Connect failed");
     delete mSocket;
     mSocket = NULL;
 
@@ -98,14 +100,22 @@ BluetoothHfpManager::Connect(int channel, const char* asciiAddress)
 bool
 BluetoothHfpManager::Listen(int channel)
 {
-  if (mSocket == NULL || !mSocket->Available()) {
-    mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM);
+  if (channel > 0) {
+    if (mSocket == NULL || !mSocket->Available()) {
+      mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM);
+      LOG("Create a new BluetoothSocket");
+    }
+
+    LOG("Listening to channel %d", channel);
+
+    mChannel = channel;
+    mSocket->Listen(channel);
+    pthread_create(&(mAcceptThread), NULL, BluetoothHfpManager::AcceptInternal, mSocket);
+
+    return true;
+  } else {
+    return false;
   }
-
-  mSocket->Listen(channel);
-  pthread_create(&(mAcceptThread), NULL, BluetoothHfpManager::AcceptInternal, mSocket);
-
-  return true;
 }
 
 
@@ -174,8 +184,19 @@ BluetoothHfpManager::AcceptInternal(void* ptr)
   BluetoothSocket* socket = static_cast<BluetoothSocket*>(ptr);
   int newFd = socket->Accept();
 
-  BluetoothHfpManager* manager = BluetoothHfpManager::GetManager();
-  pthread_create(&manager->mEventThread, NULL, BluetoothHfpManager::MessageHandler, ptr);
+  if (newFd > 0) {
+    BluetoothHfpManager* manager = BluetoothHfpManager::GetManager();
+    pthread_create(&manager->mEventThread, NULL, BluetoothHfpManager::MessageHandler, ptr);
+
+    // Connect ok, next : establish a SCO link
+    BluetoothScoManager* scoManager = BluetoothScoManager::GetManager();
+
+    if (!scoManager->IsConnected()) {
+      const char* address = socket->GetAddress();
+      LOG("[ERIC] SCO address : %s", address);
+      scoManager->Connect(address);
+    }
+  }
 
   return NULL;
 }

@@ -11,6 +11,7 @@
 #include "BluetoothServiceUuid.h"
 #include "BluetoothUtils.h"
 #include "BluetoothHfpManager.h"
+#include "BluetoothScoManager.h"
 
 #include "AudioManager.h"
 #include "nsDOMClassInfo.h"
@@ -299,6 +300,7 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow *aWindow)
   mPairableTimeout(0),
   mDiscoverableTimeout(0),
   mDiscovering(0),
+  mChannel(-1),
   mSocket(NULL),
   mName(NS_LITERAL_STRING("testing"))
 {
@@ -331,21 +333,31 @@ BluetoothAdapter::RunAdapterFunction(const char* function_name) {
 nsresult
 BluetoothAdapter::SetupBluetooth()
 {
-  GetAdapterPath();
-  //GetProperties();
+  nsresult rv = NS_OK;
 
-  nsresult rv = SetupBluetoothAgents();
+  if (mEnabled) 
+  {
+    GetAdapterPath();
+    //GetProperties();
 
-  int hfpChannel = BluetoothUtils::NextAvailableChannel();
+    rv = SetupBluetoothAgents();
 
-  AddServiceRecord("Voice gateway",
-                   BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
-                   BluetoothServiceUuid::BaseLSB,
-                   hfpChannel);
+    if (mChannel == -1) {
+      mChannel = BluetoothUtils::NextAvailableChannel();
 
-  BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
-  hfp->Listen(hfpChannel);
-  //Listen(BluetoothUtils::NextAvailableChannel());
+      AddServiceRecord("Voice gateway",
+        BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
+        BluetoothServiceUuid::BaseLSB, mChannel);
+    }
+
+    LOG("LISTEN!!!!!!!!!!!!!!!!! %d", mChannel);
+
+    BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
+    hfp->Listen(mChannel);
+
+    BluetoothScoManager* sco = BluetoothScoManager::GetManager();
+    sco->Listen();
+  }
 
   return rv;
 }
@@ -655,6 +667,7 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
                                                             "unknown", 
                                                             dbus_message_get_path(msg));
         FireDeviceConnected(device);
+        Pair(address, 50000);
       } else {
         FireDeviceDisconnected(address);
       }
@@ -1316,15 +1329,14 @@ BluetoothAdapter::SetupBluetoothAgents()
   return rv;
 }
 
-NS_IMETHODIMP
-BluetoothAdapter::Pair(const nsAString& aAddress, PRInt32 aTimeout)
+void
+BluetoothAdapter::Pair(const char* aAddress, int aTimeout)
 {
-  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
   const char *capabilities = "DisplayYesNo";
   const char *device_agent_path = "/B2G/bluetooth/remote_device_agent";
 
-  char* backupAddress = new char[strlen(asciiAddress)];
-  strcpy(backupAddress, asciiAddress);
+  char* backupAddress = new char[strlen(aAddress)];
+  strcpy(backupAddress, aAddress);
 
   // Then send CreatePairedDevice, it will register a temp device agent then 
   // unregister it after pairing process is over
@@ -1338,12 +1350,10 @@ BluetoothAdapter::Pair(const nsAString& aAddress, PRInt32 aTimeout)
                                   mAdapterPath,
                                   DBUS_ADAPTER_IFACE,
                                   "CreatePairedDevice",
-                                  DBUS_TYPE_STRING, &asciiAddress,
+                                  DBUS_TYPE_STRING, &aAddress,
                                   DBUS_TYPE_OBJECT_PATH, &device_agent_path,
                                   DBUS_TYPE_STRING, &capabilities,
                                   DBUS_TYPE_INVALID);
-
-  return ret ? NS_OK : NS_ERROR_FAILURE;
 }
 
 int
@@ -1388,10 +1398,9 @@ BluetoothAdapter::Listen(PRInt32 channel)
 const char*
 BluetoothAdapter::GetAddressFromObjectPath(const char* aObjectPath)
 {
-  char* retAddress = new char[18];
+  char* retAddress = new char[17];
 
   strncpy(retAddress, &aObjectPath[strlen(aObjectPath) - 17], 17);
-  retAddress[18] = '\0';
 
   char* c = retAddress;
   
