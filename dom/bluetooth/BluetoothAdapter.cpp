@@ -348,6 +348,10 @@ BluetoothAdapter::SetupBluetooth()
       AddServiceRecord("Voice gateway",
         BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
         BluetoothServiceUuid::BaseLSB, mChannel);
+
+      AddServiceRecord("A2dp src",
+        BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::AudioSource,
+        BluetoothServiceUuid::BaseLSB, mChannel);
     }
 
     LOG("LISTEN!!!!!!!!!!!!!!!!! %d", mChannel);
@@ -1329,6 +1333,15 @@ BluetoothAdapter::SetupBluetoothAgents()
   return rv;
 }
 
+nsresult
+BluetoothAdapter::TempPair(const nsAString& aAddress)
+{
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  Pair(asciiAddress, 50000);
+
+  return NS_OK;
+}
+
 void
 BluetoothAdapter::Pair(const char* aAddress, int aTimeout)
 {
@@ -1531,13 +1544,72 @@ BluetoothAdapter::GetDevice(const nsAString& aAddress, nsIDOMBluetoothDevice** a
 }
 
 nsresult
-BluetoothAdapter::RouteAudioToBtSco()
+BluetoothAdapter::RouteAudioTo(PRInt32 index)
 {
-  mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
-  mozilla::dom::gonk::AudioManager::SetAudioInput();
+  mozilla::dom::gonk::AudioManager::SetAudioRoute(index);
+  //mozilla::dom::gonk::AudioManager::SetAudioInput();
 
   return NS_OK;
 }
+
+nsresult
+BluetoothAdapter::IsSinkDevice(const nsAString& aAddress, bool* result)
+{
+  return NS_OK;
+}
+
+void 
+asyncConnectSinkCallback(DBusMessage *msg, void *data, void* n)
+{
+  DBusError err;
+  dbus_error_init(&err);
+  const char* backupAddress =  (const char *)data;
+
+  if (dbus_set_error_from_message(&err, msg)) {
+    LOG("Connect sink device failed, err: %s", err.name);
+  } else {
+    LOG("Connect Sink Device ok", backupAddress);
+  }
+
+  dbus_error_free(&err);
+
+  delete data;
+}
+
+nsresult
+BluetoothAdapter::ConnectSink(const nsAString& aAddress)
+{
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  const char* objectPath = GetObjectPathFromAddress(asciiAddress);
+  char* backupObjectPath = new char[strlen(objectPath)];
+  strcpy(backupObjectPath, objectPath);
+
+  bool ret = dbus_func_args_async(-1, 
+                                  asyncConnectSinkCallback,
+                                  (void*)backupObjectPath,
+                                  objectPath, 
+                                  "org.bluez.AudioSink", 
+                                  "Connect",
+                                   DBUS_TYPE_INVALID);
+
+  return ret ? NS_OK : NS_ERROR_FAILURE;
+}
+
+nsresult
+BluetoothAdapter::DisconnectSink(const nsAString& aObjectPath)
+{
+  const char* asciiObjectPath = 
+                         NS_LossyConvertUTF16toASCII(aObjectPath).get();
+
+  bool ret = dbus_func_args_async(-1, NULL, NULL,
+                                  asciiObjectPath, 
+                                  "org.bluez.AudioSink", 
+                                  "Disconnect",
+                                  DBUS_TYPE_INVALID);
+
+  return ret ? NS_OK : NS_ERROR_FAILURE;
+}
+
 
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, propertychanged)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicefound)
