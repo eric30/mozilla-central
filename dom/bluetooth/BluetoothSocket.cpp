@@ -34,7 +34,7 @@ static const int RFCOMM_SO_SNDBUF = 70 * 1024;  // 70 KB send buffer
 USING_BLUETOOTH_NAMESPACE
 
 void 
-BluetoothSocket::InitSocketNative(int type, bool auth, bool encrypt)
+BluetoothSocket::InitSocketNative(int type, bool auth, bool encrypt, int fd)
 {
   int lm = 0;
   int sndbuf;
@@ -43,18 +43,22 @@ BluetoothSocket::InitSocketNative(int type, bool auth, bool encrypt)
   mAuth = auth;
   mEncrypt = encrypt;
 
-  switch (type) {
-    case TYPE_RFCOMM:
-      mFd = socket(PF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
-      break;
-    case TYPE_SCO:
-      mFd = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_SCO);
-      break;
-    case TYPE_L2CAP:
-      mFd = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
-      break;
-    default:
-      return;
+  if (fd > 0) {
+    mFd = fd;
+  } else {
+    switch (type) {
+      case TYPE_RFCOMM:
+        mFd = socket(PF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
+        break;
+      case TYPE_SCO:
+        mFd = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_SCO);
+        break;
+      case TYPE_L2CAP:
+        mFd = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
+        break;
+      default:
+        return;
+    }
   }
 
   if (mFd < 0) {
@@ -91,6 +95,9 @@ BluetoothSocket::InitSocketNative(int type, bool auth, bool encrypt)
     }
   }
 
+  int n = 1;
+  setsockopt(mFd, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n));
+
   LOG("...fd %d created (%s, lm = %x)", mFd, TYPE_AS_STR(type), lm);
 
   return;
@@ -98,13 +105,18 @@ BluetoothSocket::InitSocketNative(int type, bool auth, bool encrypt)
 
 BluetoothSocket::BluetoothSocket(int type) : mPort(-1)
 {
-  InitSocketNative(type, true, false);
+  InitSocketNative(type, true, false, -1);
 
   if (mFd <= 0) {
     LOG("Creating socket failed");
   } else {
     LOG("Creating socket succeeded");
   }
+}
+
+BluetoothSocket::BluetoothSocket(int type, int fd)
+{
+  InitSocketNative(type, true, false, fd);
 }
 
 int 
@@ -295,7 +307,7 @@ int BluetoothSocket::send_line(int fd, const char* line) {
   return 0;
 }
 
-void
+int
 BluetoothSocket::Listen(int channel)
 {
   socklen_t addr_sz;
@@ -306,44 +318,47 @@ BluetoothSocket::Listen(int channel)
 
   if (mFd <= 0) {
     LOG("Fd is not valid");
-  } else {
-    switch (mType) {
-      case TYPE_RFCOMM:
-        struct sockaddr_rc addr_rc;
-        addr = (struct sockaddr *)&addr_rc;
-        addr_sz = sizeof(addr_rc);
-
-        memset(addr, 0, addr_sz);
-        addr_rc.rc_family = AF_BLUETOOTH;
-        addr_rc.rc_channel = mPort;
-        memcpy(&addr_rc.rc_bdaddr, &bd_address_obj, sizeof(bdaddr_t));
-        break;
-      case TYPE_SCO:
-        struct sockaddr_sco addr_sco;
-        addr = (struct sockaddr *)&addr_sco;
-        addr_sz = sizeof(addr_sco);
-
-        memset(addr, 0, addr_sz);
-        addr_sco.sco_family = AF_BLUETOOTH;
-        memcpy(&addr_sco.sco_bdaddr, &bd_address_obj, sizeof(bdaddr_t));
-        break;
-      default:
-        LOG("Are u kidding me");
-        break;
-    }
-
-    if (bind(mFd, addr, addr_sz)) {
-      LOG("...bind(%d) gave errno %d", mFd, errno);
-    }
-
-    if (listen(mFd, 1)) {
-      LOG("...listen(%d) gave errno %d", mFd, errno);
-    }
-
-    LOG("...bindListenNative(%d) success", mFd);
-
-    return;
+    return EINVAL;
   }
+
+  switch (mType) {
+    case TYPE_RFCOMM:
+      struct sockaddr_rc addr_rc;
+      addr = (struct sockaddr *)&addr_rc;
+      addr_sz = sizeof(addr_rc);
+
+      memset(addr, 0, addr_sz);
+      addr_rc.rc_family = AF_BLUETOOTH;
+      addr_rc.rc_channel = mPort;
+      memcpy(&addr_rc.rc_bdaddr, &bd_address_obj, sizeof(bdaddr_t));
+      break;
+    case TYPE_SCO:
+      struct sockaddr_sco addr_sco;
+      addr = (struct sockaddr *)&addr_sco;
+      addr_sz = sizeof(addr_sco);
+
+      memset(addr, 0, addr_sz);
+      addr_sco.sco_family = AF_BLUETOOTH;
+      memcpy(&addr_sco.sco_bdaddr, &bd_address_obj, sizeof(bdaddr_t));
+      break;
+    default:
+      LOG("Are u kidding me");
+      break;
+  }
+
+  if (bind(mFd, addr, addr_sz)) {
+    LOG("...bind(%d) gave errno %d", mFd, errno);
+    return errno;
+  }
+
+  if (listen(mFd, 1)) {
+    LOG("...listen(%d) gave errno %d", mFd, errno);
+    return errno;
+  }
+
+  LOG("...bindListenNative(%d) success", mFd);
+
+  return 0;
 }
 
 int
@@ -388,12 +403,13 @@ BluetoothSocket::Accept()
     // Match android_bluetooth_HeadsetBase.cpp line 384
     // Skip many lines
     // Start a thread to run an event loop
-    socket->mFd = ret;
+    //socket->mFd = ret;
     get_bdaddr_as_string(bdaddr, mAddress);
   }
 
   return ret;
 }
+
 
 void
 BluetoothSocket::Disconnect()
@@ -402,9 +418,7 @@ BluetoothSocket::Disconnect()
 
   LOG("Disconnect: FD=%d", mFd);
 
-  /* Prevent further use of fd, without yet releasing the fd */
   shutdown(mFd, SHUT_RDWR);
-
   close(mFd);
 
   LOG("Disconnected");

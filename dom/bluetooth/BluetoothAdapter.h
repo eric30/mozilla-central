@@ -58,6 +58,7 @@ protected:
   void GetAdapterPath();
   const char* GetObjectPathFromAddress(const char* aAddress);
   const char* GetAddressFromObjectPath(const char* aObjectPath);
+  bool IsPaired(const char* objectPath);
   int QueryServerChannelInternal(const char* aObjectPath);
   nsresult RunAdapterFunction(const char* function_name);
   nsresult BluezRegisterAgent(const char * agent_path, const char * capabilities);

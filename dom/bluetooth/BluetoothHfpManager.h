@@ -29,9 +29,11 @@ protected:
  
   pthread_t mAcceptThread;
   BluetoothSocket* mSocket;
+  BluetoothSocket* mServerSocket;
   bool mConnected;
   int mChannel;
   char* mAddress;
+  int mCurrentVgs;
 };
 
 END_BLUETOOTH_NAMESPACE

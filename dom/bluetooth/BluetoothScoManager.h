@@ -24,6 +24,7 @@ private:
   BluetoothScoManager();
   static void* AcceptInternal(void* ptr);
   BluetoothSocket* mSocket;
+  BluetoothSocket* mServerSocket;
   pthread_t mAcceptThread;
   static bool sConnected;
 };

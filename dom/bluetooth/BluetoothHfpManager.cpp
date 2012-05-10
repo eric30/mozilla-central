@@ -2,6 +2,11 @@
 #include "BluetoothScoManager.h"
 #include "BluetoothSocket.h"
 #include "AudioManager.h"
+#include <unistd.h> /* usleep() */
+#include <linux/input.h>
+#include <linux/uinput.h>
+#include <linux/ioctl.h>
+#include <fcntl.h>
 
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
@@ -14,12 +19,63 @@ USING_BLUETOOTH_NAMESPACE
 
 static BluetoothHfpManager* sInstance = NULL;
 static bool sStopEventLoopFlag = false;
+static int uinputFd = -1;
+static int sCurrentVgs = 7;
+
+int keyMap[] = {
+  KEY_VOLUMEUP,
+  KEY_VOLUMEDOWN,
+  KEY_F23,
+  KEY_F24
+};
+
+void InitUinput()
+{
+  int ret;
+  struct uinput_user_dev dev;
+  uinputFd = open("/dev/uinput", O_RDWR);
+
+  if (uinputFd < 0) {
+    uinputFd = open("/dev/input/uinput", O_RDWR);
+    if (uinputFd < 0) {
+      uinputFd = open("/dev/misc/uinput", O_RDWR);
+      if (uinputFd < 0) {
+        LOG("uinput initialization failed.");
+      }
+    }
+  }
+
+  ret = ioctl(uinputFd, UI_SET_EVBIT, EV_KEY);
+  ret = ioctl(uinputFd, UI_SET_EVBIT, EV_SYN);
+
+  for (int i = 0;i < sizeof(keyMap) / sizeof(int);++i)
+  {
+    ret = ioctl(uinputFd, UI_SET_KEYBIT, keyMap[i]);
+  }
+
+  memset(&dev, 0, sizeof(dev));
+  snprintf(dev.name, UINPUT_MAX_NAME_SIZE, "bluetooth-uinput");
+
+  dev.id.bustype = BUS_BLUETOOTH;
+  dev.id.vendor  = 0x0000;
+  dev.id.product = 0x0000;
+  dev.id.version = 0x0000;
+
+  if (write(uinputFd, &dev, sizeof(dev)) < 0) {
+    close(uinputFd);
+    LOG("Can't write device info.");
+  }
+
+  ret = ioctl(uinputFd, UI_DEV_CREATE);
+}
 
 BluetoothHfpManager::BluetoothHfpManager() : mSocket(NULL)
+                                           , mServerSocket(NULL)
                                            , mConnected(false)
                                            , mChannel(-1)
                                            , mAddress(NULL)
 {
+  InitUinput();
 }
 
 BluetoothHfpManager*
@@ -45,25 +101,24 @@ BluetoothHfpManager::Disconnect()
 {
   void* ret;
 
-  LOG("Disconnect");
+  LOG("Disconnect");  
+
+  BluetoothScoManager* scoManager = BluetoothScoManager::GetManager(); 
+  scoManager->Disconnect();
 
   if (mSocket != NULL)
   {
-    mSocket->Disconnect();
-
-    LOG("Threadjoin!");
-
     sStopEventLoopFlag = true;
+
+    LOG("Before join");
     pthread_join(mEventThread, &ret);
+    LOG("After join");
+
+    mSocket->Disconnect();
 
     delete mSocket;
     mSocket = NULL;
   }
-
-  Listen(mChannel);
-
-  BluetoothScoManager* scoManager = BluetoothScoManager::GetManager(); 
-  scoManager->Disconnect();
 
   mConnected = false;
 }
@@ -71,9 +126,17 @@ BluetoothHfpManager::Disconnect()
 bool 
 BluetoothHfpManager::Connect(int channel, const char* asciiAddress)
 {
-  if (mSocket == NULL || !mSocket->Available()) {
-    mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM);
+  if (channel <= 0)
+    return false;
+
+  if (mSocket != NULL) {
+    mSocket->Disconnect();
+
+    delete mSocket;
+    mSocket = NULL;
   }
+
+  mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM);
 
   if (mSocket->Connect(channel, asciiAddress)) {
     LOG("Connect successfully");
@@ -81,13 +144,14 @@ BluetoothHfpManager::Connect(int channel, const char* asciiAddress)
     pthread_create(&mEventThread, NULL, BluetoothHfpManager::MessageHandler, mSocket);
 
     // Connect ok, next : establish a SCO link
-    BluetoothScoManager* scoManager = BluetoothScoManager::GetManager();
+//    BluetoothScoManager* scoManager = BluetoothScoManager::GetManager();
 
-    if (!scoManager->IsConnected()) {
-      scoManager->Connect(asciiAddress);
-    }
+  //  if (!scoManager->IsConnected()) {
+  //    scoManager->Connect(asciiAddress);
+  //  }
   } else {
     LOG("Connect failed");
+
     delete mSocket;
     mSocket = NULL;
 
@@ -100,22 +164,38 @@ BluetoothHfpManager::Connect(int channel, const char* asciiAddress)
 bool
 BluetoothHfpManager::Listen(int channel)
 {
-  if (channel > 0) {
-    if (mSocket == NULL || !mSocket->Available()) {
-      mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM);
-      LOG("Create a new BluetoothSocket");
-    }
-
-    LOG("Listening to channel %d", channel);
-
-    mChannel = channel;
-    mSocket->Listen(channel);
-    pthread_create(&(mAcceptThread), NULL, BluetoothHfpManager::AcceptInternal, mSocket);
-
-    return true;
-  } else {
+  if (channel <= 0)
     return false;
+
+  if (mServerSocket == NULL || !mServerSocket->Available()) {
+    mServerSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM);
+    LOG("Create a new BluetoothServerSocket for listening");
   }
+
+  LOG("Listening to channel %d", channel);
+
+  mChannel = channel;
+
+  while(true) {
+    usleep(500);
+    int errno = mServerSocket->Listen(channel);
+
+    // 98 :EADDRINUSE
+    if (errno == 0) {
+      LOG("Channel is OK.");
+      break;
+    } else if (errno == 98) {
+      LOG("Channel is still in use.");
+      mServerSocket->Disconnect();
+    } else {
+      LOG("Unexpected error: %d", errno);
+      mServerSocket->Disconnect();
+    }
+  }
+
+  pthread_create(&(mAcceptThread), NULL, BluetoothHfpManager::AcceptInternal, mServerSocket);
+
+  return true;
 }
 
 
@@ -178,27 +258,81 @@ void reply_chld_range(int fd)
   }
 }
 
+void reply_vgs(int fd)
+{
+  char* str = "AT+VGS=";
+  int vol = sCurrentVgs;
+  char* vgs = "00";
+
+  vgs[1] = (vol % 10) + '0';
+  vgs[0] = (vol / 10) + '0';
+  
+  strcat(str, vgs);
+
+  if (BluetoothSocket::send_line(fd, str) != 0) {
+    LOG("Reply AT+VGS= failed");
+  }
+}
+
 void*
 BluetoothHfpManager::AcceptInternal(void* ptr)
 {
-  BluetoothSocket* socket = static_cast<BluetoothSocket*>(ptr);
-  int newFd = socket->Accept();
+  BluetoothSocket* serverSocket = static_cast<BluetoothSocket*>(ptr);
 
-  if (newFd > 0) {
-    BluetoothHfpManager* manager = BluetoothHfpManager::GetManager();
-    pthread_create(&manager->mEventThread, NULL, BluetoothHfpManager::MessageHandler, ptr);
+  // TODO(Eric)
+  // Need to let it break the while loop
+  while (true) {
+    int newFd = serverSocket->Accept();
 
-    // Connect ok, next : establish a SCO link
-    BluetoothScoManager* scoManager = BluetoothScoManager::GetManager();
+    if (newFd > 0) {
+      BluetoothHfpManager* manager = BluetoothHfpManager::GetManager();
 
-    if (!scoManager->IsConnected()) {
-      const char* address = socket->GetAddress();
-      LOG("[ERIC] SCO address : %s", address);
-      scoManager->Connect(address);
+      if (manager->mSocket != NULL) {
+        manager->mSocket->Disconnect();
+      }
+
+      manager->mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM, newFd);
+
+      pthread_create(&manager->mEventThread, NULL, BluetoothHfpManager::MessageHandler, manager->mSocket);
+
+      // Connect ok, next : establish a SCO link
+      /*
+      BluetoothScoManager* scoManager = BluetoothScoManager::GetManager();
+      if (!scoManager->IsConnected()) {
+        const char* address = serverSocket->GetAddress();
+        LOG("[ERIC] SCO address : %s", address);
+        scoManager->Connect(address);
+      }
+      */
+
+      // reply_vgs(newFd);
+    } else {
+      LOG("Error occurs after accepting:%s", __FUNCTION__);
     }
   }
 
   return NULL;
+}
+
+static int sendEvent(int fd, uint16_t type, uint16_t code, int32_t value)
+{
+  struct input_event event;
+
+  memset(&event, 0, sizeof(event));
+  event.type  = type;
+  event.code  = code;
+  event.value = value;
+
+  return write(fd, &event, sizeof(event));
+}
+
+static void pressKey(uint16_t keyCode)
+{
+  sendEvent(uinputFd, EV_KEY, keyCode, true);
+  sendEvent(uinputFd, EV_SYN, SYN_REPORT, 0);
+
+  sendEvent(uinputFd, EV_KEY, keyCode, false);
+  sendEvent(uinputFd, EV_SYN, SYN_REPORT, 0);
 }
 
 void*
@@ -240,15 +374,41 @@ BluetoothHfpManager::MessageHandler(void* ptr)
       } else if (!strncmp(ret, "AT+CHLD=", 9)) {
         reply_ok(socket->mFd);
       } else if (!strncmp(ret, "AT+VGS=", 7)) {
+        // Get vgs value in the msg
+        int newVgs = ret[7] - '0';
+
+        if (strlen(ret) > 8) {
+          newVgs = newVgs * 10 + (ret[8] - '0');
+        }
+
+        if (newVgs > sCurrentVgs) {
+          pressKey(KEY_VOLUMEUP);
+        } else if (newVgs < sCurrentVgs) {
+          pressKey(KEY_VOLUMEDOWN);
+        }
+
+        sCurrentVgs = newVgs;
+
         reply_ok(socket->mFd);
       } else if (!strncmp(ret, "AT+VGM=", 7)) {
+        reply_ok(socket->mFd);      
+      } else if (!strncmp(ret, "ATA", 3)) {
+        LOG("Answer the call!");
+        pressKey(KEY_F23);
+        reply_ok(socket->mFd);      
+      } else if (!strncmp(ret, "AT+CHUP", 7)) {
+        LOG("Hang up the call!");
+        pressKey(KEY_F24);
         reply_ok(socket->mFd);
+      } else if (!strncmp(ret, "OK", 2)) {
+        // Do nothing
+        LOG("Got an OK");
       } else {
         LOG("Not handled.");
         reply_ok(socket->mFd);
       }
     }
-  }  
+  } 
 
   return NULL;
 }

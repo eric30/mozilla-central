@@ -15,6 +15,7 @@ static BluetoothScoManager* sInstance = NULL;
 bool BluetoothScoManager::sConnected = false;
 
 BluetoothScoManager::BluetoothScoManager() : mSocket(NULL)
+                                           , mServerSocket(NULL)
 {
   // Do nothing
 }
@@ -40,16 +41,24 @@ BluetoothScoManager::Disconnect()
     delete mSocket;
     mSocket = NULL;
   }
-  
+
   BluetoothScoManager::sConnected = false;
 }
 
 bool
 BluetoothScoManager::Connect(const char* address)
 {
-  if (mSocket == NULL || !mSocket->Available()) {
-    mSocket = new BluetoothSocket(BluetoothSocket::TYPE_SCO);
+  if (mSocket != NULL) {
+    LOG("Disconnect???????");
+    mSocket->Disconnect();
+
+    delete mSocket;
+    mSocket = NULL;
   }
+
+//  if (mSocket == NULL || !mSocket->Available()) {
+    mSocket = new BluetoothSocket(BluetoothSocket::TYPE_SCO);
+//  }
 
   if (mSocket->Connect(1, address)) {
     mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
@@ -71,9 +80,20 @@ BluetoothScoManager::Connect(const char* address)
 void*
 BluetoothScoManager::AcceptInternal(void* ptr)
 {
-  BluetoothSocket* socket = static_cast<BluetoothSocket*>(ptr);
-  int newFd = socket->Accept();
-  BluetoothScoManager::sConnected = true;
+  BluetoothSocket* serverSocket = static_cast<BluetoothSocket*>(ptr);
+
+  // TODO(Eric)
+  // Need to let it break the while loop
+  while (true) {
+    int newFd = serverSocket->Accept();
+
+    if (newFd <= 0) {
+      LOG("Accept SCO connection failed, socket fd = %d", newFd);
+      break;
+    }
+
+    BluetoothScoManager::sConnected = true;
+  }
 
   return NULL;
 }
@@ -81,13 +101,18 @@ BluetoothScoManager::AcceptInternal(void* ptr)
 bool
 BluetoothScoManager::Listen()
 {
-  if (mSocket == NULL || !mSocket->Available()) {
-    mSocket = new BluetoothSocket(BluetoothSocket::TYPE_SCO);
+  if (mServerSocket != NULL) {
+    mServerSocket->Disconnect();
+
+    delete mServerSocket;
+    mServerSocket = NULL;
   }
 
-  mSocket->Listen(1);
+  mServerSocket = new BluetoothSocket(BluetoothSocket::TYPE_SCO);
+
+  mServerSocket->Listen(1);
   pthread_create(&(mAcceptThread), NULL, 
-                 BluetoothScoManager::AcceptInternal, mSocket);
+                 BluetoothScoManager::AcceptInternal, mServerSocket);
 
   return true;
 }

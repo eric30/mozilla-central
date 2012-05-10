@@ -360,7 +360,7 @@ BluetoothAdapter::SetupBluetooth()
     hfp->Listen(mChannel);
 
     BluetoothScoManager* sco = BluetoothScoManager::GetManager();
-    sco->Listen();
+    //sco->Listen();
   }
 
   return rv;
@@ -581,7 +581,7 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
         get_property(dict_entry, remote_device_properties, &prop_index, &prop_value, &array_length);
 
         if (prop_index == BT_DEVICE_NAME) {
-          tempName = new char[strlen(prop_value.str_val)];
+          tempName = new char[strlen(prop_value.str_val) + 1];
           strcpy(tempName, prop_value.str_val);
         }
       } while (dbus_message_iter_next(&dict));
@@ -671,7 +671,10 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
                                                             "unknown", 
                                                             dbus_message_get_path(msg));
         FireDeviceConnected(device);
-        Pair(address, 50000);
+
+        if (!IsPaired(dbus_message_get_path(msg))) {
+          Pair(address, 50000);
+        }
       } else {
         FireDeviceDisconnected(address);
       }
@@ -1036,6 +1039,25 @@ BluetoothAdapter::GetDiscovering(bool* aDiscovering)
   return NS_OK;
 }
 
+bool 
+BluetoothAdapter::IsPaired(const char* objectPath)
+{
+  PRUint32 length = mDevices.Length();
+  
+  for (PRUint32 i = 0; i < length; ++i) {
+    const char* asciiObjectPath = 
+        NS_LossyConvertUTF16toASCII(mDevices[i]).get();
+
+    if (!strcmp(asciiObjectPath, objectPath)) {
+      LOG("This device has been bonded.");
+      return true;
+    }
+  }
+
+  LOG("This device has not been bonded.");
+  return false;
+}
+
 NS_IMETHODIMP
 BluetoothAdapter::GetDevices(JSContext* aCx, jsval* aDevices)
 {
@@ -1348,7 +1370,7 @@ BluetoothAdapter::Pair(const char* aAddress, int aTimeout)
   const char *capabilities = "DisplayYesNo";
   const char *device_agent_path = "/B2G/bluetooth/remote_device_agent";
 
-  char* backupAddress = new char[strlen(aAddress)];
+  char* backupAddress = new char[strlen(aAddress) + 1];
   strcpy(backupAddress, aAddress);
 
   // Then send CreatePairedDevice, it will register a temp device agent then 
@@ -1439,7 +1461,7 @@ BluetoothAdapter::GetObjectPathFromAddress(const char* aAddress)
   // So, the difference between these two strings is /dev_00_23_7F_CB_B4_F1, 
   // and it's 22 chars long. 
   int index = strlen(mAdapterPath);
-  char* retObjectPath = new char[index + 22];
+  char* retObjectPath = new char[index + 22 + 1];
 
   strcpy(retObjectPath, mAdapterPath);
   strcat(retObjectPath, "/dev_");
@@ -1581,7 +1603,7 @@ BluetoothAdapter::ConnectSink(const nsAString& aAddress)
 {
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
   const char* objectPath = GetObjectPathFromAddress(asciiAddress);
-  char* backupObjectPath = new char[strlen(objectPath)];
+  char* backupObjectPath = new char[strlen(objectPath) + 1];
   strcpy(backupObjectPath, objectPath);
 
   bool ret = dbus_func_args_async(-1, 

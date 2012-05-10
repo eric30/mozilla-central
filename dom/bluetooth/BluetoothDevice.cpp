@@ -8,6 +8,7 @@
 #include "BluetoothSocket.h"
 #include "BluetoothServiceUuid.h"
 #include "BluetoothHfpManager.h"
+#include "BluetoothScoManager.h"
 
 #include "AudioManager.h"
 #include "dbus/dbus.h"
@@ -173,6 +174,13 @@ BluetoothDevice::Connect(PRInt32 channel, bool* success)
   // Should dispatch to diff profiles according to requesting profiles
   BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
   *success = hfp->Connect(channel, asciiAddress);
+
+  // Connect ok, next : establish a SCO link
+  BluetoothScoManager* scoManager = BluetoothScoManager::GetManager();
+
+  if (!scoManager->IsConnected()) {
+    scoManager->Connect(asciiAddress);
+  }
 
   return NS_OK;
 }

@@ -26,9 +26,10 @@ public:
   bool mEncrypt;
 
   BluetoothSocket(int type);
+  BluetoothSocket(int type, int fd);
   bool Connect(int channel, const char* bd_address);
   void Disconnect();
-  void Listen(int channel);
+  int Listen(int channel);
   int Accept();
   bool Available();
   const char* GetAddress();
@@ -39,7 +40,7 @@ protected:
   pthread_t mThread;
   pthread_t mAcceptThread;
   char mAddress[18];
-  void InitSocketNative(int type, bool auth, bool encrypt);
+  void InitSocketNative(int type, bool auth, bool encrypt, int fd);
 };
 
 END_BLUETOOTH_NAMESPACE
