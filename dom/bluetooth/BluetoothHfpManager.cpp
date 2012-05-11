@@ -19,6 +19,7 @@ USING_BLUETOOTH_NAMESPACE
 
 static BluetoothHfpManager* sInstance = NULL;
 static bool sStopEventLoopFlag = false;
+static bool sStopAcceptFlag = false;
 static int uinputFd = -1;
 static int sCurrentVgs = 7;
 
@@ -103,11 +104,8 @@ BluetoothHfpManager::Disconnect()
 
   LOG("Disconnect");  
 
-  BluetoothScoManager* scoManager = BluetoothScoManager::GetManager(); 
-  scoManager->Disconnect();
-
   if (mSocket != NULL)
-  {
+  {  
     sStopEventLoopFlag = true;
 
     LOG("Before join");
@@ -115,6 +113,11 @@ BluetoothHfpManager::Disconnect()
     LOG("After join");
 
     mSocket->Disconnect();
+
+    usleep(2000);
+    
+    BluetoothScoManager* scoManager = BluetoothScoManager::GetManager(); 
+    scoManager->Disconnect();
 
     delete mSocket;
     mSocket = NULL;
@@ -144,11 +147,6 @@ BluetoothHfpManager::Connect(int channel, const char* asciiAddress)
     pthread_create(&mEventThread, NULL, BluetoothHfpManager::MessageHandler, mSocket);
 
     // Connect ok, next : establish a SCO link
-//    BluetoothScoManager* scoManager = BluetoothScoManager::GetManager();
-
-  //  if (!scoManager->IsConnected()) {
-  //    scoManager->Connect(asciiAddress);
-  //  }
   } else {
     LOG("Connect failed");
 
@@ -161,22 +159,41 @@ BluetoothHfpManager::Connect(int channel, const char* asciiAddress)
   return true;
 }
 
+void
+BluetoothHfpManager::Close() 
+{
+  void* ret;
+
+  if (mServerSocket != NULL) {
+    mServerSocket->Disconnect();
+
+    sStopAcceptFlag = true;
+    pthread_join(mAcceptThread, &ret);
+
+    delete mServerSocket;
+    mServerSocket = NULL;
+  }
+}
+
 bool
 BluetoothHfpManager::Listen(int channel)
 {
   if (channel <= 0)
     return false;
 
-  if (mServerSocket == NULL || !mServerSocket->Available()) {
-    mServerSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM);
-    LOG("Create a new BluetoothServerSocket for listening");
-  }
-
-  LOG("Listening to channel %d", channel);
-
-  mChannel = channel;
+  if (mServerSocket != NULL)
+    return false;
 
   while(true) {
+    if (mServerSocket == NULL || !mServerSocket->Available()) {
+      mServerSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM);
+      LOG("Create a new BluetoothServerSocket for listening");
+    }
+
+    LOG("Listening to channel %d", channel);
+
+    mChannel = channel;
+
     usleep(500);
     int errno = mServerSocket->Listen(channel);
 
@@ -281,34 +298,37 @@ BluetoothHfpManager::AcceptInternal(void* ptr)
 
   // TODO(Eric)
   // Need to let it break the while loop
-  while (true) {
+  sStopAcceptFlag = false;
+
+  while (!sStopAcceptFlag) {
     int newFd = serverSocket->Accept();
 
-    if (newFd > 0) {
-      BluetoothHfpManager* manager = BluetoothHfpManager::GetManager();
-
-      if (manager->mSocket != NULL) {
-        manager->mSocket->Disconnect();
-      }
-
-      manager->mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM, newFd);
-
-      pthread_create(&manager->mEventThread, NULL, BluetoothHfpManager::MessageHandler, manager->mSocket);
-
-      // Connect ok, next : establish a SCO link
-      /*
-      BluetoothScoManager* scoManager = BluetoothScoManager::GetManager();
-      if (!scoManager->IsConnected()) {
-        const char* address = serverSocket->GetAddress();
-        LOG("[ERIC] SCO address : %s", address);
-        scoManager->Connect(address);
-      }
-      */
-
-      // reply_vgs(newFd);
-    } else {
+    if (newFd <= 0) {
       LOG("Error occurs after accepting:%s", __FUNCTION__);
     }
+
+    BluetoothHfpManager* manager = BluetoothHfpManager::GetManager();
+
+    if (manager->mSocket != NULL) {
+      manager->mSocket->Disconnect();
+    }
+
+    manager->mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM, newFd);
+
+    pthread_create(&manager->mEventThread, NULL, BluetoothHfpManager::MessageHandler, manager->mSocket);
+ 
+    usleep(5000);
+ 
+    // Connect ok, next : establish a SCO link
+    BluetoothScoManager* scoManager = BluetoothScoManager::GetManager();
+
+    if (!scoManager->IsConnected()) {
+      const char* address = serverSocket->GetAddress();
+      LOG("[ERIC] SCO address : %s", address);
+      scoManager->Connect(address);
+    }
+
+    // reply_vgs(newFd);
   }
 
   return NULL;
@@ -396,10 +416,13 @@ BluetoothHfpManager::MessageHandler(void* ptr)
         LOG("Answer the call!");
         pressKey(KEY_F23);
         reply_ok(socket->mFd);      
-      } else if (!strncmp(ret, "AT+CHUP", 7)) {
+      } else if (!strncmp(ret, "AT+BLDN", 7)) {
+        // Obvious that's wrong, however it's just for demo.
         LOG("Hang up the call!");
         pressKey(KEY_F24);
         reply_ok(socket->mFd);
+      } else if (!strncmp(ret, "AT+BVRA", 7)) {
+        reply_error(socket->mFd);
       } else if (!strncmp(ret, "OK", 2)) {
         // Do nothing
         LOG("Got an OK");

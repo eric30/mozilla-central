@@ -146,6 +146,8 @@ BluetoothSocket::Connect(int channel, const char* bd_address)
   mAddress[17] = '\0';
   strncpy(&mAddress[0], bd_address, 17);
 
+  LOG("Connect in Socket 1");
+
   if (get_bdaddr(bd_address, &bd_address_obj)) {
     LOG("Terrible");
     return false;
@@ -180,6 +182,8 @@ BluetoothSocket::Connect(int channel, const char* bd_address)
       LOG("Are u kidding me");
       break;
   }
+
+  LOG("Connect in Socket 2");
 
   int ret = connect(mFd, addr, addr_sz);
   LOG("RET = %d\n", ret);

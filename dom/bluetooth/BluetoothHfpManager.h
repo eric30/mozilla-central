@@ -20,6 +20,7 @@ public:
   void Disconnect();
   bool ReachedMaxConnection();
   bool Listen(int channel);
+  void Close();
   pthread_t mEventThread;
 
 protected:

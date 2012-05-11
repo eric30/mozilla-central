@@ -17,6 +17,7 @@ public:
   static BluetoothScoManager* GetManager();
   bool Connect(const char* address);
   void Disconnect();
+  void Close();
   bool Listen();
   bool IsConnected();
 
@@ -26,6 +27,7 @@ private:
   BluetoothSocket* mSocket;
   BluetoothSocket* mServerSocket;
   pthread_t mAcceptThread;
+  pthread_t mConnectThread;
   static bool sConnected;
 };
 

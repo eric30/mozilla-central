@@ -360,7 +360,7 @@ BluetoothAdapter::SetupBluetooth()
     hfp->Listen(mChannel);
 
     BluetoothScoManager* sco = BluetoothScoManager::GetManager();
-    //sco->Listen();
+    sco->Listen();
   }
 
   return rv;
@@ -379,10 +379,12 @@ BluetoothAdapter::SetEnabled(bool aEnabled, nsIDOMDOMRequest** aDomRequest)
   // Gracefully disconnect
   if (!aEnabled) {
     BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
-    
-    if (hfp->ReachedMaxConnection()) {
-      hfp->Disconnect();
-    }
+    hfp->Disconnect();
+    //hfp->Close();
+
+    BluetoothScoManager* sco = BluetoothScoManager::GetManager();
+    sco->Disconnect();
+    //sco->Close();
   }
 
   nsCOMPtr<nsIDOMDOMRequest> request;
@@ -672,9 +674,9 @@ BluetoothAdapter::HandleEvent(DBusMessage* msg)
                                                             dbus_message_get_path(msg));
         FireDeviceConnected(device);
 
-        if (!IsPaired(dbus_message_get_path(msg))) {
+        //if (!IsPaired(dbus_message_get_path(msg))) {
           Pair(address, 50000);
-        }
+        //}
       } else {
         FireDeviceDisconnected(address);
       }
@@ -1433,7 +1435,8 @@ BluetoothAdapter::Listen(PRInt32 channel)
 const char*
 BluetoothAdapter::GetAddressFromObjectPath(const char* aObjectPath)
 {
-  char* retAddress = new char[17];
+  char* retAddress = new char[18];
+  retAddress[17] = '\0';
 
   strncpy(retAddress, &aObjectPath[strlen(aObjectPath) - 17], 17);
 
