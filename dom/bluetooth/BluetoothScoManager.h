@@ -24,10 +24,13 @@ public:
 private:
   BluetoothScoManager();
   static void* AcceptInternal(void* ptr);
+  static void* RouteAudioInternal(void* ptr);
+
   BluetoothSocket* mSocket;
   BluetoothSocket* mServerSocket;
   pthread_t mAcceptThread;
   pthread_t mConnectThread;
+  pthread_t mRouteThread;
   static bool sConnected;
 };
 

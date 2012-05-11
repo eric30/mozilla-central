@@ -1,6 +1,8 @@
 #include "BluetoothScoManager.h"
 #include "BluetoothSocket.h"
 #include "AudioManager.h"
+#include <unistd.h> /* usleep() */
+
 
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
@@ -14,6 +16,7 @@ USING_BLUETOOTH_NAMESPACE
 static BluetoothScoManager* sInstance = NULL;
 bool BluetoothScoManager::sConnected = false;
 bool sStopFlag = false;
+bool sStopRouteFlag = true;
 
 BluetoothScoManager::BluetoothScoManager() : mSocket(NULL)
                                            , mServerSocket(NULL)
@@ -53,6 +56,8 @@ BluetoothScoManager::Close()
 void
 BluetoothScoManager::Disconnect()
 {
+  sStopRouteFlag = true;
+
   if (mSocket != NULL)
   {
     mSocket->Disconnect();
@@ -62,6 +67,8 @@ BluetoothScoManager::Disconnect()
   }
 
   BluetoothScoManager::sConnected = false;
+  mozilla::dom::gonk::AudioManager::BluetoothSco = false;
+  mozilla::dom::gonk::AudioManager::SetAudioRoute(0);
 }
 
 bool
@@ -82,6 +89,10 @@ BluetoothScoManager::Connect(const char* address)
   if (mSocket->Connect(1, address)) {
     mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
     BluetoothScoManager::sConnected = true;
+    mozilla::dom::gonk::AudioManager::BluetoothSco = true;
+
+    pthread_create(&(mRouteThread), NULL,
+                     BluetoothScoManager::RouteAudioInternal, NULL);
 
     LOG("SCO connected");
   } else {
@@ -113,10 +124,25 @@ BluetoothScoManager::AcceptInternal(void* ptr)
     }
 
     BluetoothScoManager::sConnected = true;
+    mozilla::dom::gonk::AudioManager::BluetoothSco = true;
   }
 
   return NULL;
 }
+
+void*
+BluetoothScoManager::RouteAudioInternal(void* ptr)
+{
+  sStopRouteFlag = false;
+
+  while (!sStopRouteFlag) {
+    usleep(5000);
+    mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
+  }
+
+  return NULL;
+}
+
 
 bool
 BluetoothScoManager::Listen()

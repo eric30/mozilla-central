@@ -423,6 +423,7 @@ BluetoothHfpManager::MessageHandler(void* ptr)
         reply_ok(socket->mFd);
       } else if (!strncmp(ret, "AT+BVRA", 7)) {
         reply_error(socket->mFd);
+        mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
       } else if (!strncmp(ret, "OK", 2)) {
         // Do nothing
         LOG("Got an OK");
