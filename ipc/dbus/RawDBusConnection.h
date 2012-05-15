@@ -31,6 +31,31 @@ public:
   RawDBusConnection();
   ~RawDBusConnection();
   bool Create();
+
+  DBusMessage * dbus_func_args_timeout_valist(
+      int timeout_ms,
+      DBusError *err,
+      const char *path,
+      const char *ifc,
+      const char *func,
+      int first_arg_type,
+      va_list args);
+
+  DBusMessage * dbus_func_args_timeout(
+      int timeout_ms,
+      const char *path,
+      const char *ifc,
+      const char *func,
+      int first_arg_type,
+      ...);
+
+  DBusMessage * dbus_func_args(
+      const char *path,
+      const char *ifc,
+      const char *func,
+      int first_arg_type,
+      ...);
+
 protected:
   Scoped<ScopedDBusConnectionPtrTraits> mConnection;
 };

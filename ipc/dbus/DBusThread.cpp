@@ -129,6 +129,7 @@ struct DBusThread : public RawDBusConnection
   bool StartEventLoop();
   void StopEventLoop();
   bool IsEventLoopRunning();
+  DBusConnection* GetCurrentConnection() { return this->mConnection ;}
   static void* EventLoop(void* aPtr);
 
   // Thread members
@@ -581,6 +582,12 @@ StopDBus()
     lock.Wait();
   }
   return success;
+}
+
+DBusConnection*
+GetCurrentConnection()
+{
+  return sDBusThread->GetCurrentConnection();
 }
 
 }

@@ -15,4 +15,5 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   readonly attribute bool enabled;
 
   nsIDOMDOMRequest setEnabled(in boolean enabled);
+  void testFunction();
 };

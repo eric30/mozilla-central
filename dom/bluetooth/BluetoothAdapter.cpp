@@ -6,6 +6,7 @@
 
 #include "BluetoothAdapter.h"
 #include "BluetoothFirmware.h"
+#include "BluetoothService.h"
 
 #include "nsDOMClassInfo.h"
 #include "nsDOMEvent.h"
@@ -13,6 +14,14 @@
 #include "nsXPCOMCIDInternal.h"
 #include "mozilla/LazyIdleThread.h"
 #include "mozilla/Util.h"
+
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args)
+#else
+#define LOG(args...)  printf(args); printf("\n");
+#endif
+
 
 static void
 FireEnabled(bool aResult, nsIDOMDOMRequest* aDomRequest)
@@ -105,17 +114,14 @@ class ToggleBtTask : public nsRunnable
 
       // return 1 if it's enabled, 0 if it's disabled, and -1 on error
       int isEnabled = IsBtEnabled();
-      //sBluedroidFunctions.bt_is_enabled();
 
       if ((isEnabled == 1 && mEnabled) || (isEnabled == 0 && !mEnabled)) {
         result = true;
       } else if (isEnabled < 0) {
         result = false;
       } else if (mEnabled) {
-        // result = (sBluedroidFunctions.bt_enable() == 0) ? true : false;
         result = (EnableBt() == 0) ? true : false;
       } else {
-        // result = (sBluedroidFunctions.bt_disable() == 0) ? true : false;
         result = (DisableBt() == 0) ? true : false;
       }
 #else
@@ -201,3 +207,10 @@ BluetoothAdapter::GetEnabled(bool* aEnabled)
   return NS_OK; 
 }
 
+NS_IMETHODIMP
+BluetoothAdapter::TestFunction()
+{
+  const char* test = GetDefaultAdapterPath();
+  LOG("GetAdapterPath: %s", test);
+  return NS_OK;
+}

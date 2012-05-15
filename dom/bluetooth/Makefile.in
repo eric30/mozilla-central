@@ -20,6 +20,7 @@ include $(topsrcdir)/dom/dom-config.mk
 CPPSRCS = \
   BluetoothAdapter.cpp \
   BluetoothFirmware.cpp \
+  BluetoothService.cpp \
   $(NULL)
 
 XPIDLSRCS = \

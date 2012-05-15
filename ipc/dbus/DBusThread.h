@@ -7,6 +7,8 @@
 #ifndef mozilla_ipc_dbus_gonk_dbusthread_h__
 #define mozilla_ipc_dbus_gonk_dbusthread_h__
 
+#include "dbus/dbus.h"
+
 namespace mozilla {
 namespace ipc {
 
@@ -19,6 +21,8 @@ bool StartDBus();
 // Stop the DBus thread, assuming it's currently running. Should be
 // called from main thread.
 bool StopDBus();
+
+DBusConnection* GetCurrentConnection();
 }
 }
 #endif
