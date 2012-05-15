@@ -400,6 +400,7 @@ SystemWorkerManager::InitBluetooth(JSContext *cx)
   // see if we can load functions out of bluedroid. If not, assume
   // it's an emulator and don't start the bluetooth thread.
   if(EnsureBluetoothInit()) {
+    LOG("Bluedroid functions ok");
 #endif
     StartDBus();
 #ifdef MOZ_WIDGET_GONK

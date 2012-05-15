@@ -49,6 +49,21 @@ bool EnsureBluetoothInit() {
   return true;
 }
 
+int IsBtEnabled()
+{
+  return sBluedroidFunctions.bt_is_enabled();
+}
+
+int EnableBt()
+{
+  return sBluedroidFunctions.bt_enable();
+}
+
+int DisableBt()
+{
+  return sBluedroidFunctions.bt_disable();
+}
+
 }
 }
 }

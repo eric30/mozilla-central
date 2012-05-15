@@ -27,6 +27,9 @@ static struct BluedroidFunctions {
 } sBluedroidFunctions;
 
 bool EnsureBluetoothInit();
+int IsBtEnabled();
+int EnableBt();
+int DisableBt();
 }
 }
 }
