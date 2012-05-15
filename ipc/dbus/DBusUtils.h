@@ -26,10 +26,39 @@
 
 struct DBusMessage;
 struct DBusError;
+struct DBusConnection;
 
 namespace mozilla {
 namespace ipc {
 void log_and_free_dbus_error(DBusError* err, const char* function, DBusMessage* msg = NULL);
+
+DBusMessage * dbus_func_args_timeout_valist(
+    DBusConnection* conn,
+    int timeout_ms,
+    DBusError *err,
+    const char *path,
+    const char *ifc,
+    const char *func,
+    int first_arg_type,
+    va_list args);
+
+DBusMessage * dbus_func_args_timeout(
+    DBusConnection* conn,
+    int timeout_ms,
+    const char *path,
+    const char *ifc,
+    const char *func,
+    int first_arg_type,
+    ...);
+
+DBusMessage * dbus_func_args(
+    DBusConnection* conn,
+    const char *path,
+    const char *ifc,
+    const char *func,
+    int first_arg_type,
+    ...);
+
 }
 }
 

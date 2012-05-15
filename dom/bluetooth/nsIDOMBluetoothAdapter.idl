@@ -15,5 +15,8 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   readonly attribute bool enabled;
 
   nsIDOMDOMRequest setEnabled(in boolean enabled);
+  bool startDiscovery();    // ret: false if bluetooth is not enabled
+  void stopDiscovery();    
+
   void testFunction();
 };

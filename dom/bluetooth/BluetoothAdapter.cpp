@@ -14,6 +14,7 @@
 #include "nsXPCOMCIDInternal.h"
 #include "mozilla/LazyIdleThread.h"
 #include "mozilla/Util.h"
+#include "dbus/dbus.h"
 
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
@@ -205,6 +206,25 @@ BluetoothAdapter::GetEnabled(bool* aEnabled)
 {
   *aEnabled = mEnabled;
   return NS_OK; 
+}
+
+
+// TODO(Eric)
+// return value has not been set in StartDiscoveryInternal.
+NS_IMETHODIMP
+BluetoothAdapter::StartDiscovery(bool* result)
+{
+  *result = StartDiscoveryInternal();
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::StopDiscovery()
+{
+  StopDiscoveryInternal();
+
+  return NS_OK;
 }
 
 NS_IMETHODIMP

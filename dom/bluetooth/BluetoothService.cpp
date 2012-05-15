@@ -1,6 +1,7 @@
 #include "BluetoothService.h"
 #include "dbus/dbus.h"
 #include "mozilla/ipc/DBusThread.h"
+#include "mozilla/ipc/DBusUtils.h"
 
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
@@ -15,6 +16,52 @@ static char* sAdapterPath = "";
 static DBusConnection* sConnection = NULL;
 
 BEGIN_BLUETOOTH_NAMESPACE
+
+void StopDiscoveryInternal()
+{
+  DBusMessage *reply;
+  DBusError err;
+  dbus_error_init(&err);
+
+  reply = dbus_func_args(GetCurrentConnection(),
+                         GetDefaultAdapterPath(),
+                         DBUS_ADAPTER_IFACE,
+                         "StopDiscovery",
+                         DBUS_TYPE_INVALID);
+
+  if (!reply) {
+    if (dbus_error_is_set(&err)) {
+      dbus_error_free(&err);
+    }
+
+    LOG("DBus reply is NULL in function %s\n", __FUNCTION__);
+  }
+}
+
+bool StartDiscoveryInternal()
+{
+  DBusMessage *reply;
+  DBusError err;
+  dbus_error_init(&err);
+
+  reply = dbus_func_args(GetCurrentConnection(),
+                         GetDefaultAdapterPath(),
+                         DBUS_ADAPTER_IFACE,
+                         "StartDiscovery",
+                         DBUS_TYPE_INVALID);
+
+  if (!reply) {
+    if (dbus_error_is_set(&err)) {
+      dbus_error_free(&err);
+    }
+
+    LOG("DBus reply is NULL in function %s\n", __FUNCTION__);
+
+    return false;
+  }
+
+  return true;
+}
 
 const char* GetDefaultAdapterPath()
 {

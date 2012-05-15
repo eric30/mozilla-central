@@ -12,6 +12,8 @@
 BEGIN_BLUETOOTH_NAMESPACE
 
 const char* GetDefaultAdapterPath();
+bool StartDiscoveryInternal();
+void StopDiscoveryInternal();
 
 END_BLUETOOTH_NAMESPACE
 

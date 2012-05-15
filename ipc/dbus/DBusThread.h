@@ -12,7 +12,6 @@
 namespace mozilla {
 namespace ipc {
 
-
 // Starts the DBus thread, which handles returning signals to objects
 // that call asynchronous functions. This should be called from the
 // main thread at startup.
