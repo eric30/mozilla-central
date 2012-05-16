@@ -3,6 +3,8 @@
 #include "mozilla/ipc/DBusThread.h"
 #include "mozilla/ipc/DBusUtils.h"
 
+#include <string.h>
+
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
 #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args)
@@ -12,7 +14,37 @@
 
 using namespace mozilla::ipc;
 
+extern DBusHandlerResult agent_event_filter(DBusConnection *conn,
+                                            DBusMessage *msg,
+                                            void *data);
+
 BEGIN_BLUETOOTH_NAMESPACE
+
+bool RegisterAgent()
+{
+  // Register agent for remote devices.
+  const char *device_agent_path = "/B2G/bluetooth/remote_device_agent";
+  static const DBusObjectPathVTable agent_vtable = { NULL, agent_event_filter, 
+                                                     NULL, NULL, NULL, NULL };
+
+  if (!dbus_connection_register_object_path(GetCurrentConnection(), 
+                                            device_agent_path,
+                                            &agent_vtable, 
+                                            NULL)) {
+    LOG("%s: Can't register object path %s for remote device agent!",
+        __FUNCTION__, device_agent_path);
+
+    return false;
+  }
+
+  return true;
+}
+
+void UnregisterAgent()
+{
+  const char *device_agent_path = "/B2G/bluetooth/remote_device_agent";
+  dbus_connection_unregister_object_path(GetCurrentConnection(), device_agent_path);
+}
 
 void StopDiscoveryInternal()
 {
@@ -195,6 +227,60 @@ bool SetAdapterProperty(char* propertyName, int type, void* value)
   }
 
   return true;
+}
+
+void
+asyncCreatePairedDeviceCallback(DBusMessage *msg, void *data, void* n)
+{
+  DBusError err;
+  dbus_error_init(&err);
+  const char* backupAddress =  (const char *)data;
+
+  if (dbus_set_error_from_message(&err, msg)) {
+    LOG("Creating paired device failed, err: %s", err.name);
+  } else {
+    LOG("PairedDevice %s has been created", backupAddress);
+  }
+
+  dbus_error_free(&err);
+
+  delete data;
+}
+
+void CreatePairedDeviceInternal(const char* aAddress, int aTimeout)
+{
+  const char *capabilities = "DisplayYesNo";
+  const char *device_agent_path = "/B2G/bluetooth/remote_device_agent";
+
+  char* backupAddress = new char[strlen(aAddress) + 1];
+  strcpy(backupAddress, aAddress);
+
+  // Then send CreatePairedDevice, it will register a temp device agent then 
+  // unregister it after pairing process is over
+  bool ret = dbus_func_args_async(GetCurrentConnection(),
+      aTimeout,
+      asyncCreatePairedDeviceCallback , // callback
+      (void*)backupAddress,
+      GetDefaultAdapterPath(),
+      DBUS_ADAPTER_IFACE,
+      "CreatePairedDevice",
+      DBUS_TYPE_STRING, &aAddress,
+      DBUS_TYPE_OBJECT_PATH, &device_agent_path,
+      DBUS_TYPE_STRING, &capabilities,
+      DBUS_TYPE_INVALID);
+}
+
+void RemoveDeviceInternal(const char* aDeviceObjectPath)
+{
+  bool ret = dbus_func_args_async(GetCurrentConnection(), 
+      -1,
+      NULL,
+      NULL,
+      GetDefaultAdapterPath(),
+      DBUS_ADAPTER_IFACE,
+      "RemoveDevice",
+      DBUS_TYPE_OBJECT_PATH, &aDeviceObjectPath,
+      DBUS_TYPE_INVALID);
 }
 
 END_BLUETOOTH_NAMESPACE

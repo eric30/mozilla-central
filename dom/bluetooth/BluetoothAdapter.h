@@ -31,11 +31,13 @@ public:
                                            nsDOMEventTargetHelper)
 
   BluetoothAdapter(nsPIDOMWindow*);
-  void SetupBluetooth();
+  void Setup();
+  void TearDown();
 
   inline void SetEnabledInternal(bool aEnabled) {mEnabled = aEnabled;}
 
-  void onDeviceFoundNative();
+  void onDeviceFoundNative(const char* aDeviceAddress);
+  void onDeviceCreatedNative(const char* aDeviceObjectPath);
 
 protected:
   bool mEnabled;

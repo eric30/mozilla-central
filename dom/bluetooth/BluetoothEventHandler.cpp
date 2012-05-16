@@ -14,6 +14,7 @@ BEGIN_BLUETOOTH_NAMESPACE
 BluetoothEventHandler::BluetoothEventHandler() : mAdapter(NULL)
 {
   RegisterEventHandler(this);
+
 }
 
 BluetoothEventHandler::~BluetoothEventHandler()
@@ -28,10 +29,13 @@ void BluetoothEventHandler::Register(BluetoothAdapter* adapter)
 void BluetoothEventHandler::HandleEvent(DBusMessage* msg)
 {
   LOG("It's now handling event.");
+  DBusError err;
+  dbus_error_init(&err);
 
   if (dbus_message_is_signal(msg, "org.bluez.Adapter", "DeviceFound")) {
     char* deviceAddress;
     DBusMessageIter iter;
+    bool handled = false;
 
     if (dbus_message_iter_init(msg, &iter)) {
       dbus_message_iter_get_basic(&iter, &deviceAddress);
@@ -39,14 +43,24 @@ void BluetoothEventHandler::HandleEvent(DBusMessage* msg)
       if (dbus_message_iter_next(&iter)) {
         // TODO(Eric) 
         // Parse properties
+        handled = true;
       }
     }
 
-    //if (str_array != NULL) {
-      mAdapter->onDeviceFoundNative();
+    //if (handled) {
+      mAdapter->onDeviceFoundNative(deviceAddress);
     //} else {
-    //  LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
+      //LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
     //}
+  } else if (dbus_message_is_signal(msg, "org.bluez.Adapter", "DeviceCreated")) {
+    char *deviceObjectPath;
+    if (dbus_message_get_args(msg, &err,
+                              DBUS_TYPE_OBJECT_PATH, &deviceObjectPath,
+                              DBUS_TYPE_INVALID)) {
+      mAdapter->onDeviceCreatedNative(deviceObjectPath);
+    } else {
+      //LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
+    }
   }
 }
 

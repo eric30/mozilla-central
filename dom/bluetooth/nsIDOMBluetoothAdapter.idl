@@ -16,7 +16,8 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   bool startDiscovery();    // ret: false if bluetooth is not enabled
   void stopDiscovery();    
 
-  void testFunction();
+  void testFunction1(in DOMString aAddress);
+  void testFunction2(in DOMString aObjectPath);
 
   readonly attribute DOMString address;
   readonly attribute unsigned long class;

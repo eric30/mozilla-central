@@ -11,11 +11,16 @@
 
 BEGIN_BLUETOOTH_NAMESPACE
 
+void InitServices();
 const char* GetDefaultAdapterPath();
+bool RegisterAgent();
+void UnregisterAgent();
 bool StartDiscoveryInternal();
 void StopDiscoveryInternal();
 void GetAdapterProperties();
 bool SetAdapterProperty(char* propertyName, int type, void* value);
+void CreatePairedDeviceInternal(const char* aAddress, int aTimeout);
+void RemoveDeviceInternal(const char* aDeviceObjectPath);
 
 END_BLUETOOTH_NAMESPACE
 

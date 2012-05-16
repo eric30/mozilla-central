@@ -69,7 +69,12 @@ class ToggleBtResultTask : public nsRunnable
       // firmware succeeds.
       if (mResult) {
         mAdapterPtr->SetEnabledInternal(mEnabled);
-        mAdapterPtr->SetupBluetooth();
+
+        if (mEnabled) {
+          mAdapterPtr->Setup();
+        } else {
+          mAdapterPtr->TearDown();
+        }
       }
 
       FireEnabled(mResult, mDOMRequest);
@@ -176,13 +181,22 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow *aWindow) : mHandler(NULL)
 }
 
 void
-BluetoothAdapter::SetupBluetooth()
+BluetoothAdapter::Setup()
 {
   if (!mHandler) {
     mHandler = new BluetoothEventHandler();
   }
 
   mHandler->Register(this);
+
+  // Register Bluetooth agent
+  RegisterAgent();
+}
+
+void
+BluetoothAdapter::TearDown()
+{
+  UnregisterAgent();
 }
 
 NS_IMETHODIMP
@@ -237,9 +251,15 @@ BluetoothAdapter::StopDiscovery()
 // ***************** Event Handler ******************
 // **************************************************
 void 
-BluetoothAdapter::onDeviceFoundNative()
+BluetoothAdapter::onDeviceFoundNative(const char* aDeviceAddress)
 {
-  LOG("Device Found!!!!");
+  LOG("[DeviceFound] Address = %s", aDeviceAddress);
+}
+
+void 
+BluetoothAdapter::onDeviceCreatedNative(const char* aDeviceObjectPath)
+{
+  LOG("[DeviceCreated] Object Path = %s", aDeviceObjectPath);
 }
 
 // **************************************************
@@ -347,8 +367,20 @@ BluetoothAdapter::SetDiscoverableTimeout(const PRUint32 aDiscoverableTimeout)
 
 // xxxxxxxxxxxxxxxxxxxx Temp functions xxxxxxxxxxxxxxxxxxxxxx
 NS_IMETHODIMP
-BluetoothAdapter::TestFunction()
+BluetoothAdapter::TestFunction1(const nsAString& aAddress)
 {
-  GetAdapterProperties();
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  CreatePairedDeviceInternal(asciiAddress, 50000);
+
   return NS_OK;
 }
+
+NS_IMETHODIMP
+BluetoothAdapter::TestFunction2(const nsAString& aObjectPath)
+{
+  const char* asciiObjectPath = NS_LossyConvertUTF16toASCII(aObjectPath).get();
+  RemoveDeviceInternal(asciiObjectPath);
+
+  return NS_OK;
+}
+

@@ -30,6 +30,7 @@ struct DBusConnection;
 
 namespace mozilla {
 namespace ipc {
+const char * get_adapter_path(DBusConnection *conn);
 void log_and_free_dbus_error(DBusError* err, const char* function, DBusMessage* msg = NULL);
 
 DBusMessage * dbus_func_args_timeout_valist(
@@ -53,6 +54,16 @@ DBusMessage * dbus_func_args_timeout(
 
 DBusMessage * dbus_func_args(
     DBusConnection* conn,
+    const char *path,
+    const char *ifc,
+    const char *func,
+    int first_arg_type,
+    ...);
+
+bool dbus_func_args_async(DBusConnection* conn,
+    int timeout_ms,
+    void (*reply)(DBusMessage *, void *, void*),
+    void *user,
     const char *path,
     const char *ifc,
     const char *func,
