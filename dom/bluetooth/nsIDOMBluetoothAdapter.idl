@@ -12,11 +12,17 @@ interface nsIDOMEventListener;
 [scriptable, builtinclass, uuid(ac288eab-dcdb-4f6a-b94d-6c0e286d6a73)]
 interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
 {
-  readonly attribute bool enabled;
-
   nsIDOMDOMRequest setEnabled(in boolean enabled);
   bool startDiscovery();    // ret: false if bluetooth is not enabled
   void stopDiscovery();    
 
   void testFunction();
+
+  readonly attribute DOMString address;
+  readonly attribute unsigned long class;
+  readonly attribute bool enabled;
+  readonly attribute bool discovering;
+  attribute DOMString name;                      // Set custom device name
+  attribute bool discoverable;                   // Set to false if this device would not like to be discovered
+  attribute unsigned long discoverableTimeout;   // Unit: sec
 };

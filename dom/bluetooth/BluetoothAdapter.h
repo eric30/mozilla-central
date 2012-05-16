@@ -34,6 +34,12 @@ public:
 
 protected:
   bool mEnabled;
+  bool mDiscoverable;
+  bool mDiscovering;
+  nsString mAddress;
+  nsString mName;
+  PRUint32 mDiscoverableTimeout;
+  PRUint32 mClass;
 
   NS_DECL_EVENT_HANDLER(enabled)
 

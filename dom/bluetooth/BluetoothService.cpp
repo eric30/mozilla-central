@@ -12,9 +12,6 @@
 
 using namespace mozilla::ipc;
 
-static char* sAdapterPath = "";
-static DBusConnection* sConnection = NULL;
-
 BEGIN_BLUETOOTH_NAMESPACE
 
 void StopDiscoveryInternal()
@@ -63,14 +60,14 @@ bool StartDiscoveryInternal()
   return true;
 }
 
+// TODO(Eric)
+// Need refactory
 const char* GetDefaultAdapterPath()
 {
   DBusMessage *msg = NULL, *reply = NULL;
   DBusError err;
   const char *device_path = NULL;
   int attempt = 0;
-
-  sConnection = GetCurrentConnection();
 
   for (attempt = 0; attempt < 1000 && reply == NULL; attempt ++) {
     msg = dbus_message_new_method_call("org.bluez", "/",
@@ -82,7 +79,7 @@ const char* GetDefaultAdapterPath()
     }
     dbus_message_append_args(msg, DBUS_TYPE_INVALID);
     dbus_error_init(&err);
-    reply = dbus_connection_send_with_reply_and_block(sConnection, msg, -1, &err);
+    reply = dbus_connection_send_with_reply_and_block(GetCurrentConnection(), msg, -1, &err);
 
     if (!reply) {
       if (dbus_error_is_set(&err)) {
@@ -123,7 +120,81 @@ const char* GetDefaultAdapterPath()
 
 failed:
   dbus_message_unref(msg);
-  return sAdapterPath; 
+  return NULL; 
+}
+
+void GetAdapterProperties() 
+{
+  DBusMessage *msg, *reply;
+  DBusError err;
+  dbus_error_init(&err);
+
+  reply = dbus_func_args_timeout(GetCurrentConnection(),
+                                 -1,
+                                 GetDefaultAdapterPath(),
+                                 DBUS_ADAPTER_IFACE, "GetProperties",
+                                 DBUS_TYPE_INVALID);
+
+  if (!reply) {
+    if (dbus_error_is_set(&err)) {
+      LOG_AND_FREE_DBUS_ERROR(&err);
+    } else {
+      LOG("DBus reply is NULL in function %s", __FUNCTION__);
+    }
+  }
+
+  DBusMessageIter iter;
+  if (dbus_message_iter_init(reply, &iter)) {
+    // TODO(Eric)
+    // No idea how to parse, but should easily parse and send it to upper layer
+    
+  }
+
+  dbus_message_unref(reply);
+}
+
+void AppendVariant(DBusMessageIter *iter, int type, void *val)
+{
+  DBusMessageIter value_iter;
+  char var_type[2] = {(char)type, '\0'};
+  dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, var_type, &value_iter);
+  dbus_message_iter_append_basic(&value_iter, type, val);
+  dbus_message_iter_close_container(iter, &value_iter);
+}
+
+bool SetAdapterProperty(char* propertyName, int type, void* value)
+{
+  DBusMessage *reply, *msg;
+  DBusMessageIter iter;
+  DBusError err;
+
+  /* Initialization */
+  dbus_error_init(&err);
+
+  /* Compose the command */
+  msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, GetDefaultAdapterPath(),
+                                     DBUS_ADAPTER_IFACE, "SetProperty");
+
+  if (msg == NULL) {
+    LOG("SetProperty : Error on creating new method call msg");
+    return false;
+  }
+
+  dbus_message_append_args(msg, DBUS_TYPE_STRING, &propertyName, DBUS_TYPE_INVALID);
+  dbus_message_iter_init_append(msg, &iter);
+  AppendVariant(&iter, type, value);
+
+  /* Send the command. */
+  reply = dbus_connection_send_with_reply_and_block(GetCurrentConnection(), 
+                                                    msg, -1, &err);
+  dbus_message_unref(msg);
+
+  if (!reply || dbus_error_is_set(&err)) {
+    LOG("SetProperty : Send SetProperty Command error");
+    return false;
+  }
+
+  return true;
 }
 
 END_BLUETOOTH_NAMESPACE

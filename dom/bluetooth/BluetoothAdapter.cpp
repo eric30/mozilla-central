@@ -202,19 +202,13 @@ BluetoothAdapter::SetEnabled(bool aEnabled, nsIDOMDOMRequest** aDomRequest)
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::GetEnabled(bool* aEnabled)
-{
-  *aEnabled = mEnabled;
-  return NS_OK; 
-}
-
-
-// TODO(Eric)
-// return value has not been set in StartDiscoveryInternal.
-NS_IMETHODIMP
 BluetoothAdapter::StartDiscovery(bool* result)
 {
-  *result = StartDiscoveryInternal();
+  if (!mEnabled) {
+    *result = false;
+  } else {
+    *result = StartDiscoveryInternal();
+  }
 
   return NS_OK;
 }
@@ -227,10 +221,113 @@ BluetoothAdapter::StopDiscovery()
   return NS_OK;
 }
 
+// **************************************************
+// ******************** Getters *********************
+// **************************************************
+
+NS_IMETHODIMP
+BluetoothAdapter::GetEnabled(bool* aEnabled)
+{
+  *aEnabled = mEnabled;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::GetAddress(nsAString& aAddress)
+{
+  aAddress = mAddress;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::GetClass(PRUint32* aClass)
+{
+  *aClass = mClass;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::GetDiscovering(bool* aDiscovering)
+{
+  *aDiscovering = mDiscovering;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::GetName(nsAString& aName)
+{
+  aName = mName;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::GetDiscoverable(bool* aDiscoverable)
+{
+  *aDiscoverable = mDiscoverable;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::GetDiscoverableTimeout(PRUint32* aDiscoverableTimeout)
+{
+  *aDiscoverableTimeout = mDiscoverableTimeout;
+  return NS_OK;
+}
+
+// **************************************************
+// ******************** Setters *********************
+// **************************************************
+
+NS_IMETHODIMP
+BluetoothAdapter::SetName(const nsAString& aName)
+{
+  if (mName.Equals(aName)) return NS_OK;
+
+  const char* asciiName = ToNewCString(aName);
+
+  if (!SetAdapterProperty("Name", DBUS_TYPE_STRING, (void*)&asciiName)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  mName = aName;
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::SetDiscoverable(const bool aDiscoverable)
+{
+  if(aDiscoverable == mDiscoverable) return NS_OK;
+
+  int value = aDiscoverable ? 1 : 0;
+
+  if (!SetAdapterProperty("Discoverable", DBUS_TYPE_BOOLEAN, (void*)&value)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  mDiscoverable = aDiscoverable;
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::SetDiscoverableTimeout(const PRUint32 aDiscoverableTimeout)
+{
+  if(aDiscoverableTimeout == mDiscoverableTimeout) return NS_OK;
+
+  if (!SetAdapterProperty("DiscoverableTimeout", DBUS_TYPE_UINT32, (void*)&aDiscoverableTimeout)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  mDiscoverableTimeout = aDiscoverableTimeout;
+
+  return NS_OK;
+}
+
+// xxxxxxxxxxxxxxxxxxxx Temp functions xxxxxxxxxxxxxxxxxxxxxx
 NS_IMETHODIMP
 BluetoothAdapter::TestFunction()
 {
-  const char* test = GetDefaultAdapterPath();
-  LOG("GetAdapterPath: %s", test);
+  GetAdapterProperties();
   return NS_OK;
 }
