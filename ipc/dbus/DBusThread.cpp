@@ -22,8 +22,9 @@
  */
 
 #include "DBusThread.h"
-#include "RawDBusConnection.h"
+#include "DBusEventHandler.h"
 #include "DBusUtils.h"
+#include "RawDBusConnection.h"
 
 #include <dbus/dbus.h>
 #include <sys/socket.h>
@@ -52,6 +53,7 @@
 #include "nsAutoPtr.h"
 #include "nsIThread.h"
 #include "nsXULAppAPI.h"
+#include "nsThreadUtils.h"
 
 #undef LOG
 #if defined(MOZ_WIDGET_GONK)
@@ -129,7 +131,8 @@ struct DBusThread : public RawDBusConnection
   bool StartEventLoop();
   void StopEventLoop();
   bool IsEventLoopRunning();
-  DBusConnection* GetCurrentConnection() { return this->mConnection ;}
+  DBusConnection* GetCurrentConnection() { return this->mConnection; }
+  void SetEventHandler(DBusEventHandler* aHandler) { this->mHandler = aHandler; }
   static void* EventLoop(void* aPtr);
 
   // Thread members
@@ -147,6 +150,8 @@ struct DBusThread : public RawDBusConnection
   // add/removes, loop shutdown, etc...)
   ScopedClose mControlFdR;
   ScopedClose mControlFdW;
+
+  DBusEventHandler* mHandler;
 
 protected:
   bool SetUpEventLoop();
@@ -284,6 +289,22 @@ static void HandleWatchRemove(DBusThread* aDbt) {
   aDbt->mWatchData.RemoveElementAt(index);
 }
 
+class DBusHandleMessage : public nsRunnable {
+  public:
+    DBusHandleMessage(DBusEventHandler* eh, DBusMessage* msg) {
+      mEh = eh;
+      mMsg = msg;
+    }
+    NS_IMETHOD Run() {
+      mEh->HandleEvent(mMsg);
+      return NS_OK;
+    }
+  protected:
+    DBusEventHandler* mEh;
+    DBusMessage* mMsg;
+};
+
+
 // Called by dbus during WaitForAndDispatchEventNative()
 static DBusHandlerResult
 EventFilter(DBusConnection *aConn, DBusMessage *aMsg,
@@ -302,6 +323,18 @@ EventFilter(DBusConnection *aConn, DBusMessage *aMsg,
       dbus_message_get_interface(aMsg), dbus_message_get_member(aMsg),
       dbus_message_get_path(aMsg));
 
+  DBusThread* t = static_cast<DBusThread*>(aData);
+
+  if (!t->mHandler) {
+    LOG("No handler set!\n");
+    return DBUS_HANDLER_RESULT_HANDLED;
+  }
+  
+  LOG("Dispatching handle to main thread!\n");
+
+  nsRefPtr<DBusHandleMessage> d = new DBusHandleMessage(t->mHandler, aMsg);
+  NS_DispatchToMainThread(d);
+
   return DBUS_HANDLER_RESULT_HANDLED;
 }
 
@@ -309,6 +342,7 @@ EventFilter(DBusConnection *aConn, DBusMessage *aMsg,
 
 DBusThread::DBusThread() : mMutex("DBusGonk.mMutex")
                          , mIsRunning(false)
+                         , mHandler(NULL)
 {
 }
 
@@ -589,6 +623,12 @@ GetCurrentConnection()
 {
   return sDBusThread->GetCurrentConnection();
 }
+
+void RegisterEventHandler(DBusEventHandler* aHandler)
+{
+  sDBusThread->SetEventHandler(aHandler);
+}
+
 
 }
 }

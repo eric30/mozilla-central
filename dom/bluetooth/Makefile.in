@@ -21,6 +21,7 @@ CPPSRCS = \
   BluetoothAdapter.cpp \
   BluetoothFirmware.cpp \
   BluetoothService.cpp \
+  BluetoothEventHandler.cpp \
   $(NULL)
 
 XPIDLSRCS = \

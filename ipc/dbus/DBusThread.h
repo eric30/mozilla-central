@@ -8,6 +8,7 @@
 #define mozilla_ipc_dbus_gonk_dbusthread_h__
 
 #include "dbus/dbus.h"
+#include "DBusEventHandler.h"
 
 namespace mozilla {
 namespace ipc {
@@ -22,6 +23,7 @@ bool StartDBus();
 bool StopDBus();
 
 DBusConnection* GetCurrentConnection();
+void RegisterEventHandler(DBusEventHandler* aHandler);
 }
 }
 #endif

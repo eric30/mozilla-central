@@ -7,6 +7,7 @@
 #include "BluetoothAdapter.h"
 #include "BluetoothFirmware.h"
 #include "BluetoothService.h"
+#include "BluetoothEventHandler.h"
 
 #include "nsDOMClassInfo.h"
 #include "nsDOMEvent.h"
@@ -68,6 +69,7 @@ class ToggleBtResultTask : public nsRunnable
       // firmware succeeds.
       if (mResult) {
         mAdapterPtr->SetEnabledInternal(mEnabled);
+        mAdapterPtr->SetupBluetooth();
       }
 
       FireEnabled(mResult, mDOMRequest);
@@ -168,9 +170,19 @@ NS_INTERFACE_MAP_END_INHERITING(nsDOMEventTargetHelper)
 NS_IMPL_ADDREF_INHERITED(BluetoothAdapter, nsDOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(BluetoothAdapter, nsDOMEventTargetHelper)
 
-BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow *aWindow) 
+BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow *aWindow) : mHandler(NULL)
 {
   BindToOwner(aWindow);
+}
+
+void
+BluetoothAdapter::SetupBluetooth()
+{
+  if (!mHandler) {
+    mHandler = new BluetoothEventHandler();
+  }
+
+  mHandler->Register(this);
 }
 
 NS_IMETHODIMP
@@ -219,6 +231,15 @@ BluetoothAdapter::StopDiscovery()
   StopDiscoveryInternal();
 
   return NS_OK;
+}
+
+// **************************************************
+// ***************** Event Handler ******************
+// **************************************************
+void 
+BluetoothAdapter::onDeviceFoundNative()
+{
+  LOG("Device Found!!!!");
 }
 
 // **************************************************

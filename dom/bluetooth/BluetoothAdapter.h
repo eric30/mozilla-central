@@ -16,6 +16,8 @@ class nsIEventTarget;
 
 BEGIN_BLUETOOTH_NAMESPACE
 
+class BluetoothEventHandler;
+
 class BluetoothAdapter : public nsDOMEventTargetHelper
                        , public nsIDOMBluetoothAdapter
 {
@@ -29,8 +31,11 @@ public:
                                            nsDOMEventTargetHelper)
 
   BluetoothAdapter(nsPIDOMWindow*);
+  void SetupBluetooth();
 
   inline void SetEnabledInternal(bool aEnabled) {mEnabled = aEnabled;}
+
+  void onDeviceFoundNative();
 
 protected:
   bool mEnabled;
@@ -45,6 +50,7 @@ protected:
 
 private:
   nsCOMPtr<nsIEventTarget> mToggleBtThread;
+  BluetoothEventHandler* mHandler;
 };
 
 END_BLUETOOTH_NAMESPACE

@@ -13,7 +13,7 @@ namespace mozilla {
 namespace ipc {
 class DBusEventHandler {
 public:
-  virtual nsresult HandleEvent(DBusMessage* msg) = 0;
+  virtual void HandleEvent(DBusMessage* msg) = 0;
 };
 }
 }

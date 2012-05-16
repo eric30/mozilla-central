@@ -25,6 +25,7 @@ EXPORTS_mozilla/ipc = \
   RawDBusConnection.h \
   DBusThread.h \
   DBusUtils.h \
+  DBusEventHandler.h \
   $(NULL)
 
 CPPSRCS += \
