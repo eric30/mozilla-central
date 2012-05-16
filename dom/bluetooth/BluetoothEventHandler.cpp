@@ -32,6 +32,10 @@ void BluetoothEventHandler::HandleEvent(DBusMessage* msg)
   DBusError err;
   dbus_error_init(&err);
 
+  LOG("%s: Received signal %s:%s from %s", __FUNCTION__,
+      dbus_message_get_interface(msg), dbus_message_get_member(msg),
+      dbus_message_get_path(msg));
+
   if (dbus_message_is_signal(msg, "org.bluez.Adapter", "DeviceFound")) {
     char* deviceAddress;
     DBusMessageIter iter;

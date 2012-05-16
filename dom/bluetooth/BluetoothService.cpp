@@ -14,18 +14,82 @@
 
 using namespace mozilla::ipc;
 
-extern DBusHandlerResult agent_event_filter(DBusConnection *conn,
-                                            DBusMessage *msg,
-                                            void *data);
+// TODO(Eric)
+// Cannot receive any authentication related event
+DBusHandlerResult agent_event_filter(DBusConnection *conn, DBusMessage *msg, void *data)
+{
+  if (dbus_message_get_type(msg) != DBUS_MESSAGE_TYPE_METHOD_CALL) {
+    LOG("%s: not interested (not a method call).", __FUNCTION__);
+    return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+  }
+
+  LOG("%s: Received method %s:%s", __FUNCTION__,
+      dbus_message_get_interface(msg), dbus_message_get_member(msg));
+
+  return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static const DBusObjectPathVTable agent_vtable = {
+  NULL, agent_event_filter, NULL, NULL, NULL, NULL
+};
 
 BEGIN_BLUETOOTH_NAMESPACE
 
+static int RegisterLocalAgent(DBusConnection* conn, const char* agentPath, const char* capabilities)
+{
+  DBusMessage *msg, *reply;
+  DBusError err;
+
+  if (!dbus_connection_register_object_path(conn, agentPath,
+        &agent_vtable, NULL)) {
+    LOG("%s: Can't register object path %s for agent!",
+        __FUNCTION__, agentPath);
+    return -1;
+  }
+
+  const char* adapter = get_adapter_path(conn);
+
+  LOG("PASS, and AdapterPath = %s", adapter);
+
+  msg = dbus_message_new_method_call("org.bluez", adapter,
+                                     "org.bluez.Adapter", "RegisterAgent");
+  if (!msg) {
+    LOG("%s: Can't allocate new method call for agent!", __FUNCTION__);
+    return -1;
+  }
+
+  dbus_message_append_args(msg,
+                           DBUS_TYPE_OBJECT_PATH, &agentPath,
+                           DBUS_TYPE_STRING, &capabilities,
+                           DBUS_TYPE_INVALID);
+
+  dbus_error_init(&err);
+  reply = dbus_connection_send_with_reply_and_block(conn, msg, -1, &err);
+  dbus_message_unref(msg);
+
+  if (!reply) {
+    LOG("%s: Can't register agent!", __FUNCTION__);
+    if (dbus_error_is_set(&err)) {
+      LOG_AND_FREE_DBUS_ERROR(&err);
+    }
+    return -1;
+  }
+
+  dbus_message_unref(reply);
+  dbus_connection_flush(conn);
+
+  return 0;
+}
+
 bool RegisterAgent()
 {
+  // Register local agent
+  const char *local_agent_path = "/B2G/bluetooth/agent";
+  const char *capabilities = "DisplayYesNo";
+  RegisterLocalAgent(GetCurrentConnection(), local_agent_path, capabilities);
+
   // Register agent for remote devices.
   const char *device_agent_path = "/B2G/bluetooth/remote_device_agent";
-  static const DBusObjectPathVTable agent_vtable = { NULL, agent_event_filter, 
-                                                     NULL, NULL, NULL, NULL };
 
   if (!dbus_connection_register_object_path(GetCurrentConnection(), 
                                             device_agent_path,
