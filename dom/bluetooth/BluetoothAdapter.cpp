@@ -261,6 +261,12 @@ BluetoothAdapter::onDeviceFoundNative(const char* aDeviceAddress)
 }
 
 void 
+BluetoothAdapter::onDeviceDisappearedNative(const char* aDeviceAddress)
+{
+  LOG("[DeviceDisappered] Address = %s", aDeviceAddress);
+}
+
+void 
 BluetoothAdapter::onDeviceCreatedNative(const char* aDeviceObjectPath)
 {
   LOG("[DeviceCreated] Object Path = %s", aDeviceObjectPath);

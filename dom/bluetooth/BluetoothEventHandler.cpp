@@ -61,6 +61,15 @@ void BluetoothEventHandler::HandleEvent(DBusMessage* msg)
     } else {
       LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
     }
+  } else if (dbus_message_is_signal(msg, "org.bluez.Adapter", "DeviceDisappeared")) {
+    char *deviceAddress;
+    if (dbus_message_get_args(msg, &err,
+                              DBUS_TYPE_STRING, &deviceAddress,
+                              DBUS_TYPE_INVALID)) {
+      mAdapter->onDeviceDisappearedNative(deviceAddress);
+    } else {
+      LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
+    }
   } else if (dbus_message_is_signal(msg, "org.bluez.Adapter", "DeviceCreated")) {
     char *deviceObjectPath;
     if (dbus_message_get_args(msg, &err,

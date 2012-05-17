@@ -39,6 +39,7 @@ public:
   inline void SetEnabledInternal(bool aEnabled) {mEnabled = aEnabled;}
 
   void onDeviceFoundNative(const char* aDeviceAddress);
+  void onDeviceDisappearedNative(const char* aDeviceAddress);
   void onDeviceCreatedNative(const char* aDeviceObjectPath);
   void onPropertyChangedNative(std::list<const char*> aChangedProperty);
 
