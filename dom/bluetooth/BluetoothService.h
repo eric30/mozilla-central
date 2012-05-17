@@ -34,9 +34,9 @@ void CreatePairedDeviceInternal(const char* aAddress, int aTimeout);
 void RemoveDeviceInternal(const char* aDeviceObjectPath);
 void DiscoverServicesInternal(const char* aObjectPath, const char* aPattern);
 int AddRfcommServiceRecordInternal(const char* aName,
-                            unsigned long long aUuidMsb,
+                                   unsigned long long aUuidMsb,
                                    unsigned long long aUuidLsb,
-                                   int channel);
+                                   short aChannel);
 bool RemoveServiceRecordInternal(int aHandle);
 int GetDeviceServiceChannelInternal(const char* aObjectPath, const char* aPattern, int aAttrId);
 

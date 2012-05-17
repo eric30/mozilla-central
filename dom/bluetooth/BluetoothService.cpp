@@ -443,9 +443,9 @@ DiscoverServicesInternal(const char* aObjectPath, const char* aPattern)
 
 int 
 AddRfcommServiceRecordInternal(const char* aName, 
-                                   unsigned long long aUuidMsb, 
-                                   unsigned long long aUuidLsb, 
-                                   int aChannel)
+                               unsigned long long aUuidMsb, 
+                               unsigned long long aUuidLsb, 
+                               short aChannel)
 {
   LOG("... name = %s", aName);
   LOG("... uuid1 = %llX", aUuidMsb);

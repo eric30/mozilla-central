@@ -24,10 +24,20 @@ BEGIN_BLUETOOTH_NAMESPACE
 class BluetoothSocket 
 {
 public:
-  BluetoothSocket();
+  BluetoothSocket(int aType);
   ~BluetoothSocket();
 
+  static const int TYPE_RFCOMM = 1;
+  static const int TYPE_SCO = 2;
+  static const int TYPE_L2CAP = 3;
+  static const int RFCOMM_SO_SNDBUF = 70 * 1024;  // 70 KB send buffer
+
+  void SetFileDescriptor(int aFd);
+
+  void Init(bool aAuth, bool aEncrypt);
   int IsAvailable();
+  void Connect(const char* aAddress, int aChannel);
+  void Close();
 
 private:
   int mFd; /* File description */ 

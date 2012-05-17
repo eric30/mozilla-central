@@ -9,6 +9,10 @@
 #include "BluetoothService.h"
 #include "BluetoothEventHandler.h"
 
+//For test
+#include "BluetoothServiceUuid.h"
+#include "BluetoothSocket.h"
+
 #include "nsDOMClassInfo.h"
 #include "nsDOMEvent.h"
 #include "nsThreadUtils.h"
@@ -366,6 +370,8 @@ BluetoothAdapter::SetDiscoverableTimeout(const PRUint32 aDiscoverableTimeout)
 }
 
 // xxxxxxxxxxxxxxxxxxxx Temp functions xxxxxxxxxxxxxxxxxxxxxx
+BluetoothSocket a(BluetoothSocket::TYPE_RFCOMM);
+
 NS_IMETHODIMP
 BluetoothAdapter::TestFunction1(const nsAString& aAddress)
 {
@@ -378,17 +384,37 @@ BluetoothAdapter::TestFunction1(const nsAString& aAddress)
 NS_IMETHODIMP
 BluetoothAdapter::TestFunction2(const nsAString& aObjectPath)
 {
+  // 0x0004 represents ProtocolDescriptorList. For more information, 
+  // see https://www.bluetooth.org/Technical/AssignedNumbers/service_discovery.htm
+  int attributeId = 0x0004;
+
   const char* asciiObjectPath = NS_LossyConvertUTF16toASCII(aObjectPath).get();
-  RemoveDeviceInternal(asciiObjectPath);
+  int c = GetDeviceServiceChannelInternal(asciiObjectPath, BluetoothServiceUuidStr::Handsfree, attributeId);
+
+  LOG("Remote channel: %d", c);
+
+  //a.Close();
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::TestFunction3(const nsAString& aObjectPath)
+BluetoothAdapter::TestFunction3()
 {
-  const char* asciiObjectPath = NS_LossyConvertUTF16toASCII(aObjectPath).get();
-  DiscoverServicesInternal(asciiObjectPath, "");
+  /*
+  int test = AddRfcommServiceRecordInternal("Voice gateway", 
+                                 BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
+                                 BluetoothServiceUuid::BaseLSB,
+                                 5);
+
+  LOG("Add rfcomm record : %d", test);
+  */
+
+  a.Init(true, false);
+
+  LOG("Init ok");
+
+  a.Connect("00:23:7F:CB:B4:F1", 2);
 
   return NS_OK;
 }
