@@ -1,3 +1,19 @@
+/*
+** Copyright 2006, The Android Open Source Project
+**
+** Licensed under the Apache License, Version 2.0 (the "License"); 
+** you may not use this file except in compliance with the License. 
+** You may obtain a copy of the License at 
+**
+**     http://www.apache.org/licenses/LICENSE-2.0 
+**
+** Unless required by applicable law or agreed to in writing, software 
+** distributed under the License is distributed on an "AS IS" BASIS, 
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
+** See the License for the specific language governing permissions and 
+** limitations under the License.
+*/
+
 #include "BluetoothService.h"
 #include "dbus/dbus.h"
 #include "mozilla/ipc/DBusThread.h"
@@ -35,7 +51,7 @@ static const DBusObjectPathVTable agent_vtable = {
 
 BEGIN_BLUETOOTH_NAMESPACE
 
-static int RegisterLocalAgent(DBusConnection* conn, const char* agentPath, const char* capabilities)
+int RegisterLocalAgent(DBusConnection* conn, const char* agentPath, const char* capabilities)
 {
   DBusMessage *msg, *reply;
   DBusError err;
@@ -81,7 +97,8 @@ static int RegisterLocalAgent(DBusConnection* conn, const char* agentPath, const
   return 0;
 }
 
-bool RegisterAgent()
+bool 
+RegisterAgent()
 {
   // Register local agent
   const char *local_agent_path = "/B2G/bluetooth/agent";
@@ -104,13 +121,15 @@ bool RegisterAgent()
   return true;
 }
 
-void UnregisterAgent()
+void 
+UnregisterAgent()
 {
   const char *device_agent_path = "/B2G/bluetooth/remote_device_agent";
   dbus_connection_unregister_object_path(GetCurrentConnection(), device_agent_path);
 }
 
-void StopDiscoveryInternal()
+void 
+StopDiscoveryInternal()
 {
   DBusMessage *reply;
   DBusError err;
@@ -131,7 +150,8 @@ void StopDiscoveryInternal()
   }
 }
 
-bool StartDiscoveryInternal()
+bool 
+StartDiscoveryInternal()
 {
   DBusMessage *reply;
   DBusError err;
@@ -158,7 +178,8 @@ bool StartDiscoveryInternal()
 
 // TODO(Eric)
 // Need refactory
-const char* GetDefaultAdapterPath()
+const char* 
+GetDefaultAdapterPath()
 {
   DBusMessage *msg = NULL, *reply = NULL;
   DBusError err;
@@ -219,7 +240,39 @@ failed:
   return NULL; 
 }
 
-void GetAdapterProperties() 
+void 
+GetDeviceProperties(const char* aObjectPath)
+{
+  DBusMessage *reply;
+  DBusError err;
+  dbus_error_init(&err);
+
+  reply = dbus_func_args_timeout(GetCurrentConnection(),
+                                 -1, 
+                                 aObjectPath,
+                                 DBUS_DEVICE_IFACE, "GetProperties",
+                                 DBUS_TYPE_INVALID);
+
+  if (!reply) {
+    if (dbus_error_is_set(&err)) {
+      LOG_AND_FREE_DBUS_ERROR(&err);
+    } else {
+      LOG("DBus reply is NULL in function %s", __FUNCTION__);
+    }
+  }
+
+  DBusMessageIter iter;
+  if (dbus_message_iter_init(reply, &iter)) {
+    // TODO(Eric)
+    // No idea how to parse, but should easily parse and send it to upper layer
+
+  }
+
+  dbus_message_unref(reply);
+}
+
+void 
+GetAdapterProperties() 
 {
   DBusMessage *msg, *reply;
   DBusError err;
@@ -258,7 +311,8 @@ void AppendVariant(DBusMessageIter *iter, int type, void *val)
   dbus_message_iter_close_container(iter, &value_iter);
 }
 
-bool SetAdapterProperty(char* propertyName, int type, void* value)
+bool 
+SetAdapterProperty(char* propertyName, int type, void* value)
 {
   DBusMessage *reply, *msg;
   DBusMessageIter iter;
@@ -311,7 +365,8 @@ asyncCreatePairedDeviceCallback(DBusMessage *msg, void *data, void* n)
   delete data;
 }
 
-void CreatePairedDeviceInternal(const char* aAddress, int aTimeout)
+void 
+CreatePairedDeviceInternal(const char* aAddress, int aTimeout)
 {
   const char *capabilities = "DisplayYesNo";
   const char *device_agent_path = "/B2G/bluetooth/remote_device_agent";
@@ -334,7 +389,8 @@ void CreatePairedDeviceInternal(const char* aAddress, int aTimeout)
       DBUS_TYPE_INVALID);
 }
 
-void RemoveDeviceInternal(const char* aDeviceObjectPath)
+void 
+RemoveDeviceInternal(const char* aDeviceObjectPath)
 {
   bool ret = dbus_func_args_async(GetCurrentConnection(), 
       -1,
@@ -345,6 +401,96 @@ void RemoveDeviceInternal(const char* aDeviceObjectPath)
       "RemoveDevice",
       DBUS_TYPE_OBJECT_PATH, &aDeviceObjectPath,
       DBUS_TYPE_INVALID);
+}
+
+void
+asyncDiscoverServicesResult(DBusMessage *msg, void *data, void* n)
+{
+  DBusError err;
+  dbus_error_init(&err);
+  const char* contextPath =  (const char *)data;
+
+  if (dbus_set_error_from_message(&err, msg)) {
+    LOG("Creating paired device failed, err: %s", err.name);
+  } else {
+    LOG("[Discover Service] %s", contextPath);
+  }
+
+  dbus_error_free(&err);
+
+  delete data;
+}
+
+void 
+DiscoverServicesInternal(const char* aObjectPath, const char* aPattern)
+{
+  int len = strlen(aObjectPath) + 1;
+  char* contextPath = (char *)calloc(len, sizeof(char));
+  strlcpy(contextPath, aObjectPath, len);  // for callback
+
+  LOG("... Object Path = %s", aObjectPath);
+
+  bool ret = dbus_func_args_async(GetCurrentConnection(), 
+      -1,
+      asyncDiscoverServicesResult,
+      contextPath,
+      aObjectPath,
+      DBUS_DEVICE_IFACE,
+      "DiscoverServices",
+      DBUS_TYPE_STRING, &aPattern,
+      DBUS_TYPE_INVALID);
+}
+
+int 
+AddRfcommServiceRecordInternal(const char* aName, 
+                                   unsigned long long aUuidMsb, 
+                                   unsigned long long aUuidLsb, 
+                                   int aChannel)
+{
+  LOG("... name = %s", aName);
+  LOG("... uuid1 = %llX", aUuidMsb);
+  LOG("... uuid2 = %llX", aUuidLsb);
+  LOG("... channel = %d", aChannel);
+
+  DBusMessage *reply = dbus_func_args(GetCurrentConnection(),
+      GetDefaultAdapterPath(),
+      DBUS_ADAPTER_IFACE, "AddRfcommServiceRecord",
+      DBUS_TYPE_STRING, &aName,
+      DBUS_TYPE_UINT64, &aUuidMsb,
+      DBUS_TYPE_UINT64, &aUuidLsb,
+      DBUS_TYPE_UINT16, &aChannel,
+      DBUS_TYPE_INVALID);
+
+  return reply ? dbus_returns_uint32(reply) : -1;
+}
+
+bool 
+RemoveServiceRecordInternal(int aHandle) 
+{
+  LOG("... handle = %X", aHandle);
+
+  DBusMessage *reply = dbus_func_args(GetCurrentConnection(),
+                                      GetDefaultAdapterPath(),
+                                      DBUS_ADAPTER_IFACE, "RemoveServiceRecord",
+                                      DBUS_TYPE_UINT32, &aHandle,
+                                      DBUS_TYPE_INVALID);
+
+  return reply ? true : false;
+}
+
+int 
+GetDeviceServiceChannelInternal(const char* aObjectPath, const char* aPattern, int aAttrId)
+{
+    LOG("... pattern = %s", aPattern);
+    LOG("... attr_id = %#X", aAttrId);
+
+    DBusMessage *reply = dbus_func_args(GetCurrentConnection(), aObjectPath,
+                                        DBUS_DEVICE_IFACE, "GetServiceAttributeValue",
+                                        DBUS_TYPE_STRING, &aPattern,
+                                        DBUS_TYPE_UINT16, &aAttrId,
+                                        DBUS_TYPE_INVALID);
+
+    return reply ? dbus_returns_int32(reply) : -1;
 }
 
 END_BLUETOOTH_NAMESPACE

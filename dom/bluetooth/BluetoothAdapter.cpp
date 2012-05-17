@@ -384,3 +384,12 @@ BluetoothAdapter::TestFunction2(const nsAString& aObjectPath)
   return NS_OK;
 }
 
+NS_IMETHODIMP
+BluetoothAdapter::TestFunction3(const nsAString& aObjectPath)
+{
+  const char* asciiObjectPath = NS_LossyConvertUTF16toASCII(aObjectPath).get();
+  DiscoverServicesInternal(asciiObjectPath, "");
+
+  return NS_OK;
+}
+

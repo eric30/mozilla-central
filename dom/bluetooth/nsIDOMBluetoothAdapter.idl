@@ -18,6 +18,7 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
 
   void testFunction1(in DOMString aAddress);
   void testFunction2(in DOMString aObjectPath);
+  void testFunction3(in DOMString aObjectPath);
 
   readonly attribute DOMString address;
   readonly attribute unsigned long class;

@@ -19,6 +19,8 @@
 #ifndef mozilla_ipc_dbus_dbusutils_h__
 #define mozilla_ipc_dbus_dbusutils_h__
 
+#include <stdarg.h>
+
 // LOGE and free a D-Bus error
 // Using #define so that __FUNCTION__ resolves usefully
 #define LOG_AND_FREE_DBUS_ERROR_WITH_MSG(err, msg) log_and_free_dbus_error(err, __FUNCTION__, msg);
@@ -32,6 +34,9 @@ namespace mozilla {
 namespace ipc {
 const char * get_adapter_path(DBusConnection *conn);
 void log_and_free_dbus_error(DBusError* err, const char* function, DBusMessage* msg = NULL);
+uint32_t dbus_returns_uint32(DBusMessage *reply);
+int32_t dbus_returns_int32(DBusMessage *reply);
+bool dbus_returns_boolean(DBusMessage *reply);
 
 DBusMessage * dbus_func_args_timeout_valist(
     DBusConnection* conn,

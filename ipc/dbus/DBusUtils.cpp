@@ -16,6 +16,8 @@
 ** limitations under the License.
 */
 
+#include "DBusUtils.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "dbus/dbus.h"
@@ -148,7 +150,7 @@ DBusMessage * dbus_func_args_timeout_valist(DBusConnection* conn,
   /* Make the call. */
   reply = dbus_connection_send_with_reply_and_block(conn, msg, timeout_ms, err);
   if (!return_error && dbus_error_is_set(err)) {
-    //LOG_AND_FREE_DBUS_ERROR_WITH_MSG(err, msg);
+    LOG_AND_FREE_DBUS_ERROR_WITH_MSG(err, msg);
   }
 
 done:
@@ -290,6 +292,61 @@ bool dbus_func_args_async(DBusConnection* conn,
   va_end(lst);
   return ret;
 }
+
+uint32_t dbus_returns_uint32(DBusMessage *reply) 
+{
+  DBusError err;
+  int ret = -1;
+
+  dbus_error_init(&err);
+  if (!dbus_message_get_args(reply, &err,
+                             DBUS_TYPE_UINT32, &ret,
+                             DBUS_TYPE_INVALID)) {
+    LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
+  }
+
+  dbus_message_unref(reply);
+  return ret;
+}
+
+int32_t dbus_returns_int32(DBusMessage *reply) 
+{
+  DBusError err;
+  int ret = -1;
+
+  dbus_error_init(&err);
+
+  if (!dbus_message_get_args(reply, &err,
+                             DBUS_TYPE_INT32, &ret,
+                             DBUS_TYPE_INVALID)) {
+    LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
+  }
+
+  dbus_message_unref(reply);
+  return ret;
+}
+
+bool dbus_returns_boolean(DBusMessage *reply) 
+{
+  DBusError err;
+  bool ret = false;
+  dbus_bool_t val = false;
+
+  dbus_error_init(&err);
+
+  /* Check the return value. */
+  if (dbus_message_get_args(reply, &err,
+                            DBUS_TYPE_BOOLEAN, &val,
+                            DBUS_TYPE_INVALID)) {
+    ret = (val == true) ? true : false;
+  } else {
+    LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
+  }
+
+  dbus_message_unref(reply);
+  return ret;
+}
+
 
 }
 }
