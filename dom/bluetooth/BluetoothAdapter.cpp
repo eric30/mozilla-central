@@ -266,6 +266,16 @@ BluetoothAdapter::onDeviceCreatedNative(const char* aDeviceObjectPath)
   LOG("[DeviceCreated] Object Path = %s", aDeviceObjectPath);
 }
 
+void 
+BluetoothAdapter::onPropertyChangedNative(std::list<const char*> aChangedProperty)
+{
+  const char* name = aChangedProperty.front();
+  aChangedProperty.pop_front();
+  const char* value = aChangedProperty.front();
+
+  LOG("[PropertyChanged] %s -> %s", name, value);
+}
+
 // **************************************************
 // ******************** Getters *********************
 // **************************************************

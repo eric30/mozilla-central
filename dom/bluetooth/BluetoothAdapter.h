@@ -7,6 +7,8 @@
 #ifndef mozilla_dom_bluetooth_bluetoothadapter_h__
 #define mozilla_dom_bluetooth_bluetoothadapter_h__
 
+#include <list>
+
 #include "BluetoothCommon.h"
 #include "nsDOMEventTargetHelper.h"
 #include "nsIDOMBluetoothAdapter.h"
@@ -38,6 +40,7 @@ public:
 
   void onDeviceFoundNative(const char* aDeviceAddress);
   void onDeviceCreatedNative(const char* aDeviceObjectPath);
+  void onPropertyChangedNative(std::list<const char*> aChangedProperty);
 
 protected:
   bool mEnabled;

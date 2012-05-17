@@ -1,6 +1,9 @@
 #include "BluetoothEventHandler.h"
+#include "BluetoothUtils.h"
+
 #include "dbus/dbus.h"
 #include "mozilla/ipc/DBusThread.h"
+#include "mozilla/ipc/DBusUtils.h"
 
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
@@ -8,6 +11,8 @@
 #else
 #define LOG(args...)  printf(args); printf("\n");
 #endif
+
+using namespace mozilla::ipc;
 
 BEGIN_BLUETOOTH_NAMESPACE
 
@@ -51,11 +56,11 @@ void BluetoothEventHandler::HandleEvent(DBusMessage* msg)
       }
     }
 
-    //if (handled) {
+    if (handled) {
       mAdapter->onDeviceFoundNative(deviceAddress);
-    //} else {
-      //LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
-    //}
+    } else {
+      LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
+    }
   } else if (dbus_message_is_signal(msg, "org.bluez.Adapter", "DeviceCreated")) {
     char *deviceObjectPath;
     if (dbus_message_get_args(msg, &err,
@@ -63,7 +68,30 @@ void BluetoothEventHandler::HandleEvent(DBusMessage* msg)
                               DBUS_TYPE_INVALID)) {
       mAdapter->onDeviceCreatedNative(deviceObjectPath);
     } else {
-      //LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
+      LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
+    }
+  } else if (dbus_message_is_signal(msg, "org.bluez.Adapter", "PropertyChanged")) {
+    std::list<const char*> str_array = parse_adapter_property_change(msg);
+    if (str_array.size() > 0) {
+      /*
+      // Check if bluetoothd has (re)started, if so update the path.
+      const char* propertyName = str_array.front();
+      LOG("Property Name: %s", propertyName);
+      str_array.pop_front();
+
+      if (!strncmp(propertyName, "Powered", strlen("Powered"))) {
+        jstring value =
+          (jstring) env->GetObjectArrayElement(str_array, 1);
+        const char *c_value = env->GetStringUTFChars(value, NULL);
+        if (!strncmp(c_value, "true", strlen("true")))
+          nat->adapter = get_adapter_path(nat->conn);
+        env->ReleaseStringUTFChars(value, c_value);
+      }
+      */
+
+      mAdapter->onPropertyChangedNative(str_array);
+    } else { 
+      LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
     }
   }
 }

@@ -20,9 +20,13 @@
 #include "BluetoothCommon.h"
 
 #include <bluetooth/bluetooth.h>
+#include <list>
+
+struct DBusMessage;
 
 BEGIN_BLUETOOTH_NAMESPACE
 
+std::list<const char*> parse_adapter_property_change(DBusMessage *msg);
 int get_bdaddr(const char *str, bdaddr_t *ba);
 void get_bdaddr_as_string(const bdaddr_t *ba, char *str);
 
