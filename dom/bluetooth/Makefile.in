@@ -19,6 +19,7 @@ include $(topsrcdir)/dom/dom-config.mk
 
 CPPSRCS = \
   BluetoothAdapter.cpp \
+  BluetoothDevice.cpp \
   BluetoothFirmware.cpp \
   BluetoothService.cpp \
   BluetoothEventHandler.cpp \
@@ -29,6 +30,7 @@ CPPSRCS = \
 XPIDLSRCS = \
   nsIDOMNavigatorBluetooth.idl \
   nsIDOMBluetoothAdapter.idl \
+  nsIDOMBluetoothDevice.idl \
   $(NULL)
 
 ifneq (gonk,$(MOZ_WIDGET_TOOLKIT))

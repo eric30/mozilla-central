@@ -5,6 +5,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "BluetoothAdapter.h"
+#include "BluetoothDevice.h"
 #include "BluetoothFirmware.h"
 #include "BluetoothService.h"
 #include "BluetoothEventHandler.h"
@@ -249,6 +250,17 @@ NS_IMETHODIMP
 BluetoothAdapter::StopDiscovery()
 {
   StopDiscoveryInternal();
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::GetRemoteDevice(const nsAString& aAddress, nsIDOMBluetoothDevice** aDevice)
+{
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  nsCOMPtr<nsIDOMBluetoothDevice> device = new BluetoothDevice(asciiAddress);
+
+  device.forget(aDevice);
 
   return NS_OK;
 }

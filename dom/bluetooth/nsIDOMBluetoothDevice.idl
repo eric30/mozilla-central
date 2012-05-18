@@ -1,0 +1,13 @@
+/* -*- Mode: c++; c-basic-offset: 2; indent-tabs-mode: nil; tab-width: 40 -*- */
+/* vim: set ts=2 et sw=2 tw=40: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+[scriptable, builtinclass, uuid(2da61f89-a7d2-4f7d-9f4c-fb8a99d9add2)]
+interface nsIDOMBluetoothDevice : nsISupports
+{
+  readonly attribute DOMString address;
+};
