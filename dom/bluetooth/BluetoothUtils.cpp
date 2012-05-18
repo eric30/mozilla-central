@@ -103,6 +103,8 @@ int get_property(DBusMessageIter iter, Properties *properties,
   if (i == max_num_properties)
     return -1;
 
+  // xxx Temp Log
+  LOG("[Low level property] %s", properties[*prop_index].name);
   dbus_message_iter_recurse(&iter, &prop_val);
   type = properties[*prop_index].type;
   if (dbus_message_iter_get_arg_type(&prop_val) != type) {
@@ -122,6 +124,8 @@ int get_property(DBusMessageIter iter, Properties *properties,
     case DBUS_TYPE_BOOLEAN:
       dbus_message_iter_get_basic(&prop_val, &int_val);
       value->int_val = int_val;
+      // xxx Temp Log
+      LOG("[Low level Value] %d", int_val);
       *len = 1;
       break;
     case DBUS_TYPE_ARRAY:
@@ -156,9 +160,11 @@ int get_property(DBusMessageIter iter, Properties *properties,
 }
 
 void create_prop_array(std::list<const char*>& strArray, Properties *property,
-    property_value *value, int len, int *array_index ) {
+                       property_value *value, int len, int *array_index ) {
   char **prop_val = NULL;
-  char buf[32] = {'\0'}, buf1[32] = {'\0'};
+  char buf[32] = {'\0'};
+  char* strItem;
+
   int i;
 
   char *name = property->name;
@@ -168,27 +174,118 @@ void create_prop_array(std::list<const char*>& strArray, Properties *property,
 
   if (prop_type == DBUS_TYPE_UINT32 || prop_type == DBUS_TYPE_INT16) {
     sprintf(buf, "%d", value->int_val);
-    strArray.push_back(buf);
+
+    strItem = new char[32];
+    strcpy(strItem, buf);
+    strArray.push_back(strItem);
   } else if (prop_type == DBUS_TYPE_BOOLEAN) {
     sprintf(buf, "%s", value->int_val ? "true" : "false");
-    strArray.push_back(buf);
+
+    strItem = new char[32];
+    strcpy(strItem, buf);
+    strArray.push_back(strItem);
   } else if (prop_type == DBUS_TYPE_ARRAY) {
     // Write the length first
-    sprintf(buf1, "%d", len);
-    strArray.push_back(buf1);
+    sprintf(buf, "%d", len);
+
+    strItem = new char[32];
+    strcpy(strItem, buf);
+    strArray.push_back(strItem);
 
     prop_val = value->array_val;
     for (i = 0; i < len; i++) {
-      strArray.push_back(prop_val[i]);
+      int strLength = strlen(prop_val[i]);
+      strItem = new char[strlen(prop_val[i]) + 1];
+      strItem[strLength] = '\0';
+      strcpy(strItem, prop_val[i]);
+      strArray.push_back(strItem);
     }
   } else {
     strArray.push_back(value->str_val);
   }
 }
 
-std::list<const char*> parse_property_change(DBusMessage *msg,
-                           Properties *properties, 
-                           int max_num_properties) {
+std::list<const char*> 
+parse_properties(DBusMessageIter *iter, 
+                 Properties *properties,
+                 const int max_num_properties) {
+  DBusMessageIter dict_entry, dict;
+  std::list<const char*> strArray;
+  property_value value;
+  int i, size = 0,array_index = 0;
+  int len = 0, prop_type = DBUS_TYPE_INVALID, prop_index = -1, type;
+  struct {
+    property_value value;
+    int len;
+    bool used;
+  } values[max_num_properties];
+  int t, j;
+
+  DBusError err;
+  dbus_error_init(&err);
+
+  for (i = 0; i < max_num_properties; i++) {
+    values[i].used = false;
+  }
+
+  if(dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_ARRAY)
+    goto failure;
+  dbus_message_iter_recurse(iter, &dict);
+
+  do {
+    len = 0;
+    if (dbus_message_iter_get_arg_type(&dict) != DBUS_TYPE_DICT_ENTRY)
+      goto failure;
+    dbus_message_iter_recurse(&dict, &dict_entry);
+
+    if (!get_property(dict_entry, properties, max_num_properties, &prop_index,
+          &value, &len)) {
+      size += 2;
+      if (properties[prop_index].type == DBUS_TYPE_ARRAY)
+        size += len;
+      values[prop_index].value = value;
+      values[prop_index].len = len;
+      values[prop_index].used = true;
+    } else {
+      goto failure;
+    }
+  } while(dbus_message_iter_next(&dict));
+
+  for (i = 0; i < max_num_properties; i++) {
+    if (values[i].used) {
+      // xxx Temp Log
+      LOG("[Got it!!] %s", properties[i].name);
+
+      if (!strcmp(properties[i].name, "Class"))
+      {
+        LOG("Class Value : %d", values[i].value.int_val);
+      }
+
+      create_prop_array(strArray, &properties[i], &values[i].value, values[i].len,
+                        &array_index);
+
+      if (properties[i].type == DBUS_TYPE_ARRAY && values[i].used
+          && values[i].value.array_val != NULL)
+        free(values[i].value.array_val);
+    }
+  }
+
+  return strArray;
+
+failure:
+  if (dbus_error_is_set(&err))
+    LOG_AND_FREE_DBUS_ERROR(&err);
+  for (i = 0; i < max_num_properties; i++)
+    if (properties[i].type == DBUS_TYPE_ARRAY && values[i].used == true
+        && values[i].value.array_val != NULL)
+      free(values[i].value.array_val);
+  return strArray;
+}
+
+std::list<const char*> 
+parse_property_change(DBusMessage *msg,
+                      Properties *properties, 
+                      int max_num_properties) {
   DBusMessageIter iter;
   DBusError err;
   int len = 0, prop_index = -1;
@@ -225,6 +322,12 @@ std::list<const char*> parse_adapter_property_change(DBusMessage *msg) {
                                (Properties *) &adapter_properties,
                                sizeof(adapter_properties) / sizeof(Properties));
 }
+
+std::list<const char*> parse_adapter_properties(DBusMessageIter *iter) {
+  return parse_properties(iter, (Properties *) &adapter_properties,
+                          sizeof(adapter_properties) / sizeof(Properties));
+}
+
 
 int get_bdaddr(const char *str, bdaddr_t *ba) 
 {

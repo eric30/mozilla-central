@@ -414,9 +414,24 @@ BluetoothAdapter::TestFunction2(const nsAString& aObjectPath)
   return NS_OK;
 }
 
+int getInt(const char* numStr)
+{
+  int returnValue = 0;
+  int length = strlen(numStr);
+
+  for (int i = 0;i < length;++i)
+  {
+    returnValue *= 10;
+    returnValue += ((numStr[i]) - '0');
+  }
+
+  return returnValue;
+}
+
 NS_IMETHODIMP
 BluetoothAdapter::TestFunction3()
 {
+
   /*
   int test = AddRfcommServiceRecordInternal("Voice gateway", 
                                  BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
@@ -424,13 +439,36 @@ BluetoothAdapter::TestFunction3()
                                  5);
 
   LOG("Add rfcomm record : %d", test);
-  */
 
   a.Init(true, false);
 
   LOG("Init ok");
 
   a.Connect("00:23:7F:CB:B4:F1", 2);
+  */
+  std::list<const char*> test = GetAdapterProperties();
+
+  while (!test.empty()) {
+    const char* name = test.front();
+    LOG("[Property Name] %s", name);
+
+    if ((!strcmp(name, "Devices")) || (!strcmp(name, "UUIDs"))) {
+      test.pop_front();
+      int length = getInt(test.front());
+      LOG("[Length] %d", length);
+
+      while (length--) {
+        test.pop_front();
+        LOG("[Property Value] %s", test.front());
+      }
+    } else {
+      test.pop_front();
+      const char* value = test.front();
+      LOG("[Property Value] %s", value);
+    }
+    
+    test.pop_front();
+  }
 
   return NS_OK;
 }

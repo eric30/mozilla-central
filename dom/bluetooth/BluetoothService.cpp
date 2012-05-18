@@ -15,6 +15,8 @@
 */
 
 #include "BluetoothService.h"
+#include "BluetoothUtils.h"
+
 #include "dbus/dbus.h"
 #include "mozilla/ipc/DBusThread.h"
 #include "mozilla/ipc/DBusUtils.h"
@@ -271,7 +273,7 @@ GetDeviceProperties(const char* aObjectPath)
   dbus_message_unref(reply);
 }
 
-void 
+std::list<const char*>
 GetAdapterProperties() 
 {
   DBusMessage *msg, *reply;
@@ -293,13 +295,15 @@ GetAdapterProperties()
   }
 
   DBusMessageIter iter;
+  std::list<const char*> str_array;
+
   if (dbus_message_iter_init(reply, &iter)) {
-    // TODO(Eric)
-    // No idea how to parse, but should easily parse and send it to upper layer
-    
+    str_array = parse_adapter_properties(&iter);
   }
 
   dbus_message_unref(reply);
+
+  return str_array;
 }
 
 void AppendVariant(DBusMessageIter *iter, int type, void *val)

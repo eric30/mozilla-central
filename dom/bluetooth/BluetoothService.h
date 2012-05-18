@@ -19,6 +19,8 @@
 
 #include "BluetoothCommon.h"
 
+#include <list>
+
 BEGIN_BLUETOOTH_NAMESPACE
 
 void InitServices();
@@ -27,7 +29,7 @@ bool RegisterAgent();
 void UnregisterAgent();
 bool StartDiscoveryInternal();
 void StopDiscoveryInternal();
-void GetAdapterProperties();
+std::list<const char*> GetAdapterProperties();
 bool SetAdapterProperty(char* propertyName, int type, void* value);
 void GetDeviceProperties(const char* aObjectPath);
 void CreatePairedDeviceInternal(const char* aAddress, int aTimeout);
