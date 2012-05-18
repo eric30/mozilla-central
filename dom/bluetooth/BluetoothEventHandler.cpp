@@ -44,20 +44,18 @@ void BluetoothEventHandler::HandleEvent(DBusMessage* msg)
   if (dbus_message_is_signal(msg, "org.bluez.Adapter", "DeviceFound")) {
     char* deviceAddress;
     DBusMessageIter iter;
-    bool handled = false;
+    std::list<const char*> str_array;
 
     if (dbus_message_iter_init(msg, &iter)) {
       dbus_message_iter_get_basic(&iter, &deviceAddress);
 
       if (dbus_message_iter_next(&iter)) {
-        // TODO(Eric) 
-        // Parse properties
-        handled = true;
+        str_array = parse_remote_device_properties(&iter);
       }
     }
 
-    if (handled) {
-      mAdapter->onDeviceFoundNative(deviceAddress);
+    if (str_array.size() > 0) {
+      mAdapter->onDeviceFoundNative(deviceAddress, str_array);
     } else {
       LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
     }

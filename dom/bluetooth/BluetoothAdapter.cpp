@@ -195,6 +195,8 @@ BluetoothAdapter::Setup()
 
   // Register Bluetooth agent
   RegisterAgent();
+
+  //UpdateProperties();
 }
 
 void
@@ -255,7 +257,7 @@ BluetoothAdapter::StopDiscovery()
 // ***************** Event Handler ******************
 // **************************************************
 void 
-BluetoothAdapter::onDeviceFoundNative(const char* aDeviceAddress)
+BluetoothAdapter::onDeviceFoundNative(const char* aDeviceAddress, std::list<const char*> aPropertyList)
 {
   LOG("[DeviceFound] Address = %s", aDeviceAddress);
 }
@@ -280,6 +282,10 @@ BluetoothAdapter::onPropertyChangedNative(std::list<const char*> aChangedPropert
   const char* value = aChangedProperty.front();
 
   LOG("[PropertyChanged] %s -> %s", name, value);
+  
+  if (mEnabled) {
+    UpdateProperties();
+  }
 }
 
 // **************************************************
@@ -317,6 +323,7 @@ BluetoothAdapter::GetDiscovering(bool* aDiscovering)
 NS_IMETHODIMP
 BluetoothAdapter::GetName(nsAString& aName)
 {
+  LOG("Get Name ! %s", NS_LossyConvertUTF16toASCII(mName).get());
   aName = mName;
   return NS_OK;
 }
@@ -385,6 +392,67 @@ BluetoothAdapter::SetDiscoverableTimeout(const PRUint32 aDiscoverableTimeout)
   return NS_OK;
 }
 
+// **************************************************
+// ************** Internal functions ****************
+// **************************************************
+int getInt(const char* numStr)
+{
+  int returnValue = 0;
+  int length = strlen(numStr);
+
+  for (int i = 0;i < length;++i)
+  {
+    returnValue *= 10;
+    returnValue += ((numStr[i]) - '0');
+  }
+
+  return returnValue;
+}
+
+bool getBool(const char* numStr)
+{
+  return (strcmp("true", numStr) == 0) || (strcmp("True", numStr) == 0);
+}
+
+void
+BluetoothAdapter::UpdateProperties()
+{
+  std::list<const char*> propertiesStrArray = GetAdapterProperties();
+
+  while (!propertiesStrArray.empty()) {
+    const char* name = propertiesStrArray.front();
+    propertiesStrArray.pop_front();
+
+    LOG("[Property Name] %s", name);
+
+    if ((!strcmp(name, "Devices")) || (!strcmp(name, "UUIDs"))) {
+      int length = getInt(propertiesStrArray.front());
+      LOG("[Length] %d", length);
+
+      while (length--) {
+        propertiesStrArray.pop_front();
+        LOG("[Property Value] %s", propertiesStrArray.front());
+      }
+    } else {
+      const char* value = propertiesStrArray.front();
+
+      LOG("[Property Value] %s", value);
+
+      if (!strcmp("Address", name)) {
+        mAddress = NS_ConvertASCIItoUTF16(value);
+      } else if (!strcmp("Name", name)) {
+        mName = NS_ConvertASCIItoUTF16(value);
+      } else if (!strcmp("Discovering", name)) {
+        mDiscovering = getBool(value);
+      } else if (!strcmp("Discoverable", name)) {
+        mDiscoverable = getBool(value);
+      }
+    }
+
+    propertiesStrArray.pop_front();
+  }
+}
+
 // xxxxxxxxxxxxxxxxxxxx Temp functions xxxxxxxxxxxxxxxxxxxxxx
 BluetoothSocket a(BluetoothSocket::TYPE_RFCOMM);
 
@@ -412,20 +480,6 @@ BluetoothAdapter::TestFunction2(const nsAString& aObjectPath)
   //a.Close();
 
   return NS_OK;
-}
-
-int getInt(const char* numStr)
-{
-  int returnValue = 0;
-  int length = strlen(numStr);
-
-  for (int i = 0;i < length;++i)
-  {
-    returnValue *= 10;
-    returnValue += ((numStr[i]) - '0');
-  }
-
-  return returnValue;
 }
 
 NS_IMETHODIMP

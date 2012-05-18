@@ -38,7 +38,7 @@ public:
 
   inline void SetEnabledInternal(bool aEnabled) {mEnabled = aEnabled;}
 
-  void onDeviceFoundNative(const char* aDeviceAddress);
+  void onDeviceFoundNative(const char* aDeviceAddress, std::list<const char*> aPropertyList);
   void onDeviceDisappearedNative(const char* aDeviceAddress);
   void onDeviceCreatedNative(const char* aDeviceObjectPath);
   void onPropertyChangedNative(std::list<const char*> aChangedProperty);
@@ -57,6 +57,8 @@ protected:
 private:
   nsCOMPtr<nsIEventTarget> mToggleBtThread;
   BluetoothEventHandler* mHandler;
+
+  void UpdateProperties();
 };
 
 END_BLUETOOTH_NAMESPACE

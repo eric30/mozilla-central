@@ -29,6 +29,7 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 std::list<const char*> parse_adapter_property_change(DBusMessage *msg);
 std::list<const char*> parse_adapter_properties(DBusMessageIter *iter);
+std::list<const char*> parse_remote_device_properties(DBusMessageIter *iter);
 
 int get_bdaddr(const char *str, bdaddr_t *ba);
 void get_bdaddr_as_string(const bdaddr_t *ba, char *str);

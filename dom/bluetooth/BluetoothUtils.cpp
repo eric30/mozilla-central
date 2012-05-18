@@ -103,8 +103,6 @@ int get_property(DBusMessageIter iter, Properties *properties,
   if (i == max_num_properties)
     return -1;
 
-  // xxx Temp Log
-  LOG("[Low level property] %s", properties[*prop_index].name);
   dbus_message_iter_recurse(&iter, &prop_val);
   type = properties[*prop_index].type;
   if (dbus_message_iter_get_arg_type(&prop_val) != type) {
@@ -124,8 +122,6 @@ int get_property(DBusMessageIter iter, Properties *properties,
     case DBUS_TYPE_BOOLEAN:
       dbus_message_iter_get_basic(&prop_val, &int_val);
       value->int_val = int_val;
-      // xxx Temp Log
-      LOG("[Low level Value] %d", int_val);
       *len = 1;
       break;
     case DBUS_TYPE_ARRAY:
@@ -253,14 +249,6 @@ parse_properties(DBusMessageIter *iter,
 
   for (i = 0; i < max_num_properties; i++) {
     if (values[i].used) {
-      // xxx Temp Log
-      LOG("[Got it!!] %s", properties[i].name);
-
-      if (!strcmp(properties[i].name, "Class"))
-      {
-        LOG("Class Value : %d", values[i].value.int_val);
-      }
-
       create_prop_array(strArray, &properties[i], &values[i].value, values[i].len,
                         &array_index);
 
@@ -328,6 +316,10 @@ std::list<const char*> parse_adapter_properties(DBusMessageIter *iter) {
                           sizeof(adapter_properties) / sizeof(Properties));
 }
 
+std::list<const char*> parse_remote_device_properties(DBusMessageIter *iter) {
+  return parse_properties(iter, (Properties *) &remote_device_properties,
+                          sizeof(remote_device_properties) / sizeof(Properties));
+}
 
 int get_bdaddr(const char *str, bdaddr_t *ba) 
 {
