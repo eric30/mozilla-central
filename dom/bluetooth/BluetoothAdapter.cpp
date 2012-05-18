@@ -197,7 +197,18 @@ BluetoothAdapter::Setup()
   // Register Bluetooth agent
   RegisterAgent();
 
-  //UpdateProperties();
+  // Register services
+  AddRfcommServiceRecordInternal("handsfree_ag", 
+                                 BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
+                                 BluetoothServiceUuid::BaseLSB,
+                                 2);  
+  
+  AddRfcommServiceRecordInternal("headset", 
+                                 BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::Headset,
+                                 BluetoothServiceUuid::BaseLSB,
+                                 3);
+
+  UpdateProperties();
 }
 
 void
@@ -261,6 +272,24 @@ BluetoothAdapter::GetRemoteDevice(const nsAString& aAddress, nsIDOMBluetoothDevi
   nsCOMPtr<nsIDOMBluetoothDevice> device = new BluetoothDevice(asciiAddress);
 
   device.forget(aDevice);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::Pair(const nsAString& aAddress)
+{
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  CreatePairedDeviceInternal(asciiAddress, 50000);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::Unpair(const nsAString& aAddress)
+{
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  RemoveDeviceInternal(GetObjectPathFromAddress(asciiAddress));
 
   return NS_OK;
 }

@@ -497,4 +497,52 @@ GetDeviceServiceChannelInternal(const char* aObjectPath, const char* aPattern, i
     return reply ? dbus_returns_int32(reply) : -1;
 }
 
+const char* 
+GetObjectPathFromAddress(const char* aAddress)
+{
+  // Why 22?
+  // The object path would be like /org/bluez/2906/hci0/dev_00_23_7F_CB_B4_F1,
+  // and the adapter path would be the first part of the object path, accoring 
+  // to the example above, it's /org/bluez/2906/hci0.
+  // So, the difference between these two strings is /dev_00_23_7F_CB_B4_F1, 
+  // and it's 22 chars long. 
+  const char* adapterPath = GetDefaultAdapterPath();
+  int index = strlen(adapterPath);
+  char* retObjectPath = new char[index + 22 + 1];
+
+  strcpy(retObjectPath, adapterPath);
+  strcat(retObjectPath, "/dev_");
+  strcat(retObjectPath, aAddress);
+
+  char* pch = strchr(retObjectPath,':');
+  while (pch != NULL)
+  {
+    *pch = '_';
+    pch = strchr(pch + 1,':');
+  }
+
+  return retObjectPath;
+}
+
+const char*
+GetAddressFromObjectPath(const char* aObjectPath)
+{
+  char* retAddress = new char[18];
+  retAddress[17] = '\0';
+
+  strncpy(retAddress, &aObjectPath[strlen(aObjectPath) - 17], 17);
+
+  char* c = retAddress;
+
+  while (*c) {
+    if (*c == '_')
+      *c = ':';
+
+    c++;
+  }
+
+  return retAddress;
+}
+
+
 END_BLUETOOTH_NAMESPACE

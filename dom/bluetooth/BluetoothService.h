@@ -41,6 +41,8 @@ int AddRfcommServiceRecordInternal(const char* aName,
                                    short aChannel);
 bool RemoveServiceRecordInternal(int aHandle);
 int GetDeviceServiceChannelInternal(const char* aObjectPath, const char* aPattern, int aAttrId);
+const char* GetObjectPathFromAddress(const char* aAddress);
+const char* GetAddressFromObjectPath(const char* aObjectPath);
 
 END_BLUETOOTH_NAMESPACE
 #endif
