@@ -4,10 +4,13 @@
 
 #include "BluetoothDevice.h"
 #include "nsDOMClassInfo.h"
+#include "nsIDOMBluetoothSocket.h"
 
 // xxx Temp
 #include "BluetoothSocket.h"
 #include "BluetoothService.h"
+#include "BluetoothHfpManager.h"
+#include "BluetoothServiceUuid.h"
 
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
@@ -42,8 +45,9 @@ BluetoothDevice::GetAddress(nsAString& aAddress)
 }
 
 NS_IMETHODIMP
-BluetoothDevice::Connect(const nsAString& aServiceUuid)
+BluetoothDevice::Connect(const nsAString& aServiceUuid, nsIDOMBluetoothSocket** aSocket)
 {
+  nsCOMPtr<nsIDOMBluetoothSocket> socket;
   const char* serviceUuid = NS_LossyConvertUTF16toASCII(aServiceUuid).get();
   // 1. Check if it's paired (TODO)
   // 2. Connect by BluetoothSocket
@@ -51,20 +55,29 @@ BluetoothDevice::Connect(const nsAString& aServiceUuid)
   const char* objectPath = GetObjectPathFromAddress(address);
   int channel = GetDeviceServiceChannelInternal(objectPath, serviceUuid, 0x0004);
 
-  LOG("Channel of hfp service : %d", channel);
- 
-  // xxx Temp
-  mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM, this);
-  mSocket->Init(true, false);
-  mSocket->Connect(address, channel);
+  if (!strcmp(serviceUuid, BluetoothServiceUuidStr::Handsfree)) {
+    LOG("Channel of hfp service : %d", channel);
 
+    BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
+    socket = hfp->Connect(address, channel);
+  } else {
+    // TODO(Eric)
+    LOG("Not implemented yet");
+  }
+
+  socket.forget(aSocket);
+ 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-BluetoothDevice::Close()
+BluetoothDevice::Disconnect()
 {
-  mSocket->Close();
+  BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
+
+  if (hfp->IsConnected()) {
+    hfp->Disconnect();
+  }
 
   return NS_OK;
 }

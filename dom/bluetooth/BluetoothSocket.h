@@ -38,15 +38,14 @@ public:
   static const int TYPE_L2CAP = 3;
   static const int RFCOMM_SO_SNDBUF = 70 * 1024;  // 70 KB send buffer
 
-  void SetFileDescriptor(int aFd);
-
   void Init(bool aAuth, bool aEncrypt);
   int IsAvailable();
-  void Connect(const char* aAddress, int aChannel);
+  int Connect(const char* aAddress, int aChannel);
   void CloseInternal();
 
+  int mFd; /* File descriptor */ 
+
 private:
-  int mFd; /* File description */ 
   int mType;  /* one of TYPE_RFCOMM etc */
   BluetoothDevice* mDevice;    /* remote device */
   const char* mAddress;    /* remote address */

@@ -82,12 +82,6 @@ BluetoothSocket::Close()
 // ***************************************
 
 void
-BluetoothSocket::SetFileDescriptor(int aFd)
-{
-  mFd = aFd;
-}
-
-void
 BluetoothSocket::Init(bool aAuth, bool aEncrypt)
 {
   int fd;
@@ -145,12 +139,12 @@ BluetoothSocket::Init(bool aAuth, bool aEncrypt)
 
   LOG("...fd %d created (%s, lm = %x)", fd, TYPE_AS_STR(this->mType), lm);
 
-  SetFileDescriptor(fd);
+  mFd = fd;
 
   return;
 }
 
-void
+int
 BluetoothSocket::Connect(const char* aAddress, int aChannel)
 {
   int ret;
@@ -160,7 +154,7 @@ BluetoothSocket::Connect(const char* aAddress, int aChannel)
   
   /* parse address into bdaddress */
   if (get_bdaddr(aAddress, &bdaddress)) {
-    return;
+    return -1;
   }
 
   switch (this->mType) {
@@ -198,7 +192,7 @@ BluetoothSocket::Connect(const char* aAddress, int aChannel)
       break;
     default:
       LOG("Wrong TYPE = %d:%s", this->mType, __FUNCTION__);
-      return;
+      return -1;
   }
 
   // We add parts of asocket_connect() here instead of calling it.
@@ -218,7 +212,7 @@ BluetoothSocket::Connect(const char* aAddress, int aChannel)
     LOG("connect error, should throw an exception");
   }
 
-  return;
+  return ret;
 }
 
 void 

@@ -6,11 +6,13 @@
 
 #include "nsISupports.idl"
 
+interface nsIDOMBluetoothSocket;
+
 [scriptable, builtinclass, uuid(2da61f89-a7d2-4f7d-9f4c-fb8a99d9add2)]
 interface nsIDOMBluetoothDevice : nsISupports
 {
   readonly attribute DOMString address;
 
-  void connect(in DOMString aServiceUuid);
-  void close();
+  nsIDOMBluetoothSocket connect(in DOMString aServiceUuid);
+  void disconnect();
 };
