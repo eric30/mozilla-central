@@ -18,14 +18,18 @@
 #define mozilla_dom_bluetooth_bluetoothsocket_h__
 
 #include "BluetoothCommon.h"
+#include "nsIDOMBluetoothSocket.h"
 
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothDevice;
 
-class BluetoothSocket 
+class BluetoothSocket : public nsIDOMBluetoothSocket
 {
-public:
+public:    
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIDOMBLUETOOTHSOCKET
+
   BluetoothSocket(int aType, BluetoothDevice* aDevice);
   ~BluetoothSocket();
 
@@ -39,7 +43,7 @@ public:
   void Init(bool aAuth, bool aEncrypt);
   int IsAvailable();
   void Connect(const char* aAddress, int aChannel);
-  void Close();
+  void CloseInternal();
 
 private:
   int mFd; /* File description */ 

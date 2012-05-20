@@ -31,6 +31,7 @@ XPIDLSRCS = \
   nsIDOMNavigatorBluetooth.idl \
   nsIDOMBluetoothAdapter.idl \
   nsIDOMBluetoothDevice.idl \
+  nsIDOMBluetoothSocket.idl \
   $(NULL)
 
 ifneq (gonk,$(MOZ_WIDGET_TOOLKIT))

@@ -18,6 +18,8 @@
 #include "BluetoothDevice.h"
 #include "BluetoothUtils.h"
 
+#include "nsDOMClassInfo.h"
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -44,7 +46,18 @@
 #define TYPE_AS_STR(t) \
     ((t) == TYPE_RFCOMM ? "RFCOMM" : ((t) == TYPE_SCO ? "SCO" : "L2CAP"))
 
-BEGIN_BLUETOOTH_NAMESPACE
+USING_BLUETOOTH_NAMESPACE
+
+DOMCI_DATA(BluetoothSocket, BluetoothSocket)
+
+NS_INTERFACE_MAP_BEGIN(BluetoothSocket)
+  NS_INTERFACE_MAP_ENTRY(nsIDOMBluetoothSocket)
+  NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIDOMBluetoothSocket)
+  NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(BluetoothSocket)
+NS_INTERFACE_MAP_END
+
+NS_IMPL_ADDREF(BluetoothSocket)
+NS_IMPL_RELEASE(BluetoothSocket)
 
 BluetoothSocket::BluetoothSocket(int aType, BluetoothDevice* aDevice) : mFd(-1)
                                             , mType(aType)
@@ -55,6 +68,18 @@ BluetoothSocket::BluetoothSocket(int aType, BluetoothDevice* aDevice) : mFd(-1)
 BluetoothSocket::~BluetoothSocket()
 {
 }
+
+NS_IMETHODIMP
+BluetoothSocket::Close()
+{
+  this->CloseInternal();
+
+  return NS_OK;
+}
+
+// ***************************************
+// ********* Internal functions **********
+// ***************************************
 
 void
 BluetoothSocket::SetFileDescriptor(int aFd)
@@ -197,7 +222,7 @@ BluetoothSocket::Connect(const char* aAddress, int aChannel)
 }
 
 void 
-BluetoothSocket::Close()
+BluetoothSocket::CloseInternal()
 {
   shutdown(this->mFd, SHUT_RDWR);
   close(this->mFd);
@@ -215,5 +240,3 @@ BluetoothSocket::IsAvailable()
 
   return available;
 }
-
-END_BLUETOOTH_NAMESPACE

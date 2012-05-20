@@ -535,6 +535,7 @@ using mozilla::dom::indexedDB::IDBWrapperCache;
 #ifdef MOZ_B2G_BT
 #include "BluetoothAdapter.h"
 #include "BluetoothDevice.h"
+#include "BluetoothSocket.h"
 #endif
 
 #include "DOMError.h"
@@ -1644,6 +1645,8 @@ static nsDOMClassInfoData sClassInfoData[] = {
   NS_DEFINE_CLASSINFO_DATA(BluetoothAdapter, nsEventTargetSH,
                            EVENTTARGET_SCRIPTABLE_FLAGS)  
   NS_DEFINE_CLASSINFO_DATA(BluetoothDevice, nsDOMGenericSH,
+                           DOM_DEFAULT_SCRIPTABLE_FLAGS)  
+  NS_DEFINE_CLASSINFO_DATA(BluetoothSocket, nsDOMGenericSH,
                            DOM_DEFAULT_SCRIPTABLE_FLAGS)
 #endif
 
@@ -4437,6 +4440,10 @@ nsDOMClassInfo::Init()
     
   DOM_CLASSINFO_MAP_BEGIN(BluetoothDevice, nsIDOMBluetoothDevice)
     DOM_CLASSINFO_MAP_ENTRY(nsIDOMBluetoothDevice)
+  DOM_CLASSINFO_MAP_END
+
+  DOM_CLASSINFO_MAP_BEGIN(BluetoothSocket, nsIDOMBluetoothSocket)
+    DOM_CLASSINFO_MAP_ENTRY(nsIDOMBluetoothSocket)
   DOM_CLASSINFO_MAP_END
 #endif
 
