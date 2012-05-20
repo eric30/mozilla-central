@@ -15,6 +15,7 @@
 */
 
 #include "BluetoothSocket.h"
+#include "BluetoothDevice.h"
 #include "BluetoothUtils.h"
 
 #include <errno.h>
@@ -45,8 +46,9 @@
 
 BEGIN_BLUETOOTH_NAMESPACE
 
-BluetoothSocket::BluetoothSocket(int aType) : mFd(-1)
+BluetoothSocket::BluetoothSocket(int aType, BluetoothDevice* aDevice) : mFd(-1)
                                             , mType(aType)
+                                            , mDevice(aDevice)
 {
 }
 

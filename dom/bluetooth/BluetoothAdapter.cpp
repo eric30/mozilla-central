@@ -495,13 +495,13 @@ BluetoothAdapter::UpdateProperties()
 }
 
 // xxxxxxxxxxxxxxxxxxxx Temp functions xxxxxxxxxxxxxxxxxxxxxx
-BluetoothSocket a(BluetoothSocket::TYPE_RFCOMM);
-
 NS_IMETHODIMP
 BluetoothAdapter::TestFunction1(const nsAString& aAddress)
 {
+  /*
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
   CreatePairedDeviceInternal(asciiAddress, 50000);
+  */
 
   return NS_OK;
 }
@@ -511,14 +511,16 @@ BluetoothAdapter::TestFunction2(const nsAString& aObjectPath)
 {
   // 0x0004 represents ProtocolDescriptorList. For more information, 
   // see https://www.bluetooth.org/Technical/AssignedNumbers/service_discovery.htm
+  /*
   int attributeId = 0x0004;
 
   const char* asciiObjectPath = NS_LossyConvertUTF16toASCII(aObjectPath).get();
   int c = GetDeviceServiceChannelInternal(asciiObjectPath, BluetoothServiceUuidStr::Handsfree, attributeId);
 
   LOG("Remote channel: %d", c);
+  */
 
-  //a.Close();
+  //device->Connect(BluetoothServiceUuidStr::Handsfree);
 
   return NS_OK;
 }
@@ -526,15 +528,7 @@ BluetoothAdapter::TestFunction2(const nsAString& aObjectPath)
 NS_IMETHODIMP
 BluetoothAdapter::TestFunction3()
 {
-
   /*
-  int test = AddRfcommServiceRecordInternal("Voice gateway", 
-                                 BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
-                                 BluetoothServiceUuid::BaseLSB,
-                                 5);
-
-  LOG("Add rfcomm record : %d", test);
-
   a.Init(true, false);
 
   LOG("Init ok");

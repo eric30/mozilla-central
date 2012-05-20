@@ -21,10 +21,12 @@
 
 BEGIN_BLUETOOTH_NAMESPACE
 
+class BluetoothDevice;
+
 class BluetoothSocket 
 {
 public:
-  BluetoothSocket(int aType);
+  BluetoothSocket(int aType, BluetoothDevice* aDevice);
   ~BluetoothSocket();
 
   static const int TYPE_RFCOMM = 1;
@@ -42,7 +44,7 @@ public:
 private:
   int mFd; /* File description */ 
   int mType;  /* one of TYPE_RFCOMM etc */
-  //BluetoothDevice mDevice;    /* remote device */
+  BluetoothDevice* mDevice;    /* remote device */
   const char* mAddress;    /* remote address */
   bool mAuth;
   bool mEncrypt;

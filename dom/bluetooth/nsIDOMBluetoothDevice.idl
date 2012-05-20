@@ -10,4 +10,7 @@
 interface nsIDOMBluetoothDevice : nsISupports
 {
   readonly attribute DOMString address;
+
+  void connect(in DOMString aServiceUuid);
+  void close();
 };

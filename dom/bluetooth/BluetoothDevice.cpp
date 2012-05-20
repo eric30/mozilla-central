@@ -5,6 +5,10 @@
 #include "BluetoothDevice.h"
 #include "nsDOMClassInfo.h"
 
+// xxx Temp
+#include "BluetoothSocket.h"
+#include "BluetoothService.h"
+
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
 #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args)
@@ -34,5 +38,33 @@ NS_IMETHODIMP
 BluetoothDevice::GetAddress(nsAString& aAddress)
 {
   aAddress = mAddress;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothDevice::Connect(const nsAString& aServiceUuid)
+{
+  const char* serviceUuid = NS_LossyConvertUTF16toASCII(aServiceUuid).get();
+  // 1. Check if it's paired (TODO)
+  // 2. Connect by BluetoothSocket
+  const char* address = NS_LossyConvertUTF16toASCII(mAddress).get();
+  const char* objectPath = GetObjectPathFromAddress(address);
+  int channel = GetDeviceServiceChannelInternal(objectPath, serviceUuid, 0x0004);
+
+  LOG("Channel of hfp service : %d", channel);
+ 
+  // xxx Temp
+  mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM, this);
+  mSocket->Init(true, false);
+  mSocket->Connect(address, channel);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothDevice::Close()
+{
+  mSocket->Close();
+
   return NS_OK;
 }

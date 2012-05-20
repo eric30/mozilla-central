@@ -11,6 +11,8 @@
 
 BEGIN_BLUETOOTH_NAMESPACE
 
+class BluetoothSocket;
+
 class BluetoothDevice : public nsIDOMBluetoothDevice
 {
 public:
@@ -21,6 +23,9 @@ public:
 
 private:
   nsString mAddress;
+
+  // xxx Temp
+  BluetoothSocket* mSocket;
 };
 
 END_BLUETOOTH_NAMESPACE
