@@ -41,8 +41,7 @@ BluetoothHfpManager::Connect(const char* aAddress, int aChannel)
 {
   if (aChannel <= 0) return NULL;
 
-  mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM, NULL);
-  mSocket->Init(true, false);
+  mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM, NULL, true, false);
 
   int ret = mSocket->Connect(aAddress, aChannel);
   if (ret) {

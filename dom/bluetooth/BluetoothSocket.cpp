@@ -59,10 +59,16 @@ NS_INTERFACE_MAP_END
 NS_IMPL_ADDREF(BluetoothSocket)
 NS_IMPL_RELEASE(BluetoothSocket)
 
-BluetoothSocket::BluetoothSocket(int aType, BluetoothDevice* aDevice) : mFd(-1)
-                                            , mType(aType)
-                                            , mDevice(aDevice)
+BluetoothSocket::BluetoothSocket(int aType, 
+                                 BluetoothDevice* aDevice, 
+                                 bool aAuth, 
+                                 bool aEncrypt) : mFd(-1)
+                                                , mType(aType)
+                                                , mDevice(aDevice)
+                                                , mAuth(aAuth)
+                                                , mEncrypt(aEncrypt)
 {
+  this->Init(mAuth, mEncrypt);
 }
 
 BluetoothSocket::~BluetoothSocket()
