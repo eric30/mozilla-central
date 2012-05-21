@@ -57,6 +57,8 @@ protected:
 private:
   nsCOMPtr<nsIEventTarget> mToggleBtThread;
   BluetoothEventHandler* mHandler;
+  int mHfpServiceHandle;
+  int mHspServiceHandle;
 
   void UpdateProperties();
 };

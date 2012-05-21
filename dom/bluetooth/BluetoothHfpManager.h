@@ -15,19 +15,25 @@ class BluetoothSocket;
 class BluetoothHfpManager
 {
   public:
+    static const int DEFAULT_HFP_CHANNEL = 3;
+    static const int DEFAULT_HSP_CHANNEL = 4;
+    static const int MAX_SLC = 1;
+
     static BluetoothHfpManager* GetManager();
     BluetoothSocket* Connect(const char* asciiAddress, int channel);
     void Disconnect();
     bool IsConnected();
-    /*
-    bool Listen(int channel);
-    */
-    pthread_t mEventThread;
+    bool WaitForConnect();
+    void StopWaiting();
 
+    pthread_t mEventThread;
+    pthread_t mAcceptThread;
   private:
     BluetoothHfpManager();
     static void* MessageHandler(void* ptr);
+    static void* AcceptInternal(void* ptr);
     BluetoothSocket* mSocket;
+    BluetoothSocket* mServerSocket;
     int mFileDescriptor;
     bool mConnected;
     int mChannel;

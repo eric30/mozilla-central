@@ -30,7 +30,7 @@ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMBLUETOOTHSOCKET
 
-  BluetoothSocket(int aType, BluetoothDevice* aDevice, bool aAuth, bool aEncrypt);
+  BluetoothSocket(int aType, int aFd, bool aAuth, bool aEncrypt, BluetoothDevice* aDevice);
   ~BluetoothSocket();
 
   static const int TYPE_RFCOMM = 1;
@@ -39,13 +39,18 @@ public:
   static const int RFCOMM_SO_SNDBUF = 70 * 1024;  // 70 KB send buffer
 
   int IsAvailable();
-  int Connect(const char* aAddress, int aChannel);
+  int Connect(const char* aAddress, int aPort);
   void CloseInternal();
+  int BindListen(int aPort);
+
+  // TODO(Eric)
+  // Should be exposed for developing server programs
+  BluetoothSocket* Accept();
 
   int mFd; /* File descriptor */ 
 
 private:
-  void Init(bool aAuth, bool aEncrypt);
+  void Init(int aFd, bool aAuth, bool aEncrypt);
 
   int mType;  /* one of TYPE_RFCOMM etc */
   BluetoothDevice* mDevice;    /* remote device */

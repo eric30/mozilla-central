@@ -11,6 +11,7 @@
 #include "BluetoothEventHandler.h"
 
 //For test
+#include "BluetoothHfpManager.h"
 #include "BluetoothServiceUuid.h"
 #include "BluetoothSocket.h"
 
@@ -181,6 +182,8 @@ NS_IMPL_ADDREF_INHERITED(BluetoothAdapter, nsDOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(BluetoothAdapter, nsDOMEventTargetHelper)
 
 BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow *aWindow) : mHandler(NULL)
+                                                           , mHfpServiceHandle(-1)
+                                                           , mHspServiceHandle(-1)
 {
   BindToOwner(aWindow);
 }
@@ -198,15 +201,23 @@ BluetoothAdapter::Setup()
   RegisterAgent();
 
   // Register services
-  AddRfcommServiceRecordInternal("handsfree_ag", 
-                                 BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
-                                 BluetoothServiceUuid::BaseLSB,
-                                 2);  
-  
-  AddRfcommServiceRecordInternal("headset", 
-                                 BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::Headset,
-                                 BluetoothServiceUuid::BaseLSB,
-                                 3);
+  if (mHfpServiceHandle < 0) {
+    mHfpServiceHandle = AddRfcommServiceRecordInternal("handsfree_ag", 
+                                   BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
+                                   BluetoothServiceUuid::BaseLSB,
+                                   BluetoothHfpManager::DEFAULT_HFP_CHANNEL);
+  }
+
+  if (mHspServiceHandle < 0) {
+    mHspServiceHandle = AddRfcommServiceRecordInternal("headset", 
+                                   BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::Headset,
+                                   BluetoothServiceUuid::BaseLSB,
+                                   BluetoothHfpManager::DEFAULT_HSP_CHANNEL);
+  }
+
+  // Start HFP server
+  BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
+  hfp->WaitForConnect();
 
   UpdateProperties();
 }
@@ -214,6 +225,13 @@ BluetoothAdapter::Setup()
 void
 BluetoothAdapter::TearDown()
 {
+  //Stop HFP server
+  BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
+  hfp->StopWaiting();
+
+  mHfpServiceHandle = -1;
+  mHspServiceHandle = -1;
+
   UnregisterAgent();
 }
 

@@ -59,16 +59,14 @@ NS_INTERFACE_MAP_END
 NS_IMPL_ADDREF(BluetoothSocket)
 NS_IMPL_RELEASE(BluetoothSocket)
 
-BluetoothSocket::BluetoothSocket(int aType, 
-                                 BluetoothDevice* aDevice, 
-                                 bool aAuth, 
-                                 bool aEncrypt) : mFd(-1)
-                                                , mType(aType)
-                                                , mDevice(aDevice)
-                                                , mAuth(aAuth)
-                                                , mEncrypt(aEncrypt)
+BluetoothSocket::BluetoothSocket(int aType, int aFd, bool aAuth, bool aEncrypt,
+                                 BluetoothDevice* aDevice) : mFd(aFd)
+                                                           , mType(aType)
+                                                           , mDevice(aDevice)
+                                                           , mAuth(aAuth)
+                                                           , mEncrypt(aEncrypt)
 {
-  this->Init(mAuth, mEncrypt);
+  this->Init(mFd, mAuth, mEncrypt);
 }
 
 BluetoothSocket::~BluetoothSocket()
@@ -88,11 +86,18 @@ BluetoothSocket::Close()
 // ***************************************
 
 void
-BluetoothSocket::Init(bool aAuth, bool aEncrypt)
+BluetoothSocket::Init(int aFd, bool aAuth, bool aEncrypt)
 {
   int fd;
   int lm = 0;
   int sndbuf;
+
+  if (aFd > 0) {
+    LOG("Socket has been already initialized.");
+
+    mFd = aFd;
+    return;      
+  }
 
   switch (this->mType) {
     case TYPE_RFCOMM:
@@ -151,7 +156,7 @@ BluetoothSocket::Init(bool aAuth, bool aEncrypt)
 }
 
 int
-BluetoothSocket::Connect(const char* aAddress, int aChannel)
+BluetoothSocket::Connect(const char* aAddress, int aPort)
 {
   int ret;
   bdaddr_t bdaddress;
@@ -171,7 +176,7 @@ BluetoothSocket::Connect(const char* aAddress, int aChannel)
 
       memset(addr, 0, addr_sz);
       addr_rc.rc_family = AF_BLUETOOTH;
-      addr_rc.rc_channel = aChannel;
+      addr_rc.rc_channel = aPort;
       memcpy(&addr_rc.rc_bdaddr, &bdaddress, sizeof(bdaddr_t));
 
       break;
@@ -192,7 +197,7 @@ BluetoothSocket::Connect(const char* aAddress, int aChannel)
 
       memset(addr, 0, addr_sz);
       addr_l2.l2_family = AF_BLUETOOTH;
-      addr_l2.l2_psm = aChannel;
+      addr_l2.l2_psm = aPort;
       memcpy(&addr_l2.l2_bdaddr, &bdaddress, sizeof(bdaddr_t));
 
       break;
@@ -219,6 +224,127 @@ BluetoothSocket::Connect(const char* aAddress, int aChannel)
   }
 
   return ret;
+}
+
+int
+BluetoothSocket::BindListen(int aPort)
+{
+  /* Returns errno instead of throwing, so java can check errno */
+  socklen_t addr_sz;
+  struct sockaddr *addr;
+  bdaddr_t bdaddr = *BDADDR_ANY;
+
+  if (mFd <= 0) {
+    LOG("Socket has not been initialized. Cannot BindListen.");
+    return -1;
+  }
+
+  switch (mType) {
+    case TYPE_RFCOMM:
+      struct sockaddr_rc addr_rc;
+      addr = (struct sockaddr *)&addr_rc;
+      addr_sz = sizeof(addr_rc);
+
+      memset(addr, 0, addr_sz);
+      addr_rc.rc_family = AF_BLUETOOTH;
+      addr_rc.rc_channel = aPort;
+      memcpy(&addr_rc.rc_bdaddr, &bdaddr, sizeof(bdaddr_t));
+      break;
+    case TYPE_SCO:
+      struct sockaddr_sco addr_sco;
+      addr = (struct sockaddr *)&addr_sco;
+      addr_sz = sizeof(addr_sco);
+
+      memset(addr, 0, addr_sz);
+      addr_sco.sco_family = AF_BLUETOOTH;
+      memcpy(&addr_sco.sco_bdaddr, &bdaddr, sizeof(bdaddr_t));
+      break;
+    case TYPE_L2CAP:
+      struct sockaddr_l2 addr_l2;
+      addr = (struct sockaddr *)&addr_l2;
+      addr_sz = sizeof(addr_l2);
+
+      memset(addr, 0, addr_sz);
+      addr_l2.l2_family = AF_BLUETOOTH;
+      addr_l2.l2_psm = aPort;
+      memcpy(&addr_l2.l2_bdaddr, &bdaddr, sizeof(bdaddr_t));
+      break;
+    default:
+      return ENOSYS;
+  }
+
+  if (bind(mFd, addr, addr_sz)) {
+    LOG("...bind(%d) gave errno %d", mFd, errno);
+    return errno;
+  }
+
+  if (listen(mFd, 1)) {
+    LOG("...listen(%d) gave errno %d", mFd, errno);
+    return errno;
+  }
+
+  LOG("...bindListenNative(%d) success", mFd);
+
+  return 0;
+}
+
+BluetoothSocket*
+BluetoothSocket::Accept()
+{
+  struct sockaddr *addr;
+  socklen_t addr_sz;
+  bdaddr_t *bdaddr;
+
+  if (mFd <= 0) {
+    LOG("Socket has not been initialized. Cannot accept.");
+    return NULL;
+  }
+
+  switch (mType) {
+    case TYPE_RFCOMM:
+      struct sockaddr_rc addr_rc;
+      addr = (struct sockaddr *)&addr_rc;
+      addr_sz = sizeof(addr_rc);
+      bdaddr = &addr_rc.rc_bdaddr;
+      memset(addr, 0, addr_sz);
+      break;
+    case TYPE_SCO:
+      struct sockaddr_sco addr_sco;
+      addr = (struct sockaddr *)&addr_sco;
+      addr_sz = sizeof(addr_sco);
+      bdaddr = &addr_sco.sco_bdaddr;
+      memset(addr, 0, addr_sz);
+      break;
+    case TYPE_L2CAP:
+      struct sockaddr_l2 addr_l2;
+      addr = (struct sockaddr *)&addr_l2;
+      addr_sz = sizeof(addr_l2);
+      bdaddr = &addr_l2.l2_bdaddr;
+      memset(addr, 0, addr_sz);
+      break;
+    default:
+      LOG("Invalid type value %d in: %s", mType, __FUNCTION__);
+      return NULL;;
+  }
+
+  int newFd;
+  do {
+    // newFd: a descriptor for the accepted socket
+    newFd = accept(mFd, addr, &addr_sz);
+  } while (newFd < 0 && errno == EINTR);
+
+  LOG("...accept(%d, %s) = %d (errno %d)", mFd, TYPE_AS_STR(mType), newFd, errno);
+
+  if (newFd < 0) {
+    LOG("Invalid file descriptor %d after accepting a new connection.", newFd);
+    return NULL;
+  }
+
+  /* Connected - return new BluetoothSocket */
+  //char* bdaddrStr = new char[18];
+  //get_bdaddr_as_string(bdaddr, bdaddrStr);
+
+  return new BluetoothSocket(mType, newFd, mAuth, mEncrypt, NULL);
 }
 
 void 

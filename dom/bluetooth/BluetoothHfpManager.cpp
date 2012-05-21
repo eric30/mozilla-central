@@ -17,11 +17,14 @@ USING_BLUETOOTH_NAMESPACE
 
 static BluetoothHfpManager* sInstance = NULL;
 static bool sStopEventLoopFlag = true;
+static bool sStopAcceptThreadFlag = true;
 
 BluetoothHfpManager::BluetoothHfpManager() : mSocket(NULL)
+                                           , mServerSocket(NULL)
                                            , mConnected(false)
                                            , mChannel(-1)
                                            , mAddress(NULL)
+                                           , mEventThread(NULL)
 {
 }
 
@@ -36,12 +39,51 @@ BluetoothHfpManager::GetManager()
   return sInstance;
 }
 
+bool
+BluetoothHfpManager::WaitForConnect()
+{
+  // Because it is Bluetooth 'HFP' Manager to listen,
+  // it's definitely listen to HFP channel. So no need
+  // to pass channel argument in.
+
+  if (mServerSocket != NULL) {
+    LOG("Already connected or forget to clear mServerSocket?");
+    return false;
+  }
+
+  mServerSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM, -1, true, false, NULL);
+  LOG("Created a new BluetoothServerSocket for listening");
+
+  mChannel = BluetoothHfpManager::DEFAULT_HFP_CHANNEL;
+
+  int ret = mServerSocket->BindListen(mChannel);
+  if (ret != 0) {
+    LOG("BindListen failed. error no is %d", ret);
+    return false;
+  }
+
+  pthread_create(&(mAcceptThread), NULL, BluetoothHfpManager::AcceptInternal, mServerSocket);
+
+  return true;
+}
+
+void 
+BluetoothHfpManager::StopWaiting()
+{
+  sStopAcceptThreadFlag = true;
+
+  mServerSocket->CloseInternal();
+
+  delete mServerSocket;
+  mServerSocket = NULL;
+}
+
 BluetoothSocket*
 BluetoothHfpManager::Connect(const char* aAddress, int aChannel)
 {
   if (aChannel <= 0) return NULL;
 
-  mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM, NULL, true, false);
+  mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM, -1, true, false, NULL);
 
   int ret = mSocket->Connect(aAddress, aChannel);
   if (ret) {
@@ -62,6 +104,8 @@ BluetoothHfpManager::Connect(const char* aAddress, int aChannel)
 void 
 BluetoothHfpManager::Disconnect() 
 {
+  LOG("%s", __FUNCTION__);
+
   if (mEventThread != NULL) {
     sStopEventLoopFlag = true;
     pthread_join(mEventThread, NULL);
@@ -70,6 +114,9 @@ BluetoothHfpManager::Disconnect()
 
   if (mSocket != NULL && mSocket->mFd > 0) {
     mSocket->CloseInternal();
+
+    delete mSocket;
+    mSocket = NULL;
   }
 }
 
@@ -80,14 +127,55 @@ BluetoothHfpManager::IsConnected()
 }
 
 void*
+BluetoothHfpManager::AcceptInternal(void* ptr)
+{
+  BluetoothSocket* serverSocket = static_cast<BluetoothSocket*>(ptr);
+  sStopAcceptThreadFlag = false;
+
+  while (!sStopAcceptThreadFlag) {
+    BluetoothSocket* newSocket = serverSocket->Accept();
+
+    if (newSocket == NULL) {
+      LOG("Accepted failed.");
+      continue;
+    }
+
+    BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
+
+    if (hfp->mSocket != NULL || hfp->IsConnected()) {
+      LOG("A socket has been accepted, however there is no available resource.");
+      newSocket->CloseInternal();
+
+      delete newSocket;
+      continue;
+    }
+
+    hfp->mSocket = newSocket;
+    pthread_create(&hfp->mEventThread, NULL, BluetoothHfpManager::MessageHandler, hfp->mSocket);
+  }
+
+  return NULL;
+}
+
+static pthread_t sDisconnectThread;
+
+static void*
+DisconnectThreadFunc(void* ptr)
+{
+  BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
+  hfp->Disconnect();
+
+  return NULL;
+}
+
+void*
 BluetoothHfpManager::MessageHandler(void* ptr)
 {
   BluetoothSocket* socket = static_cast<BluetoothSocket*>(ptr);
   int err;
   sStopEventLoopFlag = false;
 
-  while (!sStopEventLoopFlag)
-  {
+  while (!sStopEventLoopFlag) {
     int timeout = 500; //0.5 sec
     char buf[256];
     const char *ret = get_line(socket->mFd,
@@ -96,7 +184,13 @@ BluetoothHfpManager::MessageHandler(void* ptr)
         &err);
 
     if (ret == NULL) {
-      LOG("HFP: Read Nothing");
+      if (err != 0) {
+        LOG("Read error in %s. Start disconnect routine.", __FUNCTION__);
+        pthread_create(&sDisconnectThread, NULL, DisconnectThreadFunc, NULL);
+        break;
+      } else {
+        LOG("HFP: Read Nothing");
+      }
     } else {
       LOG("HFP: Received:%s", ret);
 
