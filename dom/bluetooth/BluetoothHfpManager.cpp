@@ -4,6 +4,7 @@
 
 #include "BluetoothHfpManager.h"
 #include "BluetoothHfpBase.h"
+#include "BluetoothScoManager.h"
 #include "BluetoothSocket.h"
 
 #if defined(MOZ_WIDGET_GONK)
@@ -21,7 +22,6 @@ static bool sStopAcceptThreadFlag = true;
 
 BluetoothHfpManager::BluetoothHfpManager() : mSocket(NULL)
                                            , mServerSocket(NULL)
-                                           , mConnected(false)
                                            , mChannel(-1)
                                            , mAddress(NULL)
                                            , mEventThread(NULL)
@@ -82,21 +82,25 @@ BluetoothSocket*
 BluetoothHfpManager::Connect(const char* aAddress, int aChannel)
 {
   if (aChannel <= 0) return NULL;
+  if (IsConnected()) return NULL;
 
   mSocket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM, -1, true, false, NULL);
 
   int ret = mSocket->Connect(aAddress, aChannel);
   if (ret) {
-    LOG("Connect failed");
+    LOG("Connect failed - RFCOMM Socket");
+
     delete mSocket;
     mSocket = NULL;
 
     return NULL;
   } 
 
-  LOG("Connect successfully");
-  mConnected = true;
+  LOG("Connect successfully - RFCOMM Socket");
   pthread_create(&mEventThread, NULL, BluetoothHfpManager::MessageHandler, mSocket);
+
+  BluetoothScoManager* sco = BluetoothScoManager::GetManager();
+  sco->Connect(aAddress);
 
   return mSocket;
 }
@@ -104,19 +108,19 @@ BluetoothHfpManager::Connect(const char* aAddress, int aChannel)
 void 
 BluetoothHfpManager::Disconnect() 
 {
-  LOG("%s", __FUNCTION__);
+  LOG("Disconnect RFCOMM Socket in BluetoothHfpManager");
 
-  if (mEventThread != NULL) {
+  if (this->IsConnected()) {
+    // Stop event loop first
     sStopEventLoopFlag = true;
     pthread_join(mEventThread, NULL);
     mEventThread = NULL;
-  }
 
-  if (mSocket != NULL && mSocket->mFd > 0) {
     mSocket->CloseInternal();
-
-    delete mSocket;
     mSocket = NULL;
+
+    BluetoothScoManager* sco = BluetoothScoManager::GetManager();
+    sco->Disconnect();
   }
 }
 
@@ -152,6 +156,12 @@ BluetoothHfpManager::AcceptInternal(void* ptr)
 
     hfp->mSocket = newSocket;
     pthread_create(&hfp->mEventThread, NULL, BluetoothHfpManager::MessageHandler, hfp->mSocket);
+/*
+    LOG("Start to connect SCO");
+    BluetoothScoManager* sco = BluetoothScoManager::GetManager();
+    sco->Connect(newSocket->GetRemoteAddress());
+    LOG("Finish connecting SCO");
+*/
   }
 
   return NULL;
@@ -185,7 +195,7 @@ BluetoothHfpManager::MessageHandler(void* ptr)
 
     if (ret == NULL) {
       if (err != 0) {
-        LOG("Read error in %s. Start disconnect routine.", __FUNCTION__);
+        LOG("Read error %d in %s. Start disconnect routine.", err, __FUNCTION__);
         pthread_create(&sDisconnectThread, NULL, DisconnectThreadFunc, NULL);
         break;
       } else {

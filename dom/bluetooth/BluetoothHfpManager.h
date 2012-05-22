@@ -35,7 +35,6 @@ class BluetoothHfpManager
     BluetoothSocket* mSocket;
     BluetoothSocket* mServerSocket;
     int mFileDescriptor;
-    bool mConnected;
     int mChannel;
     char* mAddress;
 };
