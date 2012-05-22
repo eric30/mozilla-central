@@ -21,6 +21,21 @@ class BluetoothHfpManager
     static const int DEFAULT_HSP_CHANNEL = 4;
     static const int MAX_SLC = 1;
 
+    /*
+      According to HFP 1.5 spec 4.33.3 Bluetooth Defined AT Capabilities,
+      the definition of the bit mask of BRSF is listed as below:
+      Bit  Feature
+      0    EC and/or NR function
+      1    Call waiting and 3-way calling
+      2    CLI presentation capability
+      3    Voice recognition activation
+      4    Remote volume control
+      5    Enhanced call status
+      6    Enhanced call control
+      7-31 Reserved for future definition
+    */
+    static const int BRSF = 16;
+
     static BluetoothHfpManager* GetManager();
     BluetoothSocket* Connect(const char* asciiAddress, int channel);
     void Disconnect();
@@ -41,6 +56,7 @@ class BluetoothHfpManager
     int mFileDescriptor;
     int mChannel;
     char* mAddress;
+    int mHfBrsf;
 };
 
 END_BLUETOOTH_NAMESPACE

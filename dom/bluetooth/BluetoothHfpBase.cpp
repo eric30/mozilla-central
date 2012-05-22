@@ -168,9 +168,14 @@ void reply_error(int fd)
   }
 }
 
-void reply_brsf(int fd)
+void reply_brsf(int fd, int brsf_value)
 {
-  if (send_line(fd, "+BRSF: 23") != 0) {
+  char str[] = {'+', 'B', 'R', 'S', 'F', ':', ' ', '0', '0', '\0'};
+
+  str[8] += (brsf_value % 10);
+  str[7] += (brsf_value / 10);
+
+  if (send_line(fd, str) != 0) {
     LOG("Reply +BRSF failed");
   }
 }

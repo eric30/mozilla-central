@@ -220,7 +220,13 @@ BluetoothHfpManager::MessageHandler(void* ptr)
       }
     } else {
       if (!strncmp(ret, "AT+BRSF=", 8)) {
-        reply_brsf(socket->mFd);
+        hfp->mHfBrsf = ret[8] - '0';
+
+        if (strlen(ret) > 9) {
+          hfp->mHfBrsf = hfp->mHfBrsf * 10 + (ret[9] - '0');
+        }
+
+        reply_brsf(socket->mFd, BluetoothHfpManager::BRSF);
         reply_ok(socket->mFd);
       } else if (!strncmp(ret, "AT+CIND=?", 9)) {
         reply_cind_range(socket->mFd);
@@ -270,6 +276,7 @@ BluetoothHfpManager::MessageHandler(void* ptr)
       } else if (!strncmp(ret, "AT+BLDN", 7)) {
         reply_ok(socket->mFd);
       } else if (!strncmp(ret, "AT+BVRA", 7)) {
+        // Currently, we do not support voice recognition
         reply_error(socket->mFd);
       } else if (!strncmp(ret, "OK", 2)) {
         // Do nothing

@@ -13,7 +13,7 @@ const char* get_line(int fd, char *buf, int len,
                      int timeout_ms, int *err);
 void reply_ok(int fd);
 void reply_error(int fd);
-void reply_brsf(int fd);
+void reply_brsf(int fd, int brsf_value);
 void reply_cind_current_status(int fd);
 void reply_cind_range(int fd);
 void reply_cmer(int fd, bool enabledindicator);
