@@ -206,9 +206,9 @@ BluetoothHfpManager::MessageHandler(void* ptr)
     int timeout = 500; //0.5 sec
     char buf[256];
     const char *ret = get_line(socket->mFd,
-        buf, sizeof(buf),
-        timeout,
-        &err);
+                               buf, sizeof(buf),
+                               timeout,
+                               &err);
 
     if (ret == NULL) {
       if (err != 0) {
@@ -254,6 +254,16 @@ BluetoothHfpManager::MessageHandler(void* ptr)
 
         reply_ok(socket->mFd);
       } else if (!strncmp(ret, "AT+VGM=", 7)) {
+        // Currently, we only provide two options for mic volume 
+        // settings: mute and unmute.
+        int newVgm = ret[7] - '0';
+
+        if (strlen(ret) > 8) {
+          newVgm = newVgm * 10 + (ret[8] - '0');
+        }
+
+        hfp->mAudioManager->SetMicrophoneMuted(newVgm == 0 ? true : false);
+
         reply_ok(socket->mFd);
       } else if (!strncmp(ret, "ATA", 3)) {
         reply_ok(socket->mFd);
