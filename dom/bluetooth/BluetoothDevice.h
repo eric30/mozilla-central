@@ -21,6 +21,8 @@ public:
 
   BluetoothDevice(const char* aAddress);
 
+  const char* GetAddressInternal();
+
 private:
   nsString mAddress;
 

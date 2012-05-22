@@ -81,3 +81,17 @@ BluetoothDevice::Disconnect()
 
   return NS_OK;
 }
+
+const char* 
+BluetoothDevice::GetAddressInternal()
+{
+  const char* address = NS_LossyConvertUTF16toASCII(mAddress).get();
+  char* retAddress = new char[18];
+  retAddress[17] = '\0';
+
+  strcpy(retAddress, address);
+
+  LOG("BluetoothDevice GetAddress:%s", retAddress);
+
+  return retAddress;
+}

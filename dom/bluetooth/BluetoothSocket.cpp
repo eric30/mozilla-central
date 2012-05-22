@@ -71,6 +71,9 @@ BluetoothSocket::BluetoothSocket(int aType, int aFd, bool aAuth, bool aEncrypt,
 
 BluetoothSocket::~BluetoothSocket()
 {
+  if (mDevice != NULL) {
+    delete mDevice;
+  }
 }
 
 NS_IMETHODIMP
@@ -341,10 +344,16 @@ BluetoothSocket::Accept()
   }
 
   /* Connected - return new BluetoothSocket */
-  //char* bdaddrStr = new char[18];
-  //get_bdaddr_as_string(bdaddr, bdaddrStr);
+  char* bdaddrStr = new char[18];
+  get_bdaddr_as_string(bdaddr, bdaddrStr);
+  bdaddrStr[17] = '\0';
 
-  return new BluetoothSocket(mType, newFd, mAuth, mEncrypt, NULL);
+  LOG("Accept: Address = %s", bdaddrStr);
+
+  BluetoothDevice* newDevice = new BluetoothDevice(bdaddrStr);
+  delete bdaddrStr;
+
+  return new BluetoothSocket(mType, newFd, mAuth, mEncrypt, newDevice);
 }
 
 void 
@@ -365,4 +374,19 @@ BluetoothSocket::IsAvailable()
   }
 
   return available;
+}
+
+const char*
+BluetoothSocket::GetRemoteDeviceAddress()
+{
+  char* retAddress = new char[18];
+  const char* currentDeviceAddress = mDevice->GetAddressInternal();
+  strcpy(retAddress, currentDeviceAddress);
+  retAddress[17] = '\0';
+
+  LOG("Remote Device Address : %s", retAddress);
+
+  delete currentDeviceAddress;
+
+  return retAddress;
 }

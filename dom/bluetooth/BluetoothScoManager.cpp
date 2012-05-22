@@ -39,7 +39,9 @@ BluetoothScoManager::Connect(const char* aAddress)
 {
   if (this->IsConnected()) return false;
 
-  mSocket = new BluetoothSocket(BluetoothSocket::TYPE_SCO, -1, true, true, NULL);
+  mSocket = new BluetoothSocket(BluetoothSocket::TYPE_SCO, -1, true, false, NULL);
+
+  LOG("Connect SCO : %s", aAddress);
 
   int ret = mSocket->Connect(aAddress, -1);
   if (ret) {

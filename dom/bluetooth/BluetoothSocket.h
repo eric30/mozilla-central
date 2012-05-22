@@ -42,6 +42,7 @@ public:
   int Connect(const char* aAddress, int aPort);
   void CloseInternal();
   int BindListen(int aPort);
+  const char* GetRemoteDeviceAddress();
 
   // TODO(Eric)
   // Should be exposed for developing server programs
