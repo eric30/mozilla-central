@@ -73,6 +73,7 @@ BluetoothSocket::~BluetoothSocket()
 {
   if (mDevice != NULL) {
     delete mDevice;
+    mDevice = NULL;
   }
 }
 

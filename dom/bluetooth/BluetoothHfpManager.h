@@ -42,6 +42,8 @@ class BluetoothHfpManager
     bool IsConnected();
     bool WaitForConnect();
     void StopWaiting();
+    bool AudioOn();
+    void AudioOff();
 
     pthread_t mEventThread;
     pthread_t mAcceptThread;
@@ -57,6 +59,7 @@ class BluetoothHfpManager
     int mChannel;
     char* mAddress;
     int mHfBrsf;
+    int mState;
 };
 
 END_BLUETOOTH_NAMESPACE

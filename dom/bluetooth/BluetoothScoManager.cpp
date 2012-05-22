@@ -4,7 +4,9 @@
 
 #include "BluetoothScoManager.h"
 #include "BluetoothSocket.h"
+
 #include "AudioManager.h"
+#include "nsServiceManagerUtils.h"
 
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
@@ -20,7 +22,7 @@ static BluetoothScoManager* sInstance = NULL;
 BluetoothScoManager::BluetoothScoManager() : mSocket(NULL)
                                            , mServerSocket(NULL)
 {
-  // Do nothing
+  mAudioManager = do_GetService(NS_AUDIOMANAGER_CONTRACTID);
 }
 
 BluetoothScoManager*
@@ -37,7 +39,10 @@ BluetoothScoManager::GetManager()
 bool 
 BluetoothScoManager::Connect(const char* aAddress)
 {
-  if (this->IsConnected()) return false;
+  if (this->IsConnected()) {
+    LOG("SCO connection has been already existed.");
+    return false;
+  }
 
   mSocket = new BluetoothSocket(BluetoothSocket::TYPE_SCO, -1, true, false, NULL);
 
@@ -54,7 +59,11 @@ BluetoothScoManager::Connect(const char* aAddress)
   }
 
   LOG("Connect successfully - SCO Socket");
-  //mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
+
+  // TODO(Eric)
+  // I'm not sure if using SetForceForUse to route audio is right.
+  mAudioManager->SetForceForUse(nsIAudioManager::USE_COMMUNICATION, 
+                                nsIAudioManager::FORCE_BT_SCO);
 
   return true;
 }
@@ -62,14 +71,17 @@ BluetoothScoManager::Connect(const char* aAddress)
 void
 BluetoothScoManager::Disconnect()
 {
+  if (!this->IsConnected()) {
+    LOG("No SCO connected.");
+    return;
+  }
+
   LOG("Disconnect SCO Socket in BluetoothScoManager");
 
-  if (this->IsConnected()) {
-    mSocket->CloseInternal();
+  mSocket->CloseInternal();
 
-    delete mSocket;
-    mSocket = NULL;
-  }
+  delete mSocket;
+  mSocket = NULL;
 }
 
 bool

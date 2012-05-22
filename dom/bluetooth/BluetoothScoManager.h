@@ -6,6 +6,8 @@
 #define mozilla_dom_bluetooth_bluetoothscomanager_h__
 
 #include "BluetoothCommon.h"
+#include "nsCOMPtr.h"
+#include "nsIAudioManager.h"
 #include <pthread.h>
 
 BEGIN_BLUETOOTH_NAMESPACE
@@ -25,6 +27,7 @@ class BluetoothScoManager
 
   private:
     BluetoothScoManager();
+    nsCOMPtr<nsIAudioManager> mAudioManager;
 
     BluetoothSocket* mSocket;
     BluetoothSocket* mServerSocket;

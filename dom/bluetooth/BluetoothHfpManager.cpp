@@ -26,12 +26,22 @@ static bool sStopEventLoopFlag = true;
 static bool sStopAcceptThreadFlag = true;
 static pthread_t sDisconnectThread;
 static pthread_t sCreateScoThread;
+static pthread_t sDisconnectScoThread;
 
 static void*
 DisconnectThreadFunc(void* ptr)
 {
   BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
   hfp->Disconnect();
+
+  return NULL;
+}
+
+static void*
+DisconnectScoThreadFunc(void* ptr)
+{
+  BluetoothScoManager* sco = BluetoothScoManager::GetManager();
+  sco->Disconnect();
 
   return NULL;
 }
@@ -58,6 +68,7 @@ BluetoothHfpManager::BluetoothHfpManager() : mSocket(NULL)
                                            , mChannel(-1)
                                            , mAddress(NULL)
                                            , mEventThread(NULL)
+                                           , mState(0)
 {
   mAudioManager = do_GetService(NS_AUDIOMANAGER_CONTRACTID);
 }
@@ -141,19 +152,18 @@ BluetoothHfpManager::Connect(const char* aAddress, int aChannel)
 void 
 BluetoothHfpManager::Disconnect() 
 {
-  LOG("Disconnect RFCOMM Socket in BluetoothHfpManager");
-
   if (this->IsConnected()) {
-    // Stop event loop first
+    BluetoothScoManager* sco = BluetoothScoManager::GetManager();
+    sco->Disconnect();
+
     sStopEventLoopFlag = true;
     pthread_join(mEventThread, NULL);
-    mEventThread = NULL;
+    mEventThread = NULL;    
+    
+    LOG("Disconnect RFCOMM Socket in BluetoothHfpManager");
 
     mSocket->CloseInternal();
     mSocket = NULL;
-
-    BluetoothScoManager* sco = BluetoothScoManager::GetManager();
-    sco->Disconnect();
   }
 }
 
@@ -161,6 +171,24 @@ bool
 BluetoothHfpManager::IsConnected() 
 {
   return (mEventThread != NULL);
+}
+
+bool
+BluetoothHfpManager::AudioOn()
+{
+  if (this->mState != 2) {
+    LOG("SLC must be established before SCO.");
+    return false;
+  }
+
+  pthread_create(&sCreateScoThread, NULL, CreateScoThreadFunc, this->mSocket);
+  return true;
+}
+
+void
+BluetoothHfpManager::AudioOff()
+{
+  pthread_create(&sDisconnectScoThread, NULL, DisconnectScoThreadFunc, NULL);
 }
 
 void*
@@ -201,6 +229,7 @@ BluetoothHfpManager::MessageHandler(void* ptr)
   BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
   int err;
   sStopEventLoopFlag = false;
+  hfp->mState = 1;
 
   while (!sStopEventLoopFlag) {
     int timeout = 500; //0.5 sec
@@ -241,7 +270,9 @@ BluetoothHfpManager::MessageHandler(void* ptr)
         // According to HFP spec figure 4.1 and section 4.11, we said SLC 
         // is 'established' after AG sent ok for HF's AT+CMER, and SCO connection 
         // process shall start after that.
-        pthread_create(&sCreateScoThread, NULL, CreateScoThreadFunc, socket);
+        hfp->mState = 2;
+        hfp->AudioOn();
+        //pthread_create(&sCreateScoThread, NULL, CreateScoThreadFunc, socket);
       } else if (!strncmp(ret, "AT+CHLD=?", 9)) {
         reply_chld_range(socket->mFd);
         reply_ok(socket->mFd);
@@ -287,6 +318,8 @@ BluetoothHfpManager::MessageHandler(void* ptr)
       }
     }
   }
+
+  hfp->mState = 0;
 
   return NULL;
 }
