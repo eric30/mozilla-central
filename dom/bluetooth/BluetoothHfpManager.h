@@ -6,6 +6,8 @@
 #define mozilla_dom_bluetooth_bluetoothhfpmanager_h__
 
 #include "BluetoothCommon.h"
+#include "nsCOMPtr.h"
+#include "nsIAudioManager.h"
 #include <pthread.h>
 
 BEGIN_BLUETOOTH_NAMESPACE
@@ -28,10 +30,12 @@ class BluetoothHfpManager
 
     pthread_t mEventThread;
     pthread_t mAcceptThread;
+
   private:
     BluetoothHfpManager();
     static void* MessageHandler(void* ptr);
     static void* AcceptInternal(void* ptr);
+    nsCOMPtr<nsIAudioManager> mAudioManager;
     BluetoothSocket* mSocket;
     BluetoothSocket* mServerSocket;
     int mFileDescriptor;

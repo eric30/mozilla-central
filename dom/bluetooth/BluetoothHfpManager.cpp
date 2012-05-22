@@ -9,6 +9,9 @@
 #include "BluetoothScoManager.h"
 #include "BluetoothSocket.h"
 
+#include "AudioManager.h"
+#include "nsServiceManagerUtils.h"
+
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
 #define LOG(args...) __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args)
@@ -56,6 +59,7 @@ BluetoothHfpManager::BluetoothHfpManager() : mSocket(NULL)
                                            , mAddress(NULL)
                                            , mEventThread(NULL)
 {
+  mAudioManager = do_GetService(NS_AUDIOMANAGER_CONTRACTID);
 }
 
 BluetoothHfpManager*
@@ -131,9 +135,6 @@ BluetoothHfpManager::Connect(const char* aAddress, int aChannel)
   LOG("Connect successfully - RFCOMM Socket");
   pthread_create(&mEventThread, NULL, BluetoothHfpManager::MessageHandler, mSocket);
 
-  // Create SCO
-  //pthread_create(&sCreateScoThread, NULL, CreateScoThreadFunc, mSocket);
-
   return mSocket;
 }
 
@@ -188,9 +189,6 @@ BluetoothHfpManager::AcceptInternal(void* ptr)
 
     hfp->mSocket = newSocket;
     pthread_create(&hfp->mEventThread, NULL, BluetoothHfpManager::MessageHandler, hfp->mSocket);
-
-    // Create SCO
-    //pthread_create(&sCreateScoThread, NULL, CreateScoThreadFunc, hfp->mSocket);
   }
 
   return NULL;
@@ -200,6 +198,7 @@ void*
 BluetoothHfpManager::MessageHandler(void* ptr)
 {
   BluetoothSocket* socket = static_cast<BluetoothSocket*>(ptr);
+  BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
   int err;
   sStopEventLoopFlag = false;
 
@@ -220,8 +219,6 @@ BluetoothHfpManager::MessageHandler(void* ptr)
         LOG("HFP: Read Nothing");
       }
     } else {
-      LOG("HFP: Received:%s", ret);
-
       if (!strncmp(ret, "AT+BRSF=", 8)) {
         reply_brsf(socket->mFd);
         reply_ok(socket->mFd);
@@ -233,12 +230,28 @@ BluetoothHfpManager::MessageHandler(void* ptr)
         reply_ok(socket->mFd);
       } else if (!strncmp(ret, "AT+CMER=", 8)) {
         reply_ok(socket->mFd);
+
+        // Create SCO once SLC has been established.
+        // According to HFP spec figure 4.1 and section 4.11, we said SLC 
+        // is 'established' after AG sent ok for HF's AT+CMER, and SCO connection 
+        // process shall start after that.
+        pthread_create(&sCreateScoThread, NULL, CreateScoThreadFunc, socket);
       } else if (!strncmp(ret, "AT+CHLD=?", 9)) {
         reply_chld_range(socket->mFd);
         reply_ok(socket->mFd);
       } else if (!strncmp(ret, "AT+CHLD=", 9)) {
         reply_ok(socket->mFd);
       } else if (!strncmp(ret, "AT+VGS=", 7)) {
+        int newVgs = ret[7] - '0';
+
+        if (strlen(ret) > 8) {
+          newVgs = newVgs * 10 + (ret[8] - '0');
+        }
+
+        // Because the range of VGS is [0, 15], and value of
+        // MasterVolume is [0, 1], so normalize it.
+        hfp->mAudioManager->SetMasterVolume((float)newVgs / 15.0f);
+
         reply_ok(socket->mFd);
       } else if (!strncmp(ret, "AT+VGM=", 7)) {
         reply_ok(socket->mFd);

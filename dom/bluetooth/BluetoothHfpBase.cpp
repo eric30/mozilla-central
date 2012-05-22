@@ -38,6 +38,7 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 static const char CRLF[] = "\xd\xa";
 static const int CRLF_LEN = 2;
+static const int BRSF = 23;
 
 static inline int write_error_check(int fd, const char* line, int len) {
   int ret;
