@@ -27,14 +27,16 @@ class BluetoothHfpManager
       According to HFP 1.5 spec 4.33.3 Bluetooth Defined AT Capabilities,
       the definition of the bit mask of BRSF is listed as below:
       Bit  Feature
-      0    EC and/or NR function
-      1    Call waiting and 3-way calling
-      2    CLI presentation capability
-      3    Voice recognition activation
-      4    Remote volume control
-      5    Enhanced call status
-      6    Enhanced call control
-      7-31 Reserved for future definition
+      0    Three-way calling
+      1    EC and/or NR function
+      2    Voice recognition activation
+      3    In-band ring tone capability
+      4    Attach a number to a voice tag
+      5    Ability to reject a call
+      6    Enhanced call status
+      7    Enhanced call control
+      8    Extended Error Result Codes
+      9-31 Reserved for future definition
     */
     static const int BRSF = 16;
 
@@ -47,6 +49,9 @@ class BluetoothHfpManager
     bool AudioOn();
     void AudioOff();
     void AtCommandParser(const char* aCommandStr);
+
+    // Callback function
+    void CallStateChanged(int aCallIndex, int aCallState, const char* aNumber);
 
     pthread_t mEventThread;
     pthread_t mAcceptThread;
@@ -65,6 +70,8 @@ class BluetoothHfpManager
     char* mAddress;
     int mHfBrsf;
     int mState;
+    int mCurrentCallIndex;
+    int mCurrentCallState;
 };
 
 END_BLUETOOTH_NAMESPACE

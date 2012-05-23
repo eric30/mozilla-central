@@ -11,6 +11,8 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 const char* get_line(int fd, char *buf, int len,       
                      int timeout_ms, int *err);
+int send_line(int fd, const char* line);
+
 void reply_ok(int fd);
 void reply_error(int fd);
 void reply_brsf(int fd, int brsf_value);

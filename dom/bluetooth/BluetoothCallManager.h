@@ -14,18 +14,22 @@
 
 BEGIN_BLUETOOTH_NAMESPACE
 
+class BluetoothHfpManager;
+
 class BluetoothCallManager
 {
 public:
-  BluetoothCallManager();
+  BluetoothCallManager(BluetoothHfpManager*);
 
-  void HangUp();
-  void Answer();
+  void HangUp(int aCallIndex);
+  void Answer(int aCallIndex);
+  void Reject(int aCallIndex);
 
 private:
   int sCurrentCallIndex;
   nsCOMPtr<nsIRILContentHelper> mRIL;
   nsCOMPtr<nsIRILTelephonyCallback> mRILTelephonyCallback;
+  BluetoothHfpManager* mHfp;
 };
 
 END_BLUETOOTH_NAMESPACE

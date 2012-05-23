@@ -1,5 +1,7 @@
 #include "BluetoothCallManager.h"
 #include "BluetoothCommon.h"
+#include "BluetoothHfpManager.h"
+
 #include "nsRadioInterfaceLayer.h"
 #include "nsServiceManagerUtils.h"
 #include "nsString.h"
@@ -19,7 +21,10 @@ class BluetoothRILTelephonyCallback : public nsIRILTelephonyCallback
     NS_DECL_ISUPPORTS
     NS_DECL_NSIRILTELEPHONYCALLBACK
 
-    BluetoothRILTelephonyCallback() {} 
+    BluetoothRILTelephonyCallback(BluetoothHfpManager* aHfp) : mHfp(aHfp) {}
+
+  private:
+    BluetoothHfpManager* mHfp;
 };
 
 NS_IMPL_ISUPPORTS1(BluetoothRILTelephonyCallback, nsIRILTelephonyCallback)
@@ -30,7 +35,7 @@ BluetoothRILTelephonyCallback::CallStateChanged(PRUint32 aCallIndex,
                                                 const nsAString& aNumber)
 {
   const char* number = NS_LossyConvertUTF16toASCII(aNumber).get();
-  LOG("Get call state changed: index=%d, state=%d, number=%s", aCallIndex, aCallState, number);
+  mHfp->CallStateChanged(aCallIndex, aCallState, number);
 
   return NS_OK;
 }
@@ -46,25 +51,31 @@ BluetoothRILTelephonyCallback::EnumerateCallState(PRUint32 aCallIndex,
   return NS_OK;
 }
 
-BluetoothCallManager::BluetoothCallManager()
+BluetoothCallManager::BluetoothCallManager(BluetoothHfpManager* aHfp) : mHfp(aHfp)
 {
   mRIL = do_GetService(NS_RILCONTENTHELPER_CONTRACTID);
-  mRILTelephonyCallback = new BluetoothRILTelephonyCallback();
+  mRILTelephonyCallback = new BluetoothRILTelephonyCallback(mHfp);
 
   nsresult rv = mRIL->EnumerateCalls(mRILTelephonyCallback);
   rv = mRIL->RegisterTelephonyCallback(mRILTelephonyCallback);
 }
 
 void
-BluetoothCallManager::HangUp()
+BluetoothCallManager::HangUp(int aCallIndex)
 {
-  mRIL->HangUp(0);
+  mRIL->HangUp(aCallIndex);
 }
 
 void
-BluetoothCallManager::Answer()
+BluetoothCallManager::Answer(int aCallIndex)
 {
-  mRIL->AnswerCall(0);
+  mRIL->AnswerCall(aCallIndex);
+}
+
+void
+BluetoothCallManager::Reject(int aCallIndex)
+{
+  mRIL->RejectCall(aCallIndex);
 }
 
 END_BLUETOOTH_NAMESPACE

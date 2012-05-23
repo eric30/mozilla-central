@@ -13,6 +13,8 @@
 #include "AudioManager.h"
 #include "nsServiceManagerUtils.h"
 #include "nsThreadUtils.h"
+ 
+#include <unistd.h>  /* for usleep */
 
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
@@ -26,9 +28,25 @@ USING_BLUETOOTH_NAMESPACE
 static BluetoothHfpManager* sInstance = NULL;
 static bool sStopEventLoopFlag = true;
 static bool sStopAcceptThreadFlag = true;
+static bool sStopSendingRingFlag = true;
 static pthread_t sDisconnectThread;
 static pthread_t sCreateScoThread;
 static pthread_t sDisconnectScoThread;
+static pthread_t sSendRingThread;
+
+static void*
+RingSender(void* ptr)
+{
+  BluetoothSocket* socket = static_cast<BluetoothSocket*>(ptr);
+
+  while (!sStopSendingRingFlag) {
+    send_line(socket->mFd, "RING");
+    usleep(3000000);
+    LOG("Send RING");
+  }
+
+  return NULL;
+}
 
 static void*
 DisconnectThreadFunc(void* ptr)
@@ -71,9 +89,10 @@ BluetoothHfpManager::BluetoothHfpManager() : mSocket(NULL)
                                            , mAddress(NULL)
                                            , mEventThread(NULL)
                                            , mState(0)
+                                           , mCurrentCallState(0)
 {
   mAudioManager = do_GetService(NS_AUDIOMANAGER_CONTRACTID);
-  mCallManager = new BluetoothCallManager();
+  mCallManager = new BluetoothCallManager(this);
 }
 
 BluetoothHfpManager::~BluetoothHfpManager()
@@ -261,9 +280,17 @@ BluetoothHfpManager::AtCommandParser(const char* aCommandStr)
     reply_ok(fd);
   } else if (!strncmp(aCommandStr, "ATA", 3)) {
     reply_ok(fd);
+
+    mCallManager->Answer(mCurrentCallIndex);
+  } else if (!strncmp(aCommandStr, "AT+CHUP", 7)) {
+    reply_ok(fd);
+
+    if (mCurrentCallState == nsIRadioInterfaceLayer::CALL_STATE_INCOMING) {
+      mCallManager->Reject(mCurrentCallIndex);
+    } else {
+      mCallManager->HangUp(mCurrentCallIndex);
+    }
   } else if (!strncmp(aCommandStr, "AT+BLDN", 7)) {
-    //BluetoothCallManager::HangUp();
-    mCallManager->Answer();
     reply_ok(fd);
   } else if (!strncmp(aCommandStr, "AT+BVRA", 7)) {
     // Currently, we do not support voice recognition
@@ -377,3 +404,87 @@ BluetoothHfpManager::MessageHandler(void* ptr)
   return NULL;
 }
 
+void
+BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState, const char* aNumber)
+{
+  LOG("Get call state changed: index=%d, state=%d, number=%s", aCallIndex, aCallState, aNumber);
+
+  int fd = this->mSocket->mFd;
+
+  switch (aCallState) {
+    case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
+      // Send "CallSetup = 1"
+      send_line(fd, "+CIEV: 3,1");
+
+      mCurrentCallIndex = aCallIndex;
+ 
+      // Start sending RING indicator to HF
+      sStopSendingRingFlag = false;
+      pthread_create(&sSendRingThread, NULL, RingSender, this->mSocket);
+
+      LOG("Incoming call!!!");
+      break;
+    case nsIRadioInterfaceLayer::CALL_STATE_DIALING:
+      // Send "CallSetup = 2"
+      send_line(fd, "+CIEV: 3,2");
+      mCurrentCallIndex = aCallIndex;
+      LOG("Outgoing call!!!");
+      break;
+    case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
+      // Send "CallSetup = 3"
+      if (mCurrentCallIndex == nsIRadioInterfaceLayer::CALL_STATE_DIALING) {
+        send_line(fd, "+CIEV: 3,3");
+      } else {
+        LOG("HFP MSG ERROR: Impossible state changed from %d to %d", mCurrentCallState, aCallState);
+      }
+      break;
+    case nsIRadioInterfaceLayer::CALL_STATE_CONNECTED:
+      LOG("Ongoing call!!!");
+    
+      switch (mCurrentCallState) {
+        case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
+          sStopSendingRingFlag = true;
+          // Continue executing, no break
+        case nsIRadioInterfaceLayer::CALL_STATE_DIALING:
+          // Send "Call = 1, CallSetup = 0"
+          send_line(fd, "+CIEV: 2,1");
+          send_line(fd, "+CIEV: 3,0");
+          break;
+        default:
+          LOG("HFP MSG ERROR: Impossible state changed from %d to %d", mCurrentCallState, aCallState);
+          break;
+      }
+
+      AudioOn();
+      break;
+    case nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED:
+      switch (mCurrentCallState) {
+        case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
+          sStopSendingRingFlag = true;
+          // Continue executing, no break
+        case nsIRadioInterfaceLayer::CALL_STATE_DIALING:
+        case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
+          // Send "CallSetup = 0"
+          send_line(fd, "+CIEV: 3,0");
+          break;
+        case nsIRadioInterfaceLayer::CALL_STATE_CONNECTED:
+          // Send "Call = 0"
+          send_line(fd, "+CIEV: 2,0");
+          break;
+        default:
+          LOG("HFP MSG ERROR: Impossible state changed from %d to %d", mCurrentCallState, aCallState);
+          break;
+      }
+
+      mCurrentCallIndex = -1;
+
+      LOG("Call disconnected!!");
+      break;
+    default:
+      LOG("Not handled state.");
+      break;
+  }
+ 
+  // Update mCurrentCallState
+  mCurrentCallState = aCallState;
+}

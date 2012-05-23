@@ -138,7 +138,7 @@ again:
   return buf;
 }
 
-static int send_line(int fd, const char* line) {
+int send_line(int fd, const char* line) {
   int nw;
   int len = strlen(line);
   int llen = len + CRLF_LEN * 2 + 1;
@@ -147,6 +147,7 @@ static int send_line(int fd, const char* line) {
   snprintf(buffer, llen, "%s%s%s", CRLF, line, CRLF);
 
   if (write_error_check(fd, buffer, llen - 1)) {
+    LOG("Send %s failed", line);
     free(buffer);
     return -1;
   }
