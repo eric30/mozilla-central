@@ -5,12 +5,14 @@
 #include "BluetoothHfpManager.h"
 #include "BluetoothHfpBase.h"
 
+#include "BluetoothCallManager.h"
 #include "BluetoothDevice.h"
 #include "BluetoothScoManager.h"
 #include "BluetoothSocket.h"
 
 #include "AudioManager.h"
 #include "nsServiceManagerUtils.h"
+#include "nsThreadUtils.h"
 
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
@@ -71,6 +73,12 @@ BluetoothHfpManager::BluetoothHfpManager() : mSocket(NULL)
                                            , mState(0)
 {
   mAudioManager = do_GetService(NS_AUDIOMANAGER_CONTRACTID);
+  mCallManager = new BluetoothCallManager();
+}
+
+BluetoothHfpManager::~BluetoothHfpManager()
+{
+  delete mCallManager;
 }
 
 BluetoothHfpManager*
@@ -191,6 +199,84 @@ BluetoothHfpManager::AudioOff()
   pthread_create(&sDisconnectScoThread, NULL, DisconnectScoThreadFunc, NULL);
 }
 
+void
+BluetoothHfpManager::AtCommandParser(const char* aCommandStr)
+{
+  int fd = this->mSocket->mFd;
+
+  LOG("aCommandStr: %s", aCommandStr);
+
+  if (!strncmp(aCommandStr, "AT+BRSF=", 8)) {
+    this->mHfBrsf = aCommandStr[8] - '0';
+
+    if (strlen(aCommandStr) > 9) {
+      this->mHfBrsf = this->mHfBrsf * 10 + (aCommandStr[9] - '0');
+    }
+
+    reply_brsf(fd, BluetoothHfpManager::BRSF);
+    reply_ok(fd);
+  } else if (!strncmp(aCommandStr, "AT+CIND=?", 9)) {
+    reply_cind_range(fd);
+    reply_ok(fd);
+  } else if (!strncmp(aCommandStr, "AT+CIND", 7)) {
+    reply_cind_current_status(fd);
+    reply_ok(fd);
+  } else if (!strncmp(aCommandStr, "AT+CMER=", 8)) {
+    reply_ok(fd);
+
+    // Create SCO once SLC has been established.
+    // According to HFP spec figure 4.1 and section 4.11, we said SLC 
+    // is 'established' after AG sent ok for HF's AT+CMER, and SCO connection 
+    // process shall start after that.
+    this->mState = 2;
+    this->AudioOn();
+  } else if (!strncmp(aCommandStr, "AT+CHLD=?", 9)) {
+    reply_chld_range(fd);
+    reply_ok(fd);
+  } else if (!strncmp(aCommandStr, "AT+CHLD=", 9)) {
+    reply_ok(fd);
+  } else if (!strncmp(aCommandStr, "AT+VGS=", 7)) {
+    int newVgs = aCommandStr[7] - '0';
+
+    if (strlen(aCommandStr) > 8) {
+      newVgs = newVgs * 10 + (aCommandStr[8] - '0');
+    }
+
+    // Because the range of VGS is [0, 15], and value of
+    // MasterVolume is [0, 1], so normalize it.
+    this->mAudioManager->SetMasterVolume((float)newVgs / 15.0f);
+
+    reply_ok(fd);
+  } else if (!strncmp(aCommandStr, "AT+VGM=", 7)) {
+    // Currently, we only provide two options for mic volume 
+    // settings: mute and unmute.
+    int newVgm = aCommandStr[7] - '0';
+
+    if (strlen(aCommandStr) > 8) {
+      newVgm = newVgm * 10 + (aCommandStr[8] - '0');
+    }
+
+    this->mAudioManager->SetMicrophoneMuted(newVgm == 0 ? true : false);
+
+    reply_ok(fd);
+  } else if (!strncmp(aCommandStr, "ATA", 3)) {
+    reply_ok(fd);
+  } else if (!strncmp(aCommandStr, "AT+BLDN", 7)) {
+    //BluetoothCallManager::HangUp();
+    mCallManager->Answer();
+    reply_ok(fd);
+  } else if (!strncmp(aCommandStr, "AT+BVRA", 7)) {
+    // Currently, we do not support voice recognition
+    reply_error(fd);
+  } else if (!strncmp(aCommandStr, "OK", 2)) {
+    // Do nothing
+    LOG("Got an OK");
+  } else {
+    LOG("Not handled.");
+    reply_ok(fd);
+  }
+}
+
 void*
 BluetoothHfpManager::AcceptInternal(void* ptr)
 {
@@ -222,6 +308,32 @@ BluetoothHfpManager::AcceptInternal(void* ptr)
   return NULL;
 }
 
+class ParseATCommandTask : public nsRunnable
+{
+public:
+  ParseATCommandTask(int aFd, const char* aCommandStr) : mFd(aFd)
+                                                       , mCommandStr(aCommandStr)
+  {
+    MOZ_ASSERT(!NS_IsMainThread());
+  }
+
+  NS_IMETHOD Run()
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+
+    BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
+    hfp->AtCommandParser(mCommandStr);
+
+    delete mCommandStr;
+
+    return NS_OK;
+  }
+
+private:
+  int mFd;
+  const char* mCommandStr;
+};
+
 void*
 BluetoothHfpManager::MessageHandler(void* ptr)
 {
@@ -248,73 +360,14 @@ BluetoothHfpManager::MessageHandler(void* ptr)
         LOG("HFP: Read Nothing");
       }
     } else {
-      if (!strncmp(ret, "AT+BRSF=", 8)) {
-        hfp->mHfBrsf = ret[8] - '0';
+      char* newStr = new char[strlen(ret) + 1];
+      newStr[strlen(ret)] = '\0';
+      strcpy(newStr, ret);
 
-        if (strlen(ret) > 9) {
-          hfp->mHfBrsf = hfp->mHfBrsf * 10 + (ret[9] - '0');
-        }
+      nsCOMPtr<nsIRunnable> commandParserTask = new ParseATCommandTask(socket->mFd, newStr);
 
-        reply_brsf(socket->mFd, BluetoothHfpManager::BRSF);
-        reply_ok(socket->mFd);
-      } else if (!strncmp(ret, "AT+CIND=?", 9)) {
-        reply_cind_range(socket->mFd);
-        reply_ok(socket->mFd);
-      } else if (!strncmp(ret, "AT+CIND", 7)) {
-        reply_cind_current_status(socket->mFd);
-        reply_ok(socket->mFd);
-      } else if (!strncmp(ret, "AT+CMER=", 8)) {
-        reply_ok(socket->mFd);
-
-        // Create SCO once SLC has been established.
-        // According to HFP spec figure 4.1 and section 4.11, we said SLC 
-        // is 'established' after AG sent ok for HF's AT+CMER, and SCO connection 
-        // process shall start after that.
-        hfp->mState = 2;
-        hfp->AudioOn();
-        //pthread_create(&sCreateScoThread, NULL, CreateScoThreadFunc, socket);
-      } else if (!strncmp(ret, "AT+CHLD=?", 9)) {
-        reply_chld_range(socket->mFd);
-        reply_ok(socket->mFd);
-      } else if (!strncmp(ret, "AT+CHLD=", 9)) {
-        reply_ok(socket->mFd);
-      } else if (!strncmp(ret, "AT+VGS=", 7)) {
-        int newVgs = ret[7] - '0';
-
-        if (strlen(ret) > 8) {
-          newVgs = newVgs * 10 + (ret[8] - '0');
-        }
-
-        // Because the range of VGS is [0, 15], and value of
-        // MasterVolume is [0, 1], so normalize it.
-        hfp->mAudioManager->SetMasterVolume((float)newVgs / 15.0f);
-
-        reply_ok(socket->mFd);
-      } else if (!strncmp(ret, "AT+VGM=", 7)) {
-        // Currently, we only provide two options for mic volume 
-        // settings: mute and unmute.
-        int newVgm = ret[7] - '0';
-
-        if (strlen(ret) > 8) {
-          newVgm = newVgm * 10 + (ret[8] - '0');
-        }
-
-        hfp->mAudioManager->SetMicrophoneMuted(newVgm == 0 ? true : false);
-
-        reply_ok(socket->mFd);
-      } else if (!strncmp(ret, "ATA", 3)) {
-        reply_ok(socket->mFd);
-      } else if (!strncmp(ret, "AT+BLDN", 7)) {
-        reply_ok(socket->mFd);
-      } else if (!strncmp(ret, "AT+BVRA", 7)) {
-        // Currently, we do not support voice recognition
-        reply_error(socket->mFd);
-      } else if (!strncmp(ret, "OK", 2)) {
-        // Do nothing
-        LOG("Got an OK");
-      } else {
-        LOG("Not handled.");
-        reply_ok(socket->mFd);
+      if (NS_FAILED(NS_DispatchToMainThread(commandParserTask))) {
+        NS_WARNING("Failed to dispatch to main thread!");
       }
     }
   }

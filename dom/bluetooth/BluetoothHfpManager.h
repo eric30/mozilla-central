@@ -6,6 +6,8 @@
 #define mozilla_dom_bluetooth_bluetoothhfpmanager_h__
 
 #include "BluetoothCommon.h"
+#include "BluetoothCallManager.h"
+#include "nsAutoPtr.h"
 #include "nsCOMPtr.h"
 #include "nsIAudioManager.h"
 #include <pthread.h>
@@ -44,15 +46,18 @@ class BluetoothHfpManager
     void StopWaiting();
     bool AudioOn();
     void AudioOff();
+    void AtCommandParser(const char* aCommandStr);
 
     pthread_t mEventThread;
     pthread_t mAcceptThread;
 
   private:
     BluetoothHfpManager();
+    ~BluetoothHfpManager();
     static void* MessageHandler(void* ptr);
     static void* AcceptInternal(void* ptr);
     nsCOMPtr<nsIAudioManager> mAudioManager;
+    BluetoothCallManager* mCallManager;
     BluetoothSocket* mSocket;
     BluetoothSocket* mServerSocket;
     int mFileDescriptor;
