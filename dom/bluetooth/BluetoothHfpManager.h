@@ -49,6 +49,7 @@ class BluetoothHfpManager
     bool AudioOn();
     void AudioOff();
     void AtCommandParser(const char* aCommandStr);
+    void SetupAfterConnected();
 
     // Callback function
     void CallStateChanged(int aCallIndex, int aCallState, const char* aNumber);

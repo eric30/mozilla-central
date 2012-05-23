@@ -20,13 +20,15 @@ class BluetoothCallManager
 {
 public:
   BluetoothCallManager(BluetoothHfpManager*);
+  
+  void StartListening();
+  void StopListening();
 
   void HangUp(int aCallIndex);
   void Answer(int aCallIndex);
   void Reject(int aCallIndex);
 
 private:
-  int sCurrentCallIndex;
   nsCOMPtr<nsIRILContentHelper> mRIL;
   nsCOMPtr<nsIRILTelephonyCallback> mRILTelephonyCallback;
   BluetoothHfpManager* mHfp;

@@ -34,6 +34,51 @@ static pthread_t sCreateScoThread;
 static pthread_t sDisconnectScoThread;
 static pthread_t sSendRingThread;
 
+class ParseATCommandTask : public nsRunnable
+{
+public:
+  ParseATCommandTask(int aFd, const char* aCommandStr) : mFd(aFd)
+                                                       , mCommandStr(aCommandStr)
+  {
+    MOZ_ASSERT(!NS_IsMainThread());
+  }
+
+  NS_IMETHOD Run()
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+
+    BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
+    hfp->AtCommandParser(mCommandStr);
+
+    delete mCommandStr;
+
+    return NS_OK;
+  }
+
+private:
+  int mFd;
+  const char* mCommandStr;
+};
+
+class SLCConnectedTask : public nsRunnable
+{
+public:
+  SLCConnectedTask()
+  {
+    MOZ_ASSERT(!NS_IsMainThread());
+  }
+
+  NS_IMETHOD Run()
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+
+    BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
+    hfp->SetupAfterConnected();
+
+    return NS_OK;
+  }
+};
+
 static void*
 RingSender(void* ptr)
 {
@@ -42,7 +87,8 @@ RingSender(void* ptr)
   while (!sStopSendingRingFlag) {
     send_line(socket->mFd, "RING");
     usleep(3000000);
-    LOG("Send RING");
+    
+    LOG("Sending RING...");
   }
 
   return NULL;
@@ -92,7 +138,9 @@ BluetoothHfpManager::BluetoothHfpManager() : mSocket(NULL)
                                            , mCurrentCallState(0)
 {
   mAudioManager = do_GetService(NS_AUDIOMANAGER_CONTRACTID);
+
   mCallManager = new BluetoothCallManager(this);
+  mCallManager->StartListening();
 }
 
 BluetoothHfpManager::~BluetoothHfpManager()
@@ -171,7 +219,8 @@ BluetoothHfpManager::Connect(const char* aAddress, int aChannel)
   } 
 
   LOG("Connect successfully - RFCOMM Socket");
-  pthread_create(&mEventThread, NULL, BluetoothHfpManager::MessageHandler, mSocket);
+
+  SetupAfterConnected();
 
   return mSocket;
 }
@@ -219,11 +268,21 @@ BluetoothHfpManager::AudioOff()
 }
 
 void
+BluetoothHfpManager::SetupAfterConnected()
+{
+  pthread_create(&mEventThread, NULL, BluetoothHfpManager::MessageHandler, mSocket);
+
+  // Special handling for incoming call We need to keep sending RING to HF.
+  if (mCurrentCallState == nsIRadioInterfaceLayer::CALL_STATE_INCOMING) {
+    sStopSendingRingFlag = false;
+    pthread_create(&sSendRingThread, NULL, RingSender, mSocket);
+  }
+}
+
+void
 BluetoothHfpManager::AtCommandParser(const char* aCommandStr)
 {
   int fd = this->mSocket->mFd;
-
-  LOG("aCommandStr: %s", aCommandStr);
 
   if (!strncmp(aCommandStr, "AT+BRSF=", 8)) {
     this->mHfBrsf = aCommandStr[8] - '0';
@@ -238,7 +297,29 @@ BluetoothHfpManager::AtCommandParser(const char* aCommandStr)
     reply_cind_range(fd);
     reply_ok(fd);
   } else if (!strncmp(aCommandStr, "AT+CIND", 7)) {
-    reply_cind_current_status(fd);
+    // Tell HF current call state
+    int call = 0;
+    int callsetup = 0;
+
+    switch (mCurrentCallState) {
+      case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
+        callsetup = 1;
+        break;      
+      case nsIRadioInterfaceLayer::CALL_STATE_DIALING:
+        callsetup = 2;
+        break;
+      case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
+        callsetup = 3;
+        break;
+      case nsIRadioInterfaceLayer::CALL_STATE_CONNECTED:
+        call = 1;
+        break;
+      default:
+        // Do nothing. Use default value (0 & 0).
+        break;
+   }
+
+    reply_cind_current_status(fd, call, callsetup);
     reply_ok(fd);
   } else if (!strncmp(aCommandStr, "AT+CMER=", 8)) {
     reply_ok(fd);
@@ -329,37 +410,15 @@ BluetoothHfpManager::AcceptInternal(void* ptr)
     }
 
     hfp->mSocket = newSocket;
-    pthread_create(&hfp->mEventThread, NULL, BluetoothHfpManager::MessageHandler, hfp->mSocket);
+    
+    nsCOMPtr<nsIRunnable> slcConnectedTask = new SLCConnectedTask();
+    if (NS_FAILED(NS_DispatchToMainThread(slcConnectedTask))) {
+      NS_WARNING("Failed to dispatch to main thread!");
+    }
   }
 
   return NULL;
 }
-
-class ParseATCommandTask : public nsRunnable
-{
-public:
-  ParseATCommandTask(int aFd, const char* aCommandStr) : mFd(aFd)
-                                                       , mCommandStr(aCommandStr)
-  {
-    MOZ_ASSERT(!NS_IsMainThread());
-  }
-
-  NS_IMETHOD Run()
-  {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
-    hfp->AtCommandParser(mCommandStr);
-
-    delete mCommandStr;
-
-    return NS_OK;
-  }
-
-private:
-  int mFd;
-  const char* mCommandStr;
-};
 
 void*
 BluetoothHfpManager::MessageHandler(void* ptr)
@@ -368,6 +427,7 @@ BluetoothHfpManager::MessageHandler(void* ptr)
   BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
   int err;
   sStopEventLoopFlag = false;
+
   hfp->mState = 1;
 
   while (!sStopEventLoopFlag) {
@@ -409,6 +469,13 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState, const char
 {
   LOG("Get call state changed: index=%d, state=%d, number=%s", aCallIndex, aCallState, aNumber);
 
+  if (!IsConnected()) {
+    mCurrentCallIndex = aCallIndex;
+    mCurrentCallState = aCallState;
+
+    return;
+  }
+
   int fd = this->mSocket->mFd;
 
   switch (aCallState) {
@@ -416,19 +483,13 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState, const char
       // Send "CallSetup = 1"
       send_line(fd, "+CIEV: 3,1");
 
-      mCurrentCallIndex = aCallIndex;
- 
       // Start sending RING indicator to HF
       sStopSendingRingFlag = false;
       pthread_create(&sSendRingThread, NULL, RingSender, this->mSocket);
-
-      LOG("Incoming call!!!");
       break;
     case nsIRadioInterfaceLayer::CALL_STATE_DIALING:
       // Send "CallSetup = 2"
       send_line(fd, "+CIEV: 3,2");
-      mCurrentCallIndex = aCallIndex;
-      LOG("Outgoing call!!!");
       break;
     case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
       // Send "CallSetup = 3"
@@ -439,8 +500,6 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState, const char
       }
       break;
     case nsIRadioInterfaceLayer::CALL_STATE_CONNECTED:
-      LOG("Ongoing call!!!");
-    
       switch (mCurrentCallState) {
         case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
           sStopSendingRingFlag = true;
@@ -475,16 +534,14 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState, const char
           LOG("HFP MSG ERROR: Impossible state changed from %d to %d", mCurrentCallState, aCallState);
           break;
       }
-
-      mCurrentCallIndex = -1;
-
-      LOG("Call disconnected!!");
       break;
+
     default:
       LOG("Not handled state.");
       break;
   }
  
   // Update mCurrentCallState
+  mCurrentCallIndex = aCallIndex;
   mCurrentCallState = aCallState;
 }

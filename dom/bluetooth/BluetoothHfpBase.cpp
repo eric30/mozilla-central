@@ -181,9 +181,15 @@ void reply_brsf(int fd, int brsf_value)
   }
 }
 
-void reply_cind_current_status(int fd)
+void reply_cind_current_status(int fd, int call, int callsetup)
 {
-  const char* str = "+CIND: 1,0,0,0,3,0,3";
+  char str[] = "+CIND: 1,0,0,0,3,0,3";
+
+  // str[9]: call
+  str[9] += call;
+
+  // str[11]: callsetup
+  str[11] += callsetup;
 
   if (send_line(fd, str) != 0) {
     LOG("Reply +CIND failed");

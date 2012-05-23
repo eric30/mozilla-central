@@ -47,6 +47,7 @@ BluetoothRILTelephonyCallback::EnumerateCallState(PRUint32 aCallIndex,
                                                   bool aIsActive, 
                                                   bool* aResult)
 {
+  LOG("Enumerate Call State: call index=%d, call state=%d, active=%d", aCallIndex, aCallState, aIsActive);
   *aResult = true;
   return NS_OK;
 }
@@ -55,9 +56,19 @@ BluetoothCallManager::BluetoothCallManager(BluetoothHfpManager* aHfp) : mHfp(aHf
 {
   mRIL = do_GetService(NS_RILCONTENTHELPER_CONTRACTID);
   mRILTelephonyCallback = new BluetoothRILTelephonyCallback(mHfp);
+}
 
+void
+BluetoothCallManager::StartListening()
+{
   nsresult rv = mRIL->EnumerateCalls(mRILTelephonyCallback);
   rv = mRIL->RegisterTelephonyCallback(mRILTelephonyCallback);
+}
+
+void
+BluetoothCallManager::StopListening()
+{
+  nsresult rv = mRIL->UnregisterTelephonyCallback(mRILTelephonyCallback);
 }
 
 void
