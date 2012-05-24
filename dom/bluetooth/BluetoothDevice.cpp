@@ -83,7 +83,7 @@ BluetoothDevice::GetConnected(bool* aConnected)
 }
 
 NS_IMETHODIMP
-BluetoothDevice::Connect(const nsAString& aServiceUuid, nsIDOMBluetoothSocket** aSocket)
+BluetoothDevice::CreateRfcommSocket(const nsAString& aServiceUuid, nsIDOMBluetoothSocket** aSocket)
 {
   nsCOMPtr<nsIDOMBluetoothSocket> socket;
   const char* serviceUuid = NS_LossyConvertUTF16toASCII(aServiceUuid).get();
@@ -106,8 +106,7 @@ BluetoothDevice::Connect(const nsAString& aServiceUuid, nsIDOMBluetoothSocket** 
     BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
     socket = hfp->Connect(address, channel);
   } else {
-    // TODO(Eric)
-    LOG("Not implemented yet");
+    socket = new BluetoothSocket(BluetoothSocket::TYPE_RFCOMM, -1, true, true, this);
   }
 
   socket.forget(aSocket);

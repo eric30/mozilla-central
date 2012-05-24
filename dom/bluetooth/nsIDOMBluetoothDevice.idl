@@ -17,6 +17,6 @@ interface nsIDOMBluetoothDevice : nsISupports
   readonly attribute bool connected;
   readonly attribute bool paired;
 
-  nsIDOMBluetoothSocket connect(in DOMString aServiceUuid);
+  nsIDOMBluetoothSocket createRfcommSocket(in DOMString aServiceUuid);
   void disconnect();
 };
