@@ -19,6 +19,7 @@ class nsIEventTarget;
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothEventHandler;
+class BluetoothDevice;
 
 class BluetoothAdapter : public nsDOMEventTargetHelper
                        , public nsIDOMBluetoothAdapter
@@ -53,7 +54,7 @@ protected:
   PRUint32 mClass;
   nsTArray<nsString> mDevices;
   nsTArray<nsString> mUuids;
-
+  
   NS_DECL_EVENT_HANDLER(enabled)
 
 private:

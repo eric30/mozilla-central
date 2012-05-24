@@ -45,13 +45,58 @@ BluetoothDevice::GetAddress(nsAString& aAddress)
 }
 
 NS_IMETHODIMP
+BluetoothDevice::GetName(nsAString& aName)
+{
+  aName = mName;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothDevice::GetClass(PRUint32* aClass)
+{
+  *aClass = mClass;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothDevice::GetPaired(bool* aPaired)
+{
+  if (!UpdateDeviceProperties(this)) {
+    *aPaired = false;
+  } else {
+    *aPaired = mPaired;
+  }
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothDevice::GetConnected(bool* aConnected)
+{
+  if (!UpdateDeviceProperties(this)) { 
+    *aConnected = false;
+  } else {
+    *aConnected = mConnected;
+  }
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 BluetoothDevice::Connect(const nsAString& aServiceUuid, nsIDOMBluetoothSocket** aSocket)
 {
   nsCOMPtr<nsIDOMBluetoothSocket> socket;
   const char* serviceUuid = NS_LossyConvertUTF16toASCII(aServiceUuid).get();
-  // 1. Check if it's paired (TODO)
-  // 2. Connect by BluetoothSocket
   const char* address = NS_LossyConvertUTF16toASCII(mAddress).get();
+
+  // 1. Check if it's paired
+  if (!UpdateDeviceProperties(this) || !mPaired) {
+    LOG("Connect failed in function %s", __FUNCTION__);
+    *aSocket = NULL;
+    return NS_OK;
+  }
+
+  // 2. Connect by BluetoothSocket
   const char* objectPath = GetObjectPathFromAddress(address);
   int channel = GetDeviceServiceChannelInternal(objectPath, serviceUuid, 0x0004);
 

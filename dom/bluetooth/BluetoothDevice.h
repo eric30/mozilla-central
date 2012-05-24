@@ -23,9 +23,14 @@ public:
 
   const char* GetAddressInternal();
 
-private:
   nsString mAddress;
+  nsString mName;
+  PRUint32 mClass;
+  bool mConnected;
+  bool mPaired;
+  nsTArray<nsString> mUuids;
 
+private:
   // xxx Temp
   BluetoothSocket* mSocket;
 };

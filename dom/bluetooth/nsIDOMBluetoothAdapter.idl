@@ -20,10 +20,6 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   void pair(in DOMString aAddress);
   void unpair(in DOMString aAddress);
 
-  void testFunction1(in DOMString aAddress);
-  void testFunction2(in DOMString aObjectPath);
-  void testFunction3();
-
   readonly attribute DOMString address;
   readonly attribute unsigned long class;
   readonly attribute bool enabled;

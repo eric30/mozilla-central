@@ -16,6 +16,7 @@
 
 #include "BluetoothService.h"
 #include "BluetoothUtils.h"
+#include "BluetoothDevice.h"
 
 #include "dbus/dbus.h"
 #include "mozilla/ipc/DBusThread.h"
@@ -242,12 +243,13 @@ failed:
   return NULL; 
 }
 
-void 
+std::list<const char*>
 GetDeviceProperties(const char* aObjectPath)
 {
   DBusMessage *reply;
   DBusError err;
   dbus_error_init(&err);
+  std::list<const char*> str_array;
 
   reply = dbus_func_args_timeout(GetCurrentConnection(),
                                  -1, 
@@ -261,16 +263,19 @@ GetDeviceProperties(const char* aObjectPath)
     } else {
       LOG("DBus reply is NULL in function %s", __FUNCTION__);
     }
+
+    return str_array;
   }
 
   DBusMessageIter iter;
-  if (dbus_message_iter_init(reply, &iter)) {
-    // TODO(Eric)
-    // No idea how to parse, but should easily parse and send it to upper layer
 
+  if (dbus_message_iter_init(reply, &iter)) {
+    str_array = parse_remote_device_properties(&iter);
   }
 
   dbus_message_unref(reply);
+
+  return str_array;
 }
 
 std::list<const char*>
@@ -279,6 +284,7 @@ GetAdapterProperties()
   DBusMessage *msg, *reply;
   DBusError err;
   dbus_error_init(&err);
+  std::list<const char*> str_array;
 
   reply = dbus_func_args_timeout(GetCurrentConnection(),
                                  -1,
@@ -292,10 +298,11 @@ GetAdapterProperties()
     } else {
       LOG("DBus reply is NULL in function %s", __FUNCTION__);
     }
+
+    return str_array;
   }
 
   DBusMessageIter iter;
-  std::list<const char*> str_array;
 
   if (dbus_message_iter_init(reply, &iter)) {
     str_array = parse_adapter_properties(&iter);
@@ -313,6 +320,58 @@ void AppendVariant(DBusMessageIter *iter, int type, void *val)
   dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, var_type, &value_iter);
   dbus_message_iter_append_basic(&value_iter, type, val);
   dbus_message_iter_close_container(iter, &value_iter);
+}
+
+bool UpdateDeviceProperties(BluetoothDevice* aDevice)
+{
+  const char* deviceAddress = aDevice->GetAddressInternal();
+  const char* deviceObjectPath = GetObjectPathFromAddress(deviceAddress);
+
+  std::list<const char*> propertiesStrArray = GetDeviceProperties(deviceObjectPath);
+
+  if (propertiesStrArray.empty()) {
+    LOG("Not on known device list.");
+    return false;
+  }
+
+  while (!propertiesStrArray.empty()) {
+    const char* name = propertiesStrArray.front();
+    LOG("[Device Property Name] %s", name);
+    propertiesStrArray.pop_front();
+
+    if (!strcmp(name, "Uuids")) {
+      aDevice->mUuids.Clear();
+
+      int length = GetInt(propertiesStrArray.front());
+      LOG("[Uuid Count] %d", length);
+
+      while (length--) {
+        propertiesStrArray.pop_front();
+        const char* uuid = propertiesStrArray.front();
+        aDevice->mUuids.AppendElement(NS_ConvertASCIItoUTF16(uuid));
+
+        LOG("[Device UUID value] %s", uuid);
+      }
+    } else {
+      const char* value = propertiesStrArray.front();
+
+      if (!strcmp(name, "Address")) {
+        aDevice->mAddress = NS_ConvertASCIItoUTF16(value);
+      } else if (!strcmp(name, "Name")) {
+        aDevice->mName = NS_ConvertASCIItoUTF16(value);
+      } else if (!strcmp(name, "Class")) {
+        aDevice->mClass = GetInt(value);
+      } else if (!strcmp(name, "Paired")) {
+        aDevice->mPaired = GetBool(value);
+      } else if (!strcmp(name, "Connected")) {
+        aDevice->mConnected = GetBool(value);
+      }
+    }
+
+    propertiesStrArray.pop_front();
+  }
+
+  return true;
 }
 
 bool 
@@ -544,5 +603,23 @@ GetAddressFromObjectPath(const char* aObjectPath)
   return retAddress;
 }
 
+int GetInt(const char* numStr)
+{
+  int returnValue = 0;
+  int length = strlen(numStr);
+
+  for (int i = 0;i < length;++i)
+  {
+    returnValue *= 10;
+    returnValue += ((numStr[i]) - '0');
+  }
+
+  return returnValue;
+}
+
+bool GetBool(const char* numStr)
+{
+  return (!strcmp("true", numStr)) || (!strcmp("True", numStr));
+}
 
 END_BLUETOOTH_NAMESPACE

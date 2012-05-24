@@ -410,16 +410,25 @@ BluetoothAdapter::GetDevices(JSContext* aCx, jsval* aDevices)
     return NS_OK;
   }
 
-  jsval* devices = new jsval[length];
+  JSObject* array = JS_NewArrayObject(aCx, length, nsnull);
+  nsresult rv = NS_OK;
 
   for (PRUint32 i = 0; i < length; ++i) {
-    devices[i].setString(JS_NewUCStringCopyN(aCx,
-                         static_cast<const jschar*>(mDevices[i].get()),
-                         mDevices[i].Length()));
+    jsval val;
+    JSObject* scope = JS_GetGlobalForScopeChain(aCx);
+
+    const char* deviceAddress = NS_LossyConvertUTF16toASCII(mDevices[i]).get();
+    BluetoothDevice* device = new BluetoothDevice(deviceAddress);
+    UpdateDeviceProperties(device);
+
+    rv = nsContentUtils::WrapNative(aCx, scope, device, &val, nsnull, true);
+    if (!JS_SetElement(aCx, array, i, &val)) {
+      LOG("Set element error.");
+      return NS_OK;
+    }
   }
 
-  aDevices->setObjectOrNull(JS_NewArrayObject(aCx, length, devices));
-  NS_ENSURE_TRUE(aDevices->isObject(), NS_ERROR_FAILURE);
+  *aDevices = OBJECT_TO_JSVAL(array);
 
   return NS_OK;
 }
@@ -477,25 +486,6 @@ BluetoothAdapter::SetDiscoverableTimeout(const PRUint32 aDiscoverableTimeout)
 // **************************************************
 // ************** Internal functions ****************
 // **************************************************
-int getInt(const char* numStr)
-{
-  int returnValue = 0;
-  int length = strlen(numStr);
-
-  for (int i = 0;i < length;++i)
-  {
-    returnValue *= 10;
-    returnValue += ((numStr[i]) - '0');
-  }
-
-  return returnValue;
-}
-
-bool getBool(const char* numStr)
-{
-  return (!strcmp("true", numStr)) || (!strcmp("True", numStr));
-}
-
 void
 BluetoothAdapter::UpdateProperties()
 {
@@ -510,7 +500,7 @@ BluetoothAdapter::UpdateProperties()
     if (!strcmp(name, "Devices")) {
       mDevices.Clear();
 
-      int length = getInt(propertiesStrArray.front());
+      int length = GetInt(propertiesStrArray.front());
 
       LOG("[Length] %d", length);
 
@@ -524,15 +514,15 @@ BluetoothAdapter::UpdateProperties()
     } else if (!strcmp(name, "UUIDs")) {
       mUuids.Clear();
 
-      int length = getInt(propertiesStrArray.front());
+      int length = GetInt(propertiesStrArray.front());
       LOG("[Length] %d", length);
 
       while (length--) {
         propertiesStrArray.pop_front();
-        const char* deviceObjectPath = propertiesStrArray.front();
-        mUuids.AppendElement(NS_ConvertASCIItoUTF16(deviceObjectPath));
+        const char* uuid = propertiesStrArray.front();
+        mUuids.AppendElement(NS_ConvertASCIItoUTF16(uuid));
 
-        LOG("[Property Value] %s", deviceObjectPath);
+        LOG("[Property Value] %s", uuid);
       }
     } else {
       const char* value = propertiesStrArray.front();
@@ -544,81 +534,12 @@ BluetoothAdapter::UpdateProperties()
       } else if (!strcmp("Name", name)) {
         mName = NS_ConvertASCIItoUTF16(value);
       } else if (!strcmp("Discovering", name)) {
-        mDiscovering = getBool(value);
+        mDiscovering = GetBool(value);
       } else if (!strcmp("Discoverable", name)) {
-        mDiscoverable = getBool(value);
+        mDiscoverable = GetBool(value);
       }
     }
 
     propertiesStrArray.pop_front();
   }
 }
-
-// xxxxxxxxxxxxxxxxxxxx Temp functions xxxxxxxxxxxxxxxxxxxxxx
-NS_IMETHODIMP
-BluetoothAdapter::TestFunction1(const nsAString& aAddress)
-{
-  /*
-  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
-  CreatePairedDeviceInternal(asciiAddress, 50000);
-  */
-
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-BluetoothAdapter::TestFunction2(const nsAString& aObjectPath)
-{
-  // 0x0004 represents ProtocolDescriptorList. For more information, 
-  // see https://www.bluetooth.org/Technical/AssignedNumbers/service_discovery.htm
-  /*
-  int attributeId = 0x0004;
-
-  const char* asciiObjectPath = NS_LossyConvertUTF16toASCII(aObjectPath).get();
-  int c = GetDeviceServiceChannelInternal(asciiObjectPath, BluetoothServiceUuidStr::Handsfree, attributeId);
-
-  LOG("Remote channel: %d", c);
-  */
-
-  //device->Connect(BluetoothServiceUuidStr::Handsfree);
-
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-BluetoothAdapter::TestFunction3()
-{
-  /*
-  a.Init(true, false);
-
-  LOG("Init ok");
-
-  a.Connect("00:23:7F:CB:B4:F1", 2);
-  */
-  std::list<const char*> test = GetAdapterProperties();
-
-  while (!test.empty()) {
-    const char* name = test.front();
-    LOG("[Property Name] %s", name);
-
-    if ((!strcmp(name, "Devices")) || (!strcmp(name, "UUIDs"))) {
-      test.pop_front();
-      int length = getInt(test.front());
-      LOG("[Length] %d", length);
-
-      while (length--) {
-        test.pop_front();
-        LOG("[Property Value] %s", test.front());
-      }
-    } else {
-      test.pop_front();
-      const char* value = test.front();
-      LOG("[Property Value] %s", value);
-    }
-    
-    test.pop_front();
-  }
-
-  return NS_OK;
-}
-

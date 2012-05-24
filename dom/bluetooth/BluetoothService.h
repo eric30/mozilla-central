@@ -23,6 +23,8 @@
 
 BEGIN_BLUETOOTH_NAMESPACE
 
+class BluetoothDevice;
+
 void InitServices();
 const char* GetDefaultAdapterPath();
 bool RegisterAgent();
@@ -31,7 +33,8 @@ bool StartDiscoveryInternal();
 void StopDiscoveryInternal();
 std::list<const char*> GetAdapterProperties();
 bool SetAdapterProperty(char* propertyName, int type, void* value);
-void GetDeviceProperties(const char* aObjectPath);
+std::list<const char*> GetDeviceProperties(const char* aObjectPath);
+bool UpdateDeviceProperties(BluetoothDevice* aDevice);
 void CreatePairedDeviceInternal(const char* aAddress, int aTimeout);
 void RemoveDeviceInternal(const char* aDeviceObjectPath);
 void DiscoverServicesInternal(const char* aObjectPath, const char* aPattern);
@@ -43,6 +46,8 @@ bool RemoveServiceRecordInternal(int aHandle);
 int GetDeviceServiceChannelInternal(const char* aObjectPath, const char* aPattern, int aAttrId);
 const char* GetObjectPathFromAddress(const char* aAddress);
 const char* GetAddressFromObjectPath(const char* aObjectPath);
+int GetInt(const char* numStr);
+bool GetBool(const char* numStr);
 
 END_BLUETOOTH_NAMESPACE
 #endif

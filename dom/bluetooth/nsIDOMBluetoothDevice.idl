@@ -12,6 +12,10 @@ interface nsIDOMBluetoothSocket;
 interface nsIDOMBluetoothDevice : nsISupports
 {
   readonly attribute DOMString address;
+  readonly attribute DOMString name;
+  readonly attribute unsigned long class;
+  readonly attribute bool connected;
+  readonly attribute bool paired;
 
   nsIDOMBluetoothSocket connect(in DOMString aServiceUuid);
   void disconnect();
