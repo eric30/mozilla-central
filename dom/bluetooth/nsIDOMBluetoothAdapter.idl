@@ -27,7 +27,11 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   readonly attribute DOMString address;
   readonly attribute unsigned long class;
   readonly attribute bool enabled;
-  readonly attribute bool discovering;
+  readonly attribute bool discovering;  
+  
+  [implicit_jscontext]
+  readonly attribute jsval devices;
+
   attribute DOMString name;                      // Set custom device name
   attribute bool discoverable;                   // Set to false if this device would not like to be discovered
   attribute unsigned long discoverableTimeout;   // Unit: sec

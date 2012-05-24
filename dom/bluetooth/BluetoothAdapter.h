@@ -51,6 +51,8 @@ protected:
   nsString mName;
   PRUint32 mDiscoverableTimeout;
   PRUint32 mClass;
+  nsTArray<nsString> mDevices;
+  nsTArray<nsString> mUuids;
 
   NS_DECL_EVENT_HANDLER(enabled)
 

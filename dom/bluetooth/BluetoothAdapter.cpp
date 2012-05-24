@@ -382,7 +382,6 @@ BluetoothAdapter::GetDiscovering(bool* aDiscovering)
 NS_IMETHODIMP
 BluetoothAdapter::GetName(nsAString& aName)
 {
-  LOG("Get Name ! %s", NS_LossyConvertUTF16toASCII(mName).get());
   aName = mName;
   return NS_OK;
 }
@@ -398,6 +397,30 @@ NS_IMETHODIMP
 BluetoothAdapter::GetDiscoverableTimeout(PRUint32* aDiscoverableTimeout)
 {
   *aDiscoverableTimeout = mDiscoverableTimeout;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothAdapter::GetDevices(JSContext* aCx, jsval* aDevices)
+{
+  PRUint32 length = mDevices.Length();
+
+  if (length == 0) {
+    *aDevices = JSVAL_NULL;
+    return NS_OK;
+  }
+
+  jsval* devices = new jsval[length];
+
+  for (PRUint32 i = 0; i < length; ++i) {
+    devices[i].setString(JS_NewUCStringCopyN(aCx,
+                         static_cast<const jschar*>(mDevices[i].get()),
+                         mDevices[i].Length()));
+  }
+
+  aDevices->setObjectOrNull(JS_NewArrayObject(aCx, length, devices));
+  NS_ENSURE_TRUE(aDevices->isObject(), NS_ERROR_FAILURE);
+
   return NS_OK;
 }
 
@@ -470,7 +493,7 @@ int getInt(const char* numStr)
 
 bool getBool(const char* numStr)
 {
-  return (strcmp("true", numStr) == 0) || (strcmp("True", numStr) == 0);
+  return (!strcmp("true", numStr)) || (!strcmp("True", numStr));
 }
 
 void
@@ -484,13 +507,32 @@ BluetoothAdapter::UpdateProperties()
 
     LOG("[Property Name] %s", name);
 
-    if ((!strcmp(name, "Devices")) || (!strcmp(name, "UUIDs"))) {
+    if (!strcmp(name, "Devices")) {
+      mDevices.Clear();
+
+      int length = getInt(propertiesStrArray.front());
+
+      LOG("[Length] %d", length);
+
+      while (length--) {
+        propertiesStrArray.pop_front();
+        const char* deviceAddress = GetAddressFromObjectPath(propertiesStrArray.front());
+        mDevices.AppendElement(NS_ConvertASCIItoUTF16(deviceAddress));
+
+        LOG("[Property Value] %s", deviceAddress);
+      }
+    } else if (!strcmp(name, "UUIDs")) {
+      mUuids.Clear();
+
       int length = getInt(propertiesStrArray.front());
       LOG("[Length] %d", length);
 
       while (length--) {
         propertiesStrArray.pop_front();
-        LOG("[Property Value] %s", propertiesStrArray.front());
+        const char* deviceObjectPath = propertiesStrArray.front();
+        mUuids.AppendElement(NS_ConvertASCIItoUTF16(deviceObjectPath));
+
+        LOG("[Property Value] %s", deviceObjectPath);
       }
     } else {
       const char* value = propertiesStrArray.front();
