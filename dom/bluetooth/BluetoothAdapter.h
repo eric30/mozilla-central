@@ -43,6 +43,11 @@ public:
   void onDeviceDisappearedNative(const char* aDeviceAddress);
   void onDeviceCreatedNative(const char* aDeviceObjectPath);
   void onPropertyChangedNative(std::list<const char*> aChangedProperty);
+  void onDevicePropertyChangedNative(const char* aObjectPath, std::list<const char*> aChangedProperty);
+
+  nsresult FireDeviceFound(nsIDOMBluetoothDevice* aDevice);
+  nsresult FireDeviceConnected(const char* aAddress);
+  nsresult FireDeviceDisconnected(const char* aAddress);
 
 protected:
   bool mEnabled;
@@ -56,6 +61,9 @@ protected:
   nsTArray<nsString> mUuids;
   
   NS_DECL_EVENT_HANDLER(enabled)
+  NS_DECL_EVENT_HANDLER(devicefound)
+  NS_DECL_EVENT_HANDLER(deviceconnected)
+  NS_DECL_EVENT_HANDLER(devicedisconnected)
 
 private:
   nsCOMPtr<nsIEventTarget> mToggleBtThread;

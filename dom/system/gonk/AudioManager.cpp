@@ -211,6 +211,9 @@ AudioManager::GetForceForUse(PRInt32 aUsage, PRInt32* aForce) {
     // Dynamically resolved the ICS signature.
     *aForce = AudioSystem::getForceUse((audio_policy_force_use_t)aUsage);
   }
+
+  SetAudioRoute(3);
+
   return NS_OK;
 }
 

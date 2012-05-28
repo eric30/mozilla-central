@@ -47,7 +47,9 @@ BluetoothDevice::GetAddress(nsAString& aAddress)
 NS_IMETHODIMP
 BluetoothDevice::GetName(nsAString& aName)
 {
+  UpdateDeviceProperties(this);
   aName = mName;
+
   return NS_OK;
 }
 

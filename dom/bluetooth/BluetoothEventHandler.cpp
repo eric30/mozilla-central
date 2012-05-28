@@ -100,6 +100,16 @@ void BluetoothEventHandler::HandleEvent(DBusMessage* msg)
     } else { 
       LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
     }
+  } else if (dbus_message_is_signal(msg, "org.bluez.Device", "PropertyChanged")) {
+    const char *remote_device_path = dbus_message_get_path(msg);
+    std::list<const char*> str_array = parse_remote_device_property_change(msg);
+
+    if (str_array.size() > 0) {
+      mAdapter->onDevicePropertyChangedNative(remote_device_path, str_array);
+    } else {
+      LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
+    }
+
   }
 }
 

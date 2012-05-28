@@ -31,4 +31,8 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   attribute DOMString name;                      // Set custom device name
   attribute bool discoverable;                   // Set to false if this device would not like to be discovered
   attribute unsigned long discoverableTimeout;   // Unit: sec
+
+  attribute nsIDOMEventListener ondevicefound;
+  attribute nsIDOMEventListener ondeviceconnected;
+  attribute nsIDOMEventListener ondevicedisconnected;
 };

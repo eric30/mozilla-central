@@ -9,6 +9,7 @@
 #include "BluetoothFirmware.h"
 #include "BluetoothService.h"
 #include "BluetoothEventHandler.h"
+#include "BluetoothEvent.h"
 
 //For test
 #include "BluetoothHfpManager.h"
@@ -315,10 +316,119 @@ BluetoothAdapter::Unpair(const nsAString& aAddress)
 // **************************************************
 // ***************** Event Handler ******************
 // **************************************************
+
+nsresult
+BluetoothAdapter::FireDeviceFound(nsIDOMBluetoothDevice* aDevice)
+{
+  nsRefPtr<nsDOMEvent> event = new BluetoothEvent(nsnull, nsnull);
+  static_cast<BluetoothEvent*>(event.get())->SetDeviceInternal(aDevice);
+
+  nsresult rv = event->InitEvent(NS_LITERAL_STRING("devicefound"), false, false);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  rv = event->SetTrusted(true);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  bool dummy;
+  rv = DispatchEvent(event, &dummy);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  return NS_OK;
+}
+
+nsresult
+BluetoothAdapter::FireDeviceConnected(const char* address)
+{
+  nsString domDeviceAddress = NS_ConvertASCIItoUTF16(address);
+
+  nsRefPtr<nsDOMEvent> event = new BluetoothEvent(nsnull, nsnull);
+  static_cast<BluetoothEvent*>(event.get())->SetDeviceAddressInternal(domDeviceAddress);
+
+  nsresult rv = event->InitEvent(NS_LITERAL_STRING("deviceconnected"), false, false);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  rv = event->SetTrusted(true);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  bool dummy;
+  rv = DispatchEvent(event, &dummy);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  return NS_OK;
+}
+
+nsresult
+BluetoothAdapter::FireDeviceDisconnected(const char* address)
+{
+  nsString domDeviceAddress = NS_ConvertASCIItoUTF16(address);
+
+  nsRefPtr<nsDOMEvent> event = new BluetoothEvent(nsnull, nsnull);
+  static_cast<BluetoothEvent*>(event.get())->SetDeviceAddressInternal(domDeviceAddress);
+
+  nsresult rv = event->InitEvent(NS_LITERAL_STRING("devicedisconnected"), false, false);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  rv = event->SetTrusted(true);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  bool dummy;
+  rv = DispatchEvent(event, &dummy);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  return NS_OK;
+}
+
+
 void 
 BluetoothAdapter::onDeviceFoundNative(const char* aDeviceAddress, std::list<const char*> aPropertyList)
 {
   LOG("[DeviceFound] Address = %s", aDeviceAddress);
+
+  BluetoothDevice* device = new BluetoothDevice(aDeviceAddress);
+
+  while (!aPropertyList.empty()) {
+    const char* name = aPropertyList.front();
+    LOG("[Device Property Name] %s", name);
+    aPropertyList.pop_front();
+
+    if (!strcmp(name, "UUIDs")) {
+      device->mUuids.Clear();
+
+      int length = GetInt(aPropertyList.front());
+      LOG("[Uuid Count] %d", length);
+
+      while (length--) {
+        aPropertyList.pop_front();
+        const char* uuid = aPropertyList.front();
+        device->mUuids.AppendElement(NS_ConvertASCIItoUTF16(uuid));
+
+        LOG("[Device UUID value] %s", uuid);
+      }
+    } else if (!strcmp(name, "Services")) {
+      int length = GetInt(aPropertyList.front());
+      while (length--) {
+        aPropertyList.pop_front();
+      }
+    } else {
+      const char* value = aPropertyList.front();
+
+      if (!strcmp(name, "Address")) {
+        device->mAddress = NS_ConvertASCIItoUTF16(value);
+      } else if (!strcmp(name, "Name")) {
+        device->mName = NS_ConvertASCIItoUTF16(value);
+      } else if (!strcmp(name, "Class")) {
+        device->mClass = GetInt(value);
+      } else if (!strcmp(name, "Paired")) {
+        device->mPaired = GetBool(value);
+      } else if (!strcmp(name, "Connected")) {
+        device->mConnected = GetBool(value);
+      }
+    }
+
+    aPropertyList.pop_front();
+  }
+
+  FireDeviceFound(device);
 }
 
 void 
@@ -344,6 +454,28 @@ BluetoothAdapter::onPropertyChangedNative(std::list<const char*> aChangedPropert
   
   if (mEnabled) {
     UpdateProperties();
+  }
+}
+
+void 
+BluetoothAdapter::onDevicePropertyChangedNative(const char* aObjectPath, std::list<const char*> aChangedProperty)
+{
+  const char* propertyName = aChangedProperty.front();
+  aChangedProperty.pop_front();
+  const char* value = aChangedProperty.front();
+
+  LOG("[PropertyChanged] %s -> %s", propertyName, value);
+  
+  if (mEnabled) {
+    if (!strcmp(propertyName, "Connected")) {
+      const char* address = GetAddressFromObjectPath(aObjectPath);
+
+      if (GetBool(value)) {
+        FireDeviceConnected(address);
+      } else {
+        FireDeviceDisconnected(address);
+      }
+    }
   }
 }
 
@@ -543,3 +675,7 @@ BluetoothAdapter::UpdateProperties()
     propertiesStrArray.pop_front();
   }
 }
+
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicefound)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, deviceconnected)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicedisconnected)

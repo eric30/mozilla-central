@@ -28,6 +28,7 @@ struct DBusMessageIter;
 BEGIN_BLUETOOTH_NAMESPACE
 
 std::list<const char*> parse_adapter_property_change(DBusMessage *msg);
+std::list<const char*> parse_remote_device_property_change(DBusMessage *msg);
 std::list<const char*> parse_adapter_properties(DBusMessageIter *iter);
 std::list<const char*> parse_remote_device_properties(DBusMessageIter *iter);
 

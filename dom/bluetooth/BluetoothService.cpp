@@ -339,7 +339,7 @@ bool UpdateDeviceProperties(BluetoothDevice* aDevice)
     LOG("[Device Property Name] %s", name);
     propertiesStrArray.pop_front();
 
-    if (!strcmp(name, "Uuids")) {
+    if (!strcmp(name, "UUIDs")) {
       aDevice->mUuids.Clear();
 
       int length = GetInt(propertiesStrArray.front());
@@ -351,6 +351,11 @@ bool UpdateDeviceProperties(BluetoothDevice* aDevice)
         aDevice->mUuids.AppendElement(NS_ConvertASCIItoUTF16(uuid));
 
         LOG("[Device UUID value] %s", uuid);
+      }
+    } else if (!strcmp(name, "Services")) {
+      int length = GetInt(propertiesStrArray.front());
+      while (length--) {
+        propertiesStrArray.pop_front();
       }
     } else {
       const char* value = propertiesStrArray.front();

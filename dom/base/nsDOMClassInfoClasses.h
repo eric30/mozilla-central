@@ -551,6 +551,7 @@ DOMCI_CLASS(CallEvent)
 DOMCI_CLASS(BluetoothAdapter)
 DOMCI_CLASS(BluetoothDevice)
 DOMCI_CLASS(BluetoothSocket)
+DOMCI_CLASS(BluetoothEvent)
 #endif
 
 DOMCI_CLASS(DOMError)

@@ -62,8 +62,9 @@ BluetoothScoManager::Connect(const char* aAddress)
 
   // TODO(Eric)
   // I'm not sure if using SetForceForUse to route audio is right.
-  mAudioManager->SetForceForUse(nsIAudioManager::USE_COMMUNICATION, 
-                                nsIAudioManager::FORCE_BT_SCO);
+  //mAudioManager->SetForceForUse(nsIAudioManager::USE_COMMUNICATION, 
+  //                              nsIAudioManager::FORCE_BT_SCO);
+  mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
 
   return true;
 }

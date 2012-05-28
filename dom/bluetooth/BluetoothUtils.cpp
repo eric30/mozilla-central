@@ -311,6 +311,12 @@ std::list<const char*> parse_adapter_property_change(DBusMessage *msg) {
                                sizeof(adapter_properties) / sizeof(Properties));
 }
 
+std::list<const char*> parse_remote_device_property_change(DBusMessage *msg) {
+  return parse_property_change(msg, (Properties *) &remote_device_properties,
+                               sizeof(remote_device_properties) / sizeof(Properties));
+}
+
+
 std::list<const char*> parse_adapter_properties(DBusMessageIter *iter) {
   return parse_properties(iter, (Properties *) &adapter_properties,
                           sizeof(adapter_properties) / sizeof(Properties));
