@@ -10,6 +10,7 @@
 #include "BluetoothService.h"
 #include "BluetoothEventHandler.h"
 #include "BluetoothEvent.h"
+#include "AudioManager.h"
 
 //For test
 #include "BluetoothHfpManager.h"
@@ -214,7 +215,10 @@ BluetoothAdapter::Setup()
                                    BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::Headset,
                                    BluetoothServiceUuid::BaseLSB,
                                    BluetoothHfpManager::DEFAULT_HSP_CHANNEL);
-  }
+  }  
+
+  mozilla::dom::gonk::AudioManager::SetPara("bluetooth_enabled=true");
+  mozilla::dom::gonk::AudioManager::SetPara("A2dpSuspended=false");
 
   // Start HFP server
   BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
@@ -232,6 +236,8 @@ BluetoothAdapter::TearDown()
 
   mHfpServiceHandle = -1;
   mHspServiceHandle = -1;
+
+  mozilla::dom::gonk::AudioManager::SetPara("bluetooth_enabled=false");
 
   UnregisterAgent();
 }

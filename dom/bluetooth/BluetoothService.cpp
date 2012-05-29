@@ -17,6 +17,7 @@
 #include "BluetoothService.h"
 #include "BluetoothUtils.h"
 #include "BluetoothDevice.h"
+#include "AudioManager.h"
 
 #include "dbus/dbus.h"
 #include "mozilla/ipc/DBusThread.h"
@@ -625,6 +626,56 @@ int GetInt(const char* numStr)
 bool GetBool(const char* numStr)
 {
   return (!strcmp("true", numStr)) || (!strcmp("True", numStr));
+}
+
+void
+asyncConnectSinkResult(DBusMessage *msg, void *data, void* n)
+{
+  DBusError err;
+  dbus_error_init(&err);
+  const char* contextPath =  (const char *)data;
+
+  if (dbus_set_error_from_message(&err, msg)) {
+    LOG("Connect Sink failed, err: %s", err.name);
+  } else {
+    LOG("[Connect Sink] %s", contextPath);
+
+    mozilla::dom::gonk::AudioManager::SetAudioRoute(4);
+  }
+
+  dbus_error_free(&err);
+
+  delete data;
+}
+
+bool ConnectSink(const char* aObjectPath)
+{
+  char* backupObjectPath = new char[strlen(aObjectPath) + 1];
+  strcpy(backupObjectPath, aObjectPath);
+
+  bool ret = dbus_func_args_async(GetCurrentConnection(), -1, 
+                                  asyncConnectSinkResult,
+                                  backupObjectPath,
+                                  aObjectPath, 
+                                  "org.bluez.AudioSink", 
+                                  "Connect",
+                                  DBUS_TYPE_INVALID);
+
+  return ret;
+}
+
+bool DisconnectSink(const char* aObjectPath)
+{
+  bool ret = dbus_func_args_async(GetCurrentConnection(), 
+                                  -1, 
+                                  NULL,
+                                  NULL,
+                                  aObjectPath,
+                                  "org.bluez.AudioSink",
+                                  "Disconnect",
+                                  DBUS_TYPE_INVALID);
+
+  return ret;
 }
 
 END_BLUETOOTH_NAMESPACE

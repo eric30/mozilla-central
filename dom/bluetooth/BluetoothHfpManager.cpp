@@ -9,6 +9,8 @@
 #include "BluetoothDevice.h"
 #include "BluetoothScoManager.h"
 #include "BluetoothSocket.h"
+#include "BluetoothService.h"
+#include "BluetoothServiceUuid.h"
 
 #include "AudioManager.h"
 #include "nsServiceManagerUtils.h"
@@ -120,11 +122,21 @@ CreateScoThreadFunc(void* ptr)
   const char* address = socket->GetRemoteDeviceAddress();
   LOG("Start to connect SCO - %s", address);
 
-  BluetoothScoManager* sco = BluetoothScoManager::GetManager();
-  sco->Connect(address);
+  BluetoothDevice* device = new BluetoothDevice(address);
+  UpdateDeviceProperties(device);
 
-  delete address;
-  LOG("Finish connecting SCO");
+  if (device->IsSupport(BluetoothServiceUuidStr::AudioSink)) {
+    ConnectSink(GetObjectPathFromAddress(address));
+  } else {
+    LOG("Start to connect SCO - %s", address);
+    BluetoothScoManager* sco = BluetoothScoManager::GetManager();
+    sco->Connect(address);
+
+    delete address;
+    LOG("Finish connecting SCO");
+  }
+
+  delete device;
 
   return NULL;
 }

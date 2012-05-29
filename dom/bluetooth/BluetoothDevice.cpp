@@ -141,3 +141,19 @@ BluetoothDevice::GetAddressInternal()
 
   return retAddress;
 }
+
+bool
+BluetoothDevice::IsSupport(const char* aUuid)
+{
+  PRUint32 length = mUuids.Length();
+
+  for (PRUint32 i = 0; i < length; ++i) {
+    const char* uuid = NS_LossyConvertUTF16toASCII(mUuids[i]).get();
+
+    if(!strcmp(uuid, aUuid)) {
+      return true;
+    }
+  }
+
+  return false;
+}

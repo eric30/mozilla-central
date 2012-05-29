@@ -23,7 +23,7 @@ namespace BluetoothServiceUuid {
 }
 
 namespace BluetoothServiceUuidStr {
-  static const char* AudioSink     = "0000110B-0000-1000-8000-00805F9B34FB";
+  static const char* AudioSink     = "0000110b-0000-1000-8000-00805f9b34fb";
   static const char* AudioSource   = "0000110A-0000-1000-8000-00805F9B34FB";
   static const char* AdvAudioDist  = "0000110D-0000-1000-8000-00805F9B34FB";
   static const char* Headset       = "00001108-0000-1000-8000-00805F9B34FB";

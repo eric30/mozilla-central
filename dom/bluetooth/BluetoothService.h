@@ -49,5 +49,8 @@ const char* GetAddressFromObjectPath(const char* aObjectPath);
 int GetInt(const char* numStr);
 bool GetBool(const char* numStr);
 
+bool ConnectSink(const char* aObjectPath);
+bool DisconnectSink(const char* aObjectPath);
+
 END_BLUETOOTH_NAMESPACE
 #endif

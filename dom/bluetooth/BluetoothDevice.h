@@ -22,6 +22,8 @@ public:
   BluetoothDevice(const char* aAddress);
 
   const char* GetAddressInternal();
+  bool IsSupport(const char* aUuid);
+
 
   nsString mAddress;
   nsString mName;

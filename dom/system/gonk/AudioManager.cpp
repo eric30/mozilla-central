@@ -234,3 +234,23 @@ AudioManager::SetAudioRoute(int aRoutes) {
   cmd.appendFormat("routing=%d", GetRoutingMode(aRoutes));
   AudioSystem::setParameters(handle, cmd);
 }
+
+void 
+AudioManager::SetPara(const char* aPara)
+{  
+  audio_io_handle_t handle = 0;
+  if (static_cast<
+      audio_io_handle_t (*)(AudioSystem::stream_type, uint32_t, uint32_t, uint32_t, AudioSystem::output_flags)
+      >(AudioSystem::getOutput)) {
+    handle = AudioSystem::getOutput((AudioSystem::stream_type)AudioSystem::SYSTEM);
+  } else if (static_cast<
+             audio_io_handle_t (*)(audio_stream_type_t, uint32_t, uint32_t, uint32_t, audio_policy_output_flags_t)
+             >(AudioSystem::getOutput)) {
+    handle = AudioSystem::getOutput((audio_stream_type_t)AudioSystem::SYSTEM);
+  }
+
+  String8 cmd;
+  cmd.appendFormat("%s", aPara);
+  AudioSystem::setParameters(handle, cmd);
+}
+
