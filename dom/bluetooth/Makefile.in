@@ -25,6 +25,7 @@ CPPSRCS = \
   BluetoothEventHandler.cpp \
   BluetoothSocket.cpp \
   BluetoothUtils.cpp \
+  BluetoothObexManager.cpp \
   BluetoothHfpManager.cpp \
   BluetoothHfpBase.cpp \
   BluetoothScoManager.cpp \

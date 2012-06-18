@@ -35,4 +35,8 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   attribute nsIDOMEventListener ondevicefound;
   attribute nsIDOMEventListener ondeviceconnected;
   attribute nsIDOMEventListener ondevicedisconnected;
+
+  //Temp xxx
+  bool createObexConn(in DOMString aAddress, in unsigned long aChannel);
+  void disconnectObex();
 };

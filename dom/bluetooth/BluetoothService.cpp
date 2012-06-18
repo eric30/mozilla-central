@@ -45,6 +45,17 @@ DBusHandlerResult agent_event_filter(DBusConnection *conn, DBusMessage *msg, voi
   LOG("%s: Received method %s:%s", __FUNCTION__,
       dbus_message_get_interface(msg), dbus_message_get_member(msg));
 
+  if (dbus_message_is_method_call(msg, "org.bluez.Agent", "RequestConfirmation")) {
+    // This method gets called when the service daemon needs to confirm a passkey for
+    // an authentication.
+
+    // TODO(Eric)
+    // Needs to send an notification to upper layer.
+    DBusMessage *reply =dbus_message_new_method_return(msg);
+    dbus_connection_send(conn, reply, NULL);
+    dbus_message_unref(reply);
+  }
+
   return DBUS_HANDLER_RESULT_HANDLED;
 }
 

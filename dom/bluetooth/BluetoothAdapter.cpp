@@ -13,6 +13,7 @@
 
 //For test
 #include "BluetoothHfpManager.h"
+#include "BluetoothObexManager.h"
 #include "BluetoothServiceUuid.h"
 #include "BluetoothSocket.h"
 
@@ -23,6 +24,13 @@
 #include "mozilla/LazyIdleThread.h"
 #include "mozilla/Util.h"
 #include "dbus/dbus.h"
+
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <sys/poll.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
+
 
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
@@ -216,9 +224,18 @@ BluetoothAdapter::Setup()
                                    BluetoothHfpManager::DEFAULT_HSP_CHANNEL);
   }
 
+  AddRfcommServiceRecordInternal("OBEX Object Push",
+                                 BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::ObjectPush,
+                                 BluetoothServiceUuid::BaseLSB,
+                                 BluetoothObexManager::DEFAULT_OPP_CHANNEL);
+
   // Start HFP server
   BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
   hfp->WaitForConnect();
+
+  // Start OBEX opp Server
+  BluetoothObexManager* obex = BluetoothObexManager::GetManager();
+  obex->WaitForConnect();
 
   UpdateProperties();
 }
@@ -674,6 +691,35 @@ BluetoothAdapter::UpdateProperties()
 
     propertiesStrArray.pop_front();
   }
+}
+
+// xxx TEMP xxx , for OBEX testing
+
+#include <pthread.h>
+
+BluetoothSocket* testSocket = NULL;
+
+nsresult
+BluetoothAdapter::CreateObexConn(const nsAString& aAddress, PRUint32 aChannel, bool* result)
+{
+  const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
+  int channel = aChannel;
+
+  BluetoothObexManager* obex = BluetoothObexManager::GetManager();
+  testSocket = obex->Connect(asciiAddress, channel);
+
+  *result = true;
+
+  return NS_OK;
+}
+
+nsresult
+BluetoothAdapter::DisconnectObex()
+{
+  BluetoothObexManager* obex = BluetoothObexManager::GetManager();
+  obex->Disconnect();
+
+  return NS_OK;
 }
 
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicefound)
