@@ -19,6 +19,7 @@ class BluetoothObexManager
 {
   public:
     static const int DEFAULT_OPP_CHANNEL = 10;
+    static const int DEFAULT_FTP_CHANNEL = 11;
 
     static BluetoothObexManager* GetManager();
     bool WaitForConnect();    

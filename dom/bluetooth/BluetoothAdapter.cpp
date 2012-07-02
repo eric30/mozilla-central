@@ -227,7 +227,12 @@ BluetoothAdapter::Setup()
   AddRfcommServiceRecordInternal("OBEX Object Push",
                                  BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::ObjectPush,
                                  BluetoothServiceUuid::BaseLSB,
-                                 BluetoothObexManager::DEFAULT_OPP_CHANNEL);
+                                 BluetoothObexManager::DEFAULT_OPP_CHANNEL);  
+  
+  AddRfcommServiceRecordInternal("OBEX File Transfer",
+                                 BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::FTP,
+                                 BluetoothServiceUuid::BaseLSB,
+                                 BluetoothObexManager::DEFAULT_FTP_CHANNEL);
 
   // Start HFP server
   BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
