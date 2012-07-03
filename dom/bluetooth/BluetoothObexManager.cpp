@@ -9,6 +9,8 @@
 
 #include "nsServiceManagerUtils.h"
 #include "nsThreadUtils.h"
+
+#include "FakeFileSystem.h"
  
 #include <unistd.h>  /* for usleep */
 
@@ -20,6 +22,8 @@
 #endif
 
 USING_BLUETOOTH_NAMESPACE
+
+static FakeFileSystem fileSystem;
 
 static BluetoothObexManager* sInstance = NULL;
 static bool sStopAcceptThreadFlag = true;
@@ -252,24 +256,72 @@ AppendHeaderConnectionId(char* startPtr, char id)
 }
 
 int
-AppendHeaderEndOfBody(char* startPtr)
+AppendHeaderCount(char* startPtr, char id)
 {
-  char bodyStrAscii[] = 
+  startPtr[0] = 0xCB;
+  startPtr[1] = 0x00;
+  startPtr[2] = 0x00;
+  startPtr[3] = 0x00;
+  startPtr[4] = id;
+
+  return 5;
+}
+
+int
+AppendHeaderEndOfBody(char* startPtr, char* remoteMsg, int remoteMsgLength)
+{
+  char bodyStrAscii[] =
 "<?xml version=\"1.0\"?>\r\n\
 <!DOCTYPE folder-listing SYSTEM \"obex-folder-listing.dtd\">\r\n\
 <folder-listing version=\"1.0\">\r\n\
 <folder name=\"sdcard\" size=\"32768\" user-perm=\"RW\" modified=\"19800101T000000Z\"/>\r\n\
 </folder-listing>\r\n";
 
-  int bodyLength = sizeof(bodyStrAscii) + 3 - 1;
+  int bodyLength = 3 + sizeof(bodyStrAscii) - 1;
 
   startPtr[0] = 0x48;
   startPtr[1] = bodyLength & 0xFF00; // Length
   startPtr[2] = bodyLength & 0x00FF;
 
-  memcpy(&startPtr[3], bodyStrAscii, bodyLength);
+  memcpy(&startPtr[3], bodyStrAscii, sizeof(bodyStrAscii) - 1);
 
   return bodyLength;
+}
+
+int
+SetPathHandler(int fd, char* buf, int length)
+{
+  int flags = buf[0];
+  int constants = buf[1];
+
+  LOG("flags = %x, constants = %x", buf[0], buf[1]);
+
+  char* line = new char[2048];
+  FileEntity* root = fileSystem.GetRoot();
+
+  for (int i = 0;i < FileEntity::MAX_FILE_COUNT;++i) {
+    if (root->files[i]->GetType() == 1) {
+      // folder found
+      line[0] = 0xA0;
+      line[1] = 0x00;
+      line[2] = 0x03;
+      
+      int ret = write(fd, line, 3);
+      delete [] line;
+
+      return ret;
+    }
+  }
+
+  // return: Bad request
+  line[0] = 0xC0;
+  line[1] = 0x00;
+  line[2] = 0x03;
+
+  int ret = write(fd, line, 3);
+  delete [] line;
+
+  return ret;
 }
 
 int
@@ -285,7 +337,7 @@ GetHandler(bool finalBit, int fd, char* buf, int length)
     line[0] = 0xA0;
 
     totalPktLength += AppendHeaderConnectionId(&line[totalPktLength], 1);
-    totalPktLength += AppendHeaderEndOfBody(&line[totalPktLength]);
+    totalPktLength += AppendHeaderEndOfBody(&line[totalPktLength], buf, length);
   } else if (buf[15] == 0x63) {
     // Capability
     LOG("GET: Capability");
@@ -369,6 +421,7 @@ BluetoothObexManager::MessageHandler(void* ptr)
         line[2] = lengthWho + lengthConnectionId + 7;
 
         ret = write(socket->mFd, line, line[2]);
+        
         break;
 
       case 0x81:
@@ -399,6 +452,11 @@ BluetoothObexManager::MessageHandler(void* ptr)
       case 0x83:
         LOG("Remote sent [Get] (Final pkt)");
         ret = GetHandler(true, socket->mFd, buf, leftLength);
+        break;
+
+      case 0x85:
+        LOG("Remote sent [SetPath]");
+        ret = SetPathHandler(socket->mFd, buf, leftLength);
         break;
 
       case 0xA0:
