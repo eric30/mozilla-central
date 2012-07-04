@@ -44,6 +44,8 @@ public:
   //int WriteInternal(char* data, int length);
   int BindListen(int aPort);
   const char* GetRemoteDeviceAddress();
+  int WriteInternal(const char* buf, int length);
+  int ReadInternal(char* buf, int count);
 
   // TODO(Eric)
   // Should be exposed for developing server programs

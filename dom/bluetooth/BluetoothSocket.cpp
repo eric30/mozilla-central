@@ -391,3 +391,17 @@ BluetoothSocket::GetRemoteDeviceAddress()
 
   return retAddress;
 }
+
+int 
+BluetoothSocket::WriteInternal(const char* buf, int length)
+{
+  return write(this->mFd, buf, length);
+}
+
+int 
+BluetoothSocket::ReadInternal(char* buf, int count)
+{
+  // TODO(Eric)
+  // Should deal with returned value smaller than 'count' situation.
+  return read(this->mFd, buf, count);
+}

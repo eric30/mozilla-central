@@ -31,6 +31,7 @@ CPPSRCS = \
   BluetoothScoManager.cpp \
   BluetoothCallManager.cpp \
   BluetoothEvent.cpp \
+  BluetoothObexClient.cpp \
   FakeFileSystem.cpp \
   $(NULL)
 

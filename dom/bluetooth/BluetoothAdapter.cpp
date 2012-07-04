@@ -14,6 +14,7 @@
 //For test
 #include "BluetoothHfpManager.h"
 #include "BluetoothObexManager.h"
+#include "BluetoothObexClient.h"
 #include "BluetoothServiceUuid.h"
 #include "BluetoothSocket.h"
 
@@ -710,8 +711,15 @@ BluetoothAdapter::CreateObexConn(const nsAString& aAddress, PRUint32 aChannel, b
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
   int channel = aChannel;
 
+  /*
   BluetoothObexManager* obex = BluetoothObexManager::GetManager();
   testSocket = obex->Connect(asciiAddress, channel);
+  */
+
+  ObexClient* obex = new ObexClient(asciiAddress, channel);
+  if (obex->Init()) {
+    obex->Connect();
+  }
 
   *result = true;
 
