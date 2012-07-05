@@ -13,10 +13,12 @@
 
 //For test
 #include "BluetoothHfpManager.h"
-#include "BluetoothObexManager.h"
 #include "BluetoothObexClient.h"
+#include "BluetoothObexServer.h"
+#include "BluetoothOppManager.h"
 #include "BluetoothServiceUuid.h"
 #include "BluetoothSocket.h"
+#include "ObexBase.h"
 
 #include "nsDOMClassInfo.h"
 #include "nsDOMEvent.h"
@@ -228,20 +230,22 @@ BluetoothAdapter::Setup()
   AddRfcommServiceRecordInternal("OBEX Object Push",
                                  BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::ObjectPush,
                                  BluetoothServiceUuid::BaseLSB,
-                                 BluetoothObexManager::DEFAULT_OPP_CHANNEL);  
-  
+                                 BluetoothOppManager::DEFAULT_OPP_CHANNEL);
+ 
+ /* 
   AddRfcommServiceRecordInternal("OBEX File Transfer",
                                  BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::FTP,
                                  BluetoothServiceUuid::BaseLSB,
                                  BluetoothObexManager::DEFAULT_FTP_CHANNEL);
+  */
 
   // Start HFP server
   BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
   hfp->WaitForConnect();
 
   // Start OBEX opp Server
-  BluetoothObexManager* obex = BluetoothObexManager::GetManager();
-  obex->WaitForConnect();
+  BluetoothOppManager* opp = new BluetoothOppManager();
+  opp->Start();
 
   UpdateProperties();
 }
@@ -711,11 +715,6 @@ BluetoothAdapter::CreateObexConn(const nsAString& aAddress, PRUint32 aChannel, b
   const char* asciiAddress = NS_LossyConvertUTF16toASCII(aAddress).get();
   int channel = aChannel;
 
-  /*
-  BluetoothObexManager* obex = BluetoothObexManager::GetManager();
-  testSocket = obex->Connect(asciiAddress, channel);
-  */
-
   ObexClient* obex = new ObexClient(asciiAddress, channel);
   if (obex->Init()) {
     obex->Connect();
@@ -729,9 +728,6 @@ BluetoothAdapter::CreateObexConn(const nsAString& aAddress, PRUint32 aChannel, b
 nsresult
 BluetoothAdapter::DisconnectObex()
 {
-  BluetoothObexManager* obex = BluetoothObexManager::GetManager();
-  obex->Disconnect();
-
   return NS_OK;
 }
 

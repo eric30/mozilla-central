@@ -25,13 +25,15 @@ CPPSRCS = \
   BluetoothEventHandler.cpp \
   BluetoothSocket.cpp \
   BluetoothUtils.cpp \
-  BluetoothObexManager.cpp \
   BluetoothHfpManager.cpp \
   BluetoothHfpBase.cpp \
   BluetoothScoManager.cpp \
   BluetoothCallManager.cpp \
   BluetoothEvent.cpp \
   BluetoothObexClient.cpp \
+  BluetoothObexServer.cpp \
+  BluetoothOppManager.cpp \
+  ObexBase.cpp \
   FakeFileSystem.cpp \
   $(NULL)
 

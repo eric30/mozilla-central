@@ -2,6 +2,7 @@
 
 #include "BluetoothDevice.h";
 #include "BluetoothSocket.h";
+#include "ObexBase.h";
 
 #if defined(MOZ_WIDGET_GONK)
 #include <android/log.h>
@@ -101,9 +102,11 @@ bool ObexClient::Put(char* fileName, int fileNameLength, char* fileBody, int fil
 
     LOG("Sent file body length: %d", sentFileBodyLength);
 
-    req[0] = (sentFileBodyLength >= fileBodyLength) ? 0x82 : 0x02;
-    req[1] = currentIndex & 0xFF00;
-    req[2] = currentIndex & 0x00FF;
+    if (sentFileBodyLength >= fileBodyLength) {
+      SetObexPacketInfo(req, ObexRequestCode::PutFinal, currentIndex);
+    } else {
+      SetObexPacketInfo(req, ObexRequestCode::Put, currentIndex);
+    }
 
     int responseCode = this->SendRequestInternal(req[0], req, currentIndex);
     if (responseCode != 0x90 && responseCode != 0xA0) {
@@ -218,57 +221,5 @@ ObexClient::ParseHeaders(char* buf, int totalLength)
     // Content
     ptr += headerLength;
   }
-}
-
-int
-ObexClient::AppendHeaderName(char* retBuf, char* name, int length)
-{
-  int headerLength = length + 3;
-
-  retBuf[0] = 0x01;
-  retBuf[1] = headerLength & 0xFF00;
-  retBuf[2] = headerLength & 0x00FF;
-
-  memcpy(&retBuf[3], name, length);
-
-  return headerLength;
-}
-
-int
-ObexClient::AppendHeaderBody(char* retBuf, char* data, int length)
-{
-  int headerLength = length + 3;
-
-  retBuf[0] = 0x48;
-  retBuf[1] = headerLength & 0xFF00;
-  retBuf[2] = headerLength & 0x00FF;
-
-  memcpy(&retBuf[3], data, length);
-
-  return headerLength;
-}
-
-int 
-ObexClient::AppendHeaderLength(char* retBuf, int objectLength)
-{
-  retBuf[0] = 0xC3;
-  retBuf[1] = objectLength & 0xFF000000;
-  retBuf[2] = objectLength & 0x00FF0000;
-  retBuf[3] = objectLength & 0x0000FF00;
-  retBuf[4] = objectLength & 0x000000FF;
-
-  return 5;
-}
-
-int
-ObexClient::AppendHeaderConnectionId(char* retBuf, int connectionId)
-{
-  retBuf[0] = 0xCB;
-  retBuf[1] = connectionId & 0xFF000000;
-  retBuf[2] = connectionId & 0x00FF0000;;
-  retBuf[3] = connectionId & 0x0000FF00;
-  retBuf[4] = connectionId & 0x000000FF;
-
-  return 5;
 }
 
