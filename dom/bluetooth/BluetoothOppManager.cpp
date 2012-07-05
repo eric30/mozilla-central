@@ -26,32 +26,26 @@ BluetoothOppManager::Start()
   mServer = new ObexServer(BluetoothOppManager::DEFAULT_OPP_CHANNEL, this);
 }
 
-void
+char
 BluetoothOppManager::onConnect()
 {
-  LOG("OPPManager::OnConnect()"); 
+  LOG("OPPManager::OnConnect()");
+
+  return ObexResponseCode::Success;
 }
 
-void
-BluetoothOppManager::onSetPath()
-{
-  LOG("OPPManager::OnSetPath()"); 
-}
-
-void
+char
 BluetoothOppManager::onPut()
 {
   LOG("OPPManager::OnPut()"); 
+
+  return ObexResponseCode::Success;
 }
 
-void
-BluetoothOppManager::onGet()
-{
-  LOG("OPPManager::OnGet()"); 
-}
-
-void
+char
 BluetoothOppManager::onDisconnect()
 {
   LOG("OPPManager::OnDisconnect()"); 
+
+  return ObexResponseCode::Success;
 }

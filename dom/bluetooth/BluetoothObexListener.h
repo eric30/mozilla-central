@@ -14,11 +14,11 @@ BEGIN_BLUETOOTH_NAMESPACE
 class ObexListener
 {
 public:
-  virtual void onConnect() = 0;
-  virtual void onSetPath() = 0;
-  virtual void onPut() = 0;
-  virtual void onGet() = 0;
-  virtual void onDisconnect() = 0;
+  virtual char onConnect();
+  virtual char onPut();
+  virtual char onDisconnect();
+  virtual char onSetPath();
+  virtual char onGet(const char* headerStart, int length, char* response);
 };
 
 END_BLUETOOTH_NAMESPACE

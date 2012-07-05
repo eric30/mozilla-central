@@ -16,6 +16,7 @@
 #include "BluetoothObexClient.h"
 #include "BluetoothObexServer.h"
 #include "BluetoothOppManager.h"
+#include "BluetoothFtpManager.h"
 #include "BluetoothServiceUuid.h"
 #include "BluetoothSocket.h"
 #include "ObexBase.h"
@@ -232,12 +233,10 @@ BluetoothAdapter::Setup()
                                  BluetoothServiceUuid::BaseLSB,
                                  BluetoothOppManager::DEFAULT_OPP_CHANNEL);
  
- /* 
   AddRfcommServiceRecordInternal("OBEX File Transfer",
                                  BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::FTP,
                                  BluetoothServiceUuid::BaseLSB,
-                                 BluetoothObexManager::DEFAULT_FTP_CHANNEL);
-  */
+                                 BluetoothFtpManager::DEFAULT_FTP_CHANNEL);
 
   // Start HFP server
   BluetoothHfpManager* hfp = BluetoothHfpManager::GetManager();
@@ -246,6 +245,10 @@ BluetoothAdapter::Setup()
   // Start OBEX opp Server
   BluetoothOppManager* opp = new BluetoothOppManager();
   opp->Start();
+
+  // Start OBEX ftp Server
+  BluetoothFtpManager* ftp = new BluetoothFtpManager();
+  ftp->Start();
 
   UpdateProperties();
 }

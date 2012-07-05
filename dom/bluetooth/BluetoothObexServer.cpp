@@ -24,7 +24,7 @@ ObexServer::MessageHandler(void* ptr)
   sStopEventLoopFlag = false;
 
   while (!sStopEventLoopFlag) {
-    char buf[4096];
+    char reqHeader[4096];
     char reqOpcode;
 
     ret = server->mSocket->ReadInternal(&reqOpcode, 1);
@@ -38,13 +38,13 @@ ObexServer::MessageHandler(void* ptr)
     LOG("Msg Packet Length : %d", pktLength);
 
     int leftLength = pktLength - 3;
-    ret = server->mSocket->ReadInternal(buf, leftLength);
+    ret = server->mSocket->ReadInternal(reqHeader, leftLength);
 
     char* responseBuffer = new char[255];
     int currentIndex = 3;
 
     if (reqOpcode == ObexRequestCode::Connect) {
-      responseBuffer[0] = ObexResponseCode::Success;
+      responseBuffer[0] = server->mListener->onConnect();
       responseBuffer[3] = 0x10;  // Obex version = 1.0 = 0x10
       responseBuffer[4] = 0x00;  // flag
       responseBuffer[5] = ObexServer::MAX_PACKET_LENGTH & 0xFF00;  // maxPacketLength
@@ -53,25 +53,34 @@ ObexServer::MessageHandler(void* ptr)
       currentIndex = 7;
       currentIndex += AppendHeaderConnectionId(&responseBuffer[currentIndex], 1);
 
-      SetObexPacketInfo(responseBuffer, ObexResponseCode::Success, currentIndex);
+      SetObexPacketInfo(responseBuffer, responseBuffer[0], currentIndex);
 
       server->mSocket->WriteInternal(responseBuffer, currentIndex);
-      server->mListener->onConnect();
     } else if (reqOpcode == ObexRequestCode::Disconnect) {
-      SetObexPacketInfo(responseBuffer, ObexResponseCode::Success, currentIndex); 
+      responseBuffer[0] = server->mListener->onDisconnect();
+      SetObexPacketInfo(responseBuffer, responseBuffer[0], currentIndex); 
       server->mSocket->WriteInternal(responseBuffer, currentIndex);
-      server->mListener->onDisconnect();
     } else if (reqOpcode == ObexRequestCode::SetPath) {
-      server->mListener->onSetPath();
+      responseBuffer[0] = server->mListener->onSetPath();
+      SetObexPacketInfo(responseBuffer, responseBuffer[0], currentIndex);
+      server->mSocket->WriteInternal(responseBuffer, currentIndex);
     } else if (reqOpcode == ObexRequestCode::Put) {
       SetObexPacketInfo(responseBuffer, ObexResponseCode::Continue, currentIndex);
       server->mSocket->WriteInternal(responseBuffer, currentIndex);
     } else if (reqOpcode == ObexRequestCode::PutFinal) {
-      SetObexPacketInfo(responseBuffer, ObexResponseCode::Success, currentIndex);
+      responseBuffer[0] = server->mListener->onPut();
+      SetObexPacketInfo(responseBuffer, responseBuffer[0], currentIndex);
       server->mSocket->WriteInternal(responseBuffer, currentIndex);
-      server->mListener->onPut();
-    } else if (reqOpcode == ObexRequestCode::Get) {
-      server->mListener->onGet();
+    } else if (reqOpcode == ObexRequestCode::Get) {  
+      // TODO(Eric)
+      // Need to re-write
+      server->mListener->onGet(reqHeader, leftLength, responseBuffer);
+      server->mSocket->WriteInternal(responseBuffer, ((int)responseBuffer[1] << 8) | responseBuffer[2]);
+    } else if (reqOpcode == ObexRequestCode::GetFinal) {
+      // TODO(Eric)
+      // Need to re-write
+      server->mListener->onGet(reqHeader, leftLength, responseBuffer);
+      server->mSocket->WriteInternal(responseBuffer, ((int)responseBuffer[1] << 8) | responseBuffer[2]);
     } else {
       LOG("Unhandled message: %x", reqOpcode);
     }

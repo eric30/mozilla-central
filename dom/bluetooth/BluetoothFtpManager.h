@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
   * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_bluetooth_bluetoothoppmanager_h__
-#define mozilla_dom_bluetooth_bluetoothoppmanager_h__
+#ifndef mozilla_dom_bluetooth_bluetoothftpmanager_h__
+#define mozilla_dom_bluetooth_bluetoothftpmanager_h__
 
 #include "BluetoothObexListener.h"
 #include "BluetoothCommon.h"
@@ -15,18 +15,20 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 class ObexServer;
 
-class BluetoothOppManager : public ObexListener
+class BluetoothFtpManager : public ObexListener
 {
 public:
-  static const int DEFAULT_OPP_CHANNEL = 10;
+  static const int DEFAULT_FTP_CHANNEL = 11;
 
-  BluetoothOppManager();
-  ~BluetoothOppManager();
+  BluetoothFtpManager();
+  ~BluetoothFtpManager();
 
   void Start();
   char onConnect();
   char onDisconnect();
   char onPut();
+  char onGet(const char* headerStart, int length, char* response);
+  char onSetPath();
 
 private:
   ObexServer* mServer;

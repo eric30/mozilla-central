@@ -33,6 +33,8 @@ CPPSRCS = \
   BluetoothObexClient.cpp \
   BluetoothObexServer.cpp \
   BluetoothOppManager.cpp \
+  BluetoothFtpManager.cpp \
+  BluetoothObexListener.cpp \
   ObexBase.cpp \
   FakeFileSystem.cpp \
   $(NULL)
