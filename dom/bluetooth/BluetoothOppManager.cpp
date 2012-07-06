@@ -1,5 +1,6 @@
 #include "BluetoothOppManager.h"
 
+#include "BluetoothObexClient.h"
 #include "BluetoothObexServer.h"
 
 #if defined(MOZ_WIDGET_GONK)
@@ -26,6 +27,24 @@ BluetoothOppManager::Start()
   mServer = new ObexServer(BluetoothOppManager::DEFAULT_OPP_CHANNEL, this);
 }
 
+// TODO(Eric)
+// Should channel be sent from outside or should it be queried inside SendFile()?
+void
+BluetoothOppManager::SendFile(const char* aRemoteDeviceAddr, int aChannel, char* filePath)
+{
+  ObexClient* client = new ObexClient(aRemoteDeviceAddr, aChannel);
+
+  if (client->Init()) {
+    if (client->Connect()) {
+      // client->Put(filePath, sizeof(filePath), ..., ...);
+    }
+  } else {
+    LOG("Client initialization failed.");
+  }
+
+  delete client;
+}
+
 char
 BluetoothOppManager::onConnect()
 {
@@ -35,9 +54,10 @@ BluetoothOppManager::onConnect()
 }
 
 char
-BluetoothOppManager::onPut()
+BluetoothOppManager::onPut(const ObexHeaderSet& reqHeaderSet, char* response)
 {
-  LOG("OPPManager::OnPut()"); 
+  LOG("OPPManager::OnPut()");
+  
 
   return ObexResponseCode::Success;
 }

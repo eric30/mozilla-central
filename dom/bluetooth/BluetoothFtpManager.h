@@ -26,9 +26,9 @@ public:
   void Start();
   char onConnect();
   char onDisconnect();
-  char onPut();
-  char onGet(const char* headerStart, int length, char* response);
-  char onSetPath();
+  char onPut(const ObexHeaderSet& reqHeaderSet, char* response);
+  char onGet(const ObexHeaderSet& reqHeaderSet, char* response);
+  char onSetPath(const ObexHeaderSet& reqHeaderSet, char* response);
 
 private:
   ObexServer* mServer;

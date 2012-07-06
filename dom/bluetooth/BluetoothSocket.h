@@ -41,7 +41,6 @@ public:
   int IsAvailable();
   int Connect(const char* aAddress, int aPort);
   void CloseInternal();
-  //int WriteInternal(char* data, int length);
   int BindListen(int aPort);
   const char* GetRemoteDeviceAddress();
   int WriteInternal(const char* buf, int length);

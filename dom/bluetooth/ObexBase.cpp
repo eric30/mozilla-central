@@ -9,8 +9,8 @@ AppendHeaderName(char* retBuf, char* name, int length)
 {
   int headerLength = length + 3;
 
-  retBuf[0] = 0x01;
-  retBuf[1] = headerLength & 0xFF00;
+  retBuf[0] = ObexHeaderId::Name;
+  retBuf[1] = (headerLength & 0xFF00) >> 8;
   retBuf[2] = headerLength & 0x00FF;
 
   memcpy(&retBuf[3], name, length);
@@ -23,8 +23,8 @@ AppendHeaderBody(char* retBuf, char* data, int length)
 {
   int headerLength = length + 3;
 
-  retBuf[0] = 0x48;
-  retBuf[1] = headerLength & 0xFF00;
+  retBuf[0] = ObexHeaderId::Body;
+  retBuf[1] = (headerLength & 0xFF00) >> 8;
   retBuf[2] = headerLength & 0x00FF;
 
   memcpy(&retBuf[3], data, length);
@@ -36,10 +36,10 @@ AppendHeaderBody(char* retBuf, char* data, int length)
 int
 AppendHeaderLength(char* retBuf, int objectLength)
 {
-  retBuf[0] = 0xC3;
-  retBuf[1] = objectLength & 0xFF000000;
-  retBuf[2] = objectLength & 0x00FF0000;
-  retBuf[3] = objectLength & 0x0000FF00;
+  retBuf[0] = ObexHeaderId::Length;
+  retBuf[1] = (objectLength & 0xFF000000) >> 24;
+  retBuf[2] = (objectLength & 0x00FF0000) >> 16;
+  retBuf[3] = (objectLength & 0x0000FF00) >> 8;
   retBuf[4] = objectLength & 0x000000FF;
 
   return 5;
@@ -48,10 +48,10 @@ AppendHeaderLength(char* retBuf, int objectLength)
 int
 AppendHeaderConnectionId(char* retBuf, int connectionId)
 {
-  retBuf[0] = 0xCB;
-  retBuf[1] = connectionId & 0xFF000000;
-  retBuf[2] = connectionId & 0x00FF0000;;
-  retBuf[3] = connectionId & 0x0000FF00;
+  retBuf[0] = ObexHeaderId::ConnectionId;
+  retBuf[1] = (connectionId & 0xFF000000) >> 24;
+  retBuf[2] = (connectionId & 0x00FF0000) >> 16;
+  retBuf[3] = (connectionId & 0x0000FF00) >> 8;
   retBuf[4] = connectionId & 0x000000FF;
 
   return 5;
@@ -61,8 +61,50 @@ void
 SetObexPacketInfo(char* retBuf, char opcode, int packetLength)
 {
   retBuf[0] = opcode;
-  retBuf[1] = packetLength & 0xFF00;
+  retBuf[1] = (packetLength & 0xFF00) >> 8;
   retBuf[2] = packetLength & 0x00FF;
+}
+
+void
+ParseHeaders(const char* buf, int totalLength, ObexHeaderSet* retHandlerSet)
+{
+  const char* ptr = buf;
+
+  while (ptr - buf < totalLength) {
+    ObexHeaderId headerId = (ObexHeaderId)*ptr++;
+    int headerLength = 0;
+    char highByte, lowByte;
+
+    // IrOBEX 1.2 - 2.1 OBEX Headers
+    switch (headerId >> 6)
+    {
+      case 0x00:
+        // NULL terminated Unicode text, length prefixed with 2 byte unsigned integer.
+      case 0x01:
+        // byte sequence, length  prefixed with 2 byte unsigned integer.
+        highByte = *ptr++;
+        lowByte = *ptr++;
+        headerLength = ((int)highByte << 8) | lowByte;
+        break;
+
+      case 0x02:
+        // 1 byte quantity
+        headerLength = 1;
+        break;
+
+      case 0x03:
+        // 4 byte quantita
+        headerLength = 4;
+        break;
+    }
+
+    // Content
+    char* headerContent = new char[headerLength];
+    memcpy(headerContent, ptr, headerLength);
+    retHandlerSet->AddHeader(new ObexHeader(headerId, headerLength, headerContent));
+
+    ptr += headerLength;
+  }
 }
 
 END_BLUETOOTH_NAMESPACE

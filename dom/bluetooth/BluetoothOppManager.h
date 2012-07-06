@@ -23,10 +23,12 @@ public:
   BluetoothOppManager();
   ~BluetoothOppManager();
 
+  void SendFile(const char* aRemoteDeviceAddr, int aChannel, char* filePath);
+
   void Start();
   char onConnect();
   char onDisconnect();
-  char onPut();
+  char onPut(const ObexHeaderSet& reqHeaderSet, char* response);
 
 private:
   ObexServer* mServer;

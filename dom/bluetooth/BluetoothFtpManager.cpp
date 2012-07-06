@@ -35,7 +35,7 @@ BluetoothFtpManager::onConnect()
 }
 
 char
-BluetoothFtpManager::onSetPath()
+BluetoothFtpManager::onSetPath(const ObexHeaderSet& reqHeaderSet, char* response)
 {
   LOG("FtpManager::OnSetPath()"); 
 
@@ -45,43 +45,54 @@ BluetoothFtpManager::onSetPath()
 }
 
 char
-BluetoothFtpManager::onGet(const char* headerStart, int length, char* response)
+BluetoothFtpManager::onGet(const ObexHeaderSet& reqHeaderSet, char* response)
 {
   LOG("FtpManager::OnGet()");
 
   int currentIndex = 3;
 
-  // TODO(Eric)
-  // xxx Temp implementation
-  if (headerStart[15] == 0x66) {
-    // Folder Browsing
-    LOG("GET: Folder Browsing");
+  for (int i = 0; i < reqHeaderSet.mCount; ++i){
+    if (reqHeaderSet.mHeaders[i]->mId == ObexHeaderId::Type) {
+      char* type = reqHeaderSet.mHeaders[i]->mData;
+ 
+      // TODO(Eric)
+      // xxx Temp implementation
+      if (type[7] == 0x66) {
+        // Folder Browsing
+        LOG("GET: Folder Browsing");
 
-    char bodyStrAscii[] =
-"<?xml version=\"1.0\"?>\r\n\
+        char bodyStrAscii[] =
+          "<?xml version=\"1.0\"?>\r\n\
 <!DOCTYPE folder-listing SYSTEM \"obex-folder-listing.dtd\">\r\n\
 <folder-listing version=\"1.0\">\r\n\
 <folder name=\"sdcard\" size=\"32768\" user-perm=\"RW\" modified=\"19800101T000000Z\"/>\r\n\
+<file name=\"test.txt\" size=\"151\" user-perm=\"RW\" modified=\"19800101T000000Z\"/>\r\n\
 </folder-listing>\r\n";
 
-    currentIndex += AppendHeaderConnectionId(&response[currentIndex], 1);
-    currentIndex += AppendHeaderBody(&response[currentIndex], bodyStrAscii, sizeof(bodyStrAscii) - 1);
+        currentIndex += AppendHeaderConnectionId(&response[currentIndex], 1);
+        currentIndex += AppendHeaderBody(&response[currentIndex], bodyStrAscii, sizeof(bodyStrAscii) - 1);
 
-    SetObexPacketInfo(response, 0xA0, currentIndex);
-  } else if (headerStart[15] == 0x63) {
-    // Capability
-    LOG("GET: Capability");
+        LOG("Current Index:%d", currentIndex);
 
-    currentIndex += AppendHeaderConnectionId(&response[currentIndex], 1);
+        SetObexPacketInfo(response, 0xA0, currentIndex);
+      } else if (type[7] == 0x63) {
+        // Capability
+        LOG("GET: Capability");
 
-    SetObexPacketInfo(response, 0xC0, currentIndex);
+        currentIndex += AppendHeaderConnectionId(&response[currentIndex], 1);
+
+        SetObexPacketInfo(response, 0xC0, currentIndex);
+      }
+
+      break;
+    }
   }
 
   return ObexResponseCode::Success;
 }
 
 char
-BluetoothFtpManager::onPut()
+BluetoothFtpManager::onPut(const ObexHeaderSet& reqHeaderSet, char* response)
 {
   LOG("FtpManager::OnPut()"); 
 

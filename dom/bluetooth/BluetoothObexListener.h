@@ -8,6 +8,7 @@
 #define mozilla_dom_bluetooth_bluetoothobexlistener_h__
 
 #include "BluetoothCommon.h"
+#include "ObexBase.h"
 
 BEGIN_BLUETOOTH_NAMESPACE
 
@@ -15,10 +16,10 @@ class ObexListener
 {
 public:
   virtual char onConnect();
-  virtual char onPut();
   virtual char onDisconnect();
-  virtual char onSetPath();
-  virtual char onGet(const char* headerStart, int length, char* response);
+  virtual char onPut(const ObexHeaderSet& reqHeaderSet, char* response);
+  virtual char onGet(const ObexHeaderSet& reqHeaderSet, char* response);
+  virtual char onSetPath(const ObexHeaderSet& reqHeaderSet, char* response);
 };
 
 END_BLUETOOTH_NAMESPACE

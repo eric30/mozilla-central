@@ -24,19 +24,19 @@ ObexListener::onDisconnect()
 }
 
 char 
-ObexListener::onPut()
+ObexListener::onPut(const ObexHeaderSet& reqHeaderSet, char* response)
 {
   return ObexResponseCode::NotImplemented;
 }
 
 char 
-ObexListener::onSetPath()
+ObexListener::onSetPath(const ObexHeaderSet& reqHeaderSet, char* response)
 {
   return ObexResponseCode::NotImplemented;
 }
 
 char 
-ObexListener::onGet(const char* headerStart, int length, char* response)
+ObexListener::onGet(const ObexHeaderSet& reqHeaderSet, char* response)
 {
   return ObexResponseCode::NotImplemented;
 }

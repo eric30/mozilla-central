@@ -15,6 +15,8 @@ class BluetoothSocket;
 class ObexClient
 {
 public:
+  static const int MAX_PACKET_LENGTH = 0xFFFE;
+
   ObexClient(const char* aRemoteDeviceAddr, int aChannel);
 
   bool Init();
@@ -24,7 +26,6 @@ public:
 
 private:
   int SendRequestInternal(char opcode, char* req, int length);
-  void ParseHeaders(char* buf, int totalLength);
 
   BluetoothSocket* mSocket;
   BluetoothDevice* mRemoteDevice;

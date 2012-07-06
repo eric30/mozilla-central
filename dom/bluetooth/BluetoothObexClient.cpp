@@ -57,19 +57,18 @@ ObexClient::Connect()
 
   // Connect request
   // [opcode:1][length:2][version:1][flags:1][MaxPktSizeWeCanReceive:2][Headers:var]
-  char req[] = {0x80, 
-                0x00, 0x0C, 
-                0x10, 
-                0x00, 
-                0x20, 0x00,
-                0xCb,
-                0x00, 0x00, 0x00, mConnectionId};
+  char req[255];
+  int currentIndex = 7;
 
-  int responseCode = this->SendRequestInternal(req[0], req, sizeof(req));
+  req[3] = 0x10; // version:1.0
+  req[4] = 0x00; // flag:0x00
+  req[5] = ObexClient::MAX_PACKET_LENGTH >> 8;
+  req[6] = ObexClient::MAX_PACKET_LENGTH;
 
-  if (responseCode == 0xA0) {
-    mConnected = true;
-  }
+  currentIndex += AppendHeaderConnectionId(&req[currentIndex], mConnectionId);
+  SetObexPacketInfo(req, 0xA0, currentIndex);
+
+  if (this->SendRequestInternal(req[0], req, sizeof(req)) == 0xA0) mConnected = true;
 
   return true;
 }
@@ -139,12 +138,12 @@ ObexClient::Disconnect()
 int 
 ObexClient::SendRequestInternal(char opcode, char* req, int length)
 {
-  char buf[2048];
-
   LOG("Write request : %x", opcode);
   int ret = mSocket->WriteInternal(req, length);
  
   // Start to read
+  char* buf = new char[ObexClient::MAX_PACKET_LENGTH];
+
   ret = mSocket->ReadInternal(&buf[0], 1);
   LOG("Response code : %x", buf[0]);
   char responseCode = buf[0];
@@ -156,8 +155,10 @@ ObexClient::SendRequestInternal(char opcode, char* req, int length)
   int leftLength = packetLength - 3;
   ret = mSocket->ReadInternal(&buf[3], leftLength);
 
-  // Start response data parsing
-  if (opcode == 0x80) {
+  // Start parsing response data
+  ObexHeaderSet headerSet(opcode);
+
+  if (opcode == ObexRequestCode::Connect) {
     if (responseCode != ObexResponseCode::Success) {
       LOG("Connect failed: %x", responseCode);
       mConnected = false;
@@ -166,60 +167,21 @@ ObexClient::SendRequestInternal(char opcode, char* req, int length)
       mRemoteConnectionFlags = buf[4];
       mRemoteMaxPacketLength = ((buf[5] << 8) | buf[6]);
 
-      // TODO(Eric)
-      // Start header parsing, need to check header content
-      ParseHeaders(&buf[7], packetLength - 7);
+      ParseHeaders(&buf[7], packetLength - 7, &headerSet);
+
+      // TODO(Eric) 
+      // Remember to check if header "Connection Id" exists in headerSet
     }
-  } else if (opcode == 0x81) {
+  } else if (opcode == ObexRequestCode::Disconnect) {
     if (responseCode != ObexResponseCode::Success) {
       LOG("Disconnect failed: %x", responseCode);
     }
-  } else if (opcode == 0x02 || opcode == 0x82) {
+  } else if (opcode == ObexRequestCode::Put || opcode == ObexRequestCode::PutFinal) {
     // Put: Do nothing, just reply responsecode
   }
  
+  delete [] buf;
+
   return responseCode;
-}
-
-void
-ObexClient::ParseHeaders(char* buf, int totalLength)
-{
-  char* ptr = buf;
-
-  while (ptr - buf < totalLength) {
-    char headerOpcode = *ptr++;
-    int headerLength = 0;
-    char highByte, lowByte;
-
-    // IrOBEX 1.2 - 2.1 OBEX Headers
-    switch (headerOpcode >> 6)
-    {
-      case 0x00: 
-        // NULL terminated Unicode text, length prefixed with 2 byte unsigned integer.
-      case 0x01:
-        // byte sequence, length  prefixed with 2 byte unsigned integer.
-        highByte = *ptr++;
-        lowByte = *ptr++;
-
-        headerLength = ((int)highByte << 8) | lowByte;
-
-        break;
-
-      case 0x02:
-        // 1 byte quantity
-        headerLength = 1;
-        break;
-
-      case 0x03:
-        // 4 byte quantita
-        headerLength = 4;
-        break;
-    }
-
-    LOG("Header opcode: %x, Header length: %d", headerOpcode, headerLength);
-
-    // Content
-    ptr += headerLength;
-  }
 }
 

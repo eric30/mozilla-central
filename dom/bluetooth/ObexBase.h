@@ -8,10 +8,31 @@
 #define mozilla_dom_bluetooth_obexbase_h__
 
 #include "BluetoothCommon.h"
+#include <string>
 
 BEGIN_BLUETOOTH_NAMESPACE
 
 const char FINAL_BIT = 0x80;
+
+enum ObexHeaderId {
+  Count = 0xC0,
+  Name = 0x01,
+  Type = 0x42,
+  Length = 0xC3,
+  TimeISO8601 = 0x44,
+  Time4Byte = 0xC4,
+  Description = 0x05,
+  Target = 0x46,
+  HTTP = 0x47,
+  Body = 0x48,
+  EndOfBody = 0x49,
+  Who = 0x4A,
+  ConnectionId = 0xCB,
+  AppParameters = 0x4C,
+  AuthChallenge =0x4D,
+  AuthResponse = 0x4E,
+  ObjectClass = 0x4F
+};
 
 enum ObexRequestCode {
   Connect = 0x80,
@@ -70,11 +91,59 @@ enum ObexResponseCode {
   DatabaseLocked = 0xE1,
 };
 
+class ObexHeader {
+public:
+  ObexHeader(ObexHeaderId aId, int aDataLength, const char* aData) : mId(aId)
+                                                                   , mDataLength(aDataLength)
+  {
+    mData = new char[mDataLength];
+
+    memcpy(mData, aData, aDataLength);
+  }
+
+  ~ObexHeader()
+  {
+    if (mData != NULL) {
+      delete [] mData;
+    }
+  }
+
+  ObexHeaderId mId;
+  int mDataLength;
+  char* mData;
+};
+
+class ObexHeaderSet {
+public:
+  char mOpcode;
+  ObexHeader* mHeaders[10];
+  int mCount;
+
+  ObexHeaderSet(char aOpcode) : mOpcode(aOpcode)
+                              , mCount(0)
+  {
+
+  }
+
+  ~ObexHeaderSet()
+  {
+    while (mCount--) {
+      delete mHeaders[mCount];
+    }
+  }
+
+  void AddHeader(ObexHeader* aHeader)
+  {
+    mHeaders[mCount++] = aHeader;
+  }
+};
+
 int AppendHeaderName(char* retBuf, char* name, int length);
 int AppendHeaderBody(char* retBuf, char* data, int length);
 int AppendHeaderLength(char* retBuf, int objectLength);
 int AppendHeaderConnectionId(char* retBuf, int connectionId);
 void SetObexPacketInfo(char* retBuf, char opcode, int packetLength);
+void ParseHeaders(const char* buf, int totalLength, ObexHeaderSet* retHanderSet);
 
 END_BLUETOOTH_NAMESPACE
 
