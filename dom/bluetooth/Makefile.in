@@ -37,6 +37,7 @@ CPPSRCS = \
   BluetoothObexListener.cpp \
   ObexBase.cpp \
   FakeFileSystem.cpp \
+  BluetoothServiceUuidHelper.cpp \
   $(NULL)
 
 XPIDLSRCS = \

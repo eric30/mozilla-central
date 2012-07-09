@@ -18,7 +18,7 @@ class ObexServer;
 class BluetoothFtpManager : public ObexListener
 {
 public:
-  static const int DEFAULT_FTP_CHANNEL = 11;
+  static const int DEFAULT_FTP_CHANNEL = 8;
 
   BluetoothFtpManager();
   ~BluetoothFtpManager();

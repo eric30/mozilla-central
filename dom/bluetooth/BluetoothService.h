@@ -42,6 +42,7 @@ int AddRfcommServiceRecordInternal(const char* aName,
                                    unsigned long long aUuidMsb,
                                    unsigned long long aUuidLsb,
                                    short aChannel);
+int AddReservedServiceRecordsInternal(int* aServiceIds, int aLength);
 bool RemoveServiceRecordInternal(int aHandle);
 int GetDeviceServiceChannelInternal(const char* aObjectPath, const char* aPattern, int aAttrId);
 const char* GetObjectPathFromAddress(const char* aAddress);

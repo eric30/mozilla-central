@@ -557,6 +557,21 @@ RemoveServiceRecordInternal(int aHandle)
   return reply ? true : false;
 }
 
+int
+AddReservedServiceRecordsInternal(int* aServiceIds, int aLength)
+{
+  DBusMessage *reply = dbus_func_args(GetCurrentConnection(),
+      GetDefaultAdapterPath(),
+      DBUS_ADAPTER_IFACE, "AddReservedServiceRecords",
+      DBUS_TYPE_ARRAY, DBUS_TYPE_UINT32, 
+      &aServiceIds, aLength,
+      DBUS_TYPE_INVALID);
+
+  // TODO(Eric) 
+  // will return array of handles, needs to parse
+  return NULL;
+}
+
 int 
 GetDeviceServiceChannelInternal(const char* aObjectPath, const char* aPattern, int aAttrId)
 {

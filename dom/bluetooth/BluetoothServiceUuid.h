@@ -16,6 +16,7 @@ namespace BluetoothServiceUuid {
   static unsigned long long AudioSource  = 0x0000110A00000000;
   static unsigned long long AdvAudioDist = 0x0000110D00000000;
   static unsigned long long Headset      = 0x0000110800000000;
+  static unsigned long long HeadsetAG    = 0x0000111200000000;
   static unsigned long long HandsfreeAG  = 0x0000111F00000000;
   static unsigned long long ObjectPush   = 0x0000110500000000;
   static unsigned long long FTP          = 0x0000110600000000;

@@ -18,6 +18,7 @@
 #include "BluetoothOppManager.h"
 #include "BluetoothFtpManager.h"
 #include "BluetoothServiceUuid.h"
+#include "BluetoothServiceUuidHelper.h"
 #include "BluetoothSocket.h"
 #include "ObexBase.h"
 
@@ -213,26 +214,19 @@ BluetoothAdapter::Setup()
   // Register Bluetooth agent
   RegisterAgent();
 
-  // Register services
-  if (mHfpServiceHandle < 0) {
-    mHfpServiceHandle = AddRfcommServiceRecordInternal("handsfree_ag", 
-                                   BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::HandsfreeAG,
-                                   BluetoothServiceUuid::BaseLSB,
-                                   BluetoothHfpManager::DEFAULT_HFP_CHANNEL);
-  }
+  // Register reserved services, it will use uuid_16 to register, so that BlueZ will update
+  // Major Service Class of CoD.
+  // (For more information, please see bug 768781)
+  int reservedServices[3];
+  
+  reservedServices[0] = BluetoothServiceUuidHelper::Get16BitServiceId(BluetoothServiceUuid::HandsfreeAG);
+  reservedServices[1] = BluetoothServiceUuidHelper::Get16BitServiceId(BluetoothServiceUuid::HeadsetAG);
+  reservedServices[2] = BluetoothServiceUuidHelper::Get16BitServiceId(BluetoothServiceUuid::ObjectPush);
 
-  if (mHspServiceHandle < 0) {
-    mHspServiceHandle = AddRfcommServiceRecordInternal("headset", 
-                                   BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::Headset,
-                                   BluetoothServiceUuid::BaseLSB,
-                                   BluetoothHfpManager::DEFAULT_HSP_CHANNEL);
-  }
+  AddReservedServiceRecordsInternal(reservedServices, 3);
 
-  AddRfcommServiceRecordInternal("OBEX Object Push",
-                                 BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::ObjectPush,
-                                 BluetoothServiceUuid::BaseLSB,
-                                 BluetoothOppManager::DEFAULT_OPP_CHANNEL);
- 
+  // FTP is not reserved service.
+  // (How to distinguish it's a reserved service or not?
   AddRfcommServiceRecordInternal("OBEX File Transfer",
                                  BluetoothServiceUuid::BaseMSB + BluetoothServiceUuid::FTP,
                                  BluetoothServiceUuid::BaseLSB,
