@@ -9,6 +9,7 @@
 #include "BluetoothDevice.h"
 #include "BluetoothDeviceEvent.h"
 #include "BluetoothPropertyEvent.h"
+#include "BluetoothPairingEvent.h"
 #include "BluetoothService.h"
 #include "BluetoothTypes.h"
 #include "BluetoothReplyRunnable.h"
@@ -28,6 +29,11 @@ using namespace mozilla;
 
 USING_BLUETOOTH_NAMESPACE
 
+#define LOCAL_AGENT_PATH "/B2G/bluetooth/agent"
+#define REMOTE_AGENT_PATH "/B2G/bluetooth/remote_device_agent"
+
+#define DOM_BLUETOOTH_URL_PREF "dom.mozBluetooth.whitelist"
+
 DOMCI_DATA(BluetoothAdapter, BluetoothAdapter)
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(BluetoothAdapter)
@@ -43,7 +49,11 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(BluetoothAdapter,
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE_SCRIPT_OBJECTS
   NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicefound)
   NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicedisappeared)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(propertychanged)  
+  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(propertychanged)
+  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(requestconfirmation)
+  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(requestpincode)
+  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(requestpasskey)
+  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(cancel)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothAdapter, 
@@ -52,6 +62,10 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothAdapter,
   NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicefound)
   NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicedisappeared)
   NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(propertychanged)  
+  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(requestconfirmation)
+  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(requestpincode)
+  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(requestpasskey)
+  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(cancel)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(BluetoothAdapter)
@@ -189,6 +203,17 @@ BluetoothAdapter::Create(nsPIDOMWindow* aOwner, const nsAString& aPath)
     NS_WARNING("Failed to register object with observer!");
     return nsnull;
   }
+
+  if (NS_FAILED(bs->RegisterBluetoothSignalHandler(NS_LITERAL_STRING(LOCAL_AGENT_PATH), adapter))) {
+    NS_WARNING("Failed to register local agent object with observer!");
+    return nsnull;
+  }
+
+  if (NS_FAILED(bs->RegisterBluetoothSignalHandler(NS_LITERAL_STRING(REMOTE_AGENT_PATH), adapter))) {
+    NS_WARNING("Failed to register remote agent object with observer!");
+    return nsnull;
+  }
+
   return adapter.forget();
 }
 
@@ -211,6 +236,38 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
     SetPropertyByValue(v);
     nsRefPtr<BluetoothPropertyEvent> e = BluetoothPropertyEvent::Create(v.name());
     e->Dispatch(ToIDOMEventTarget(), NS_LITERAL_STRING("propertychanged"));
+  } else if (aData.name().EqualsLiteral("RequestConfirmation")) {
+    nsString deviceObjectPath = aData.value().get_ArrayOfBluetoothNamedValue()[0].value().get_nsString();
+
+    // Keep msg address for later use in function SetPinCode()
+    mPairingRequestMsgAddr = aData.value().get_ArrayOfBluetoothNamedValue()[1].value().get_uint32_t();
+
+    uint32_t passkey = aData.value().get_ArrayOfBluetoothNamedValue()[2].value().get_uint32_t();
+
+    nsRefPtr<BluetoothPairingEvent> e = BluetoothPairingEvent::Create(deviceObjectPath, passkey);
+    e->Dispatch(ToIDOMEventTarget(), NS_LITERAL_STRING("requestconfirmation"));  
+  } else if (aData.name().EqualsLiteral("RequestPinCode")) {
+    nsString deviceObjectPath = aData.value().get_ArrayOfBluetoothNamedValue()[0].value().get_nsString();
+   
+    // Keep msg address for later use in function SetPinCode()
+    mPairingRequestMsgAddr = aData.value().get_ArrayOfBluetoothNamedValue()[1].value().get_uint32_t();
+
+    nsRefPtr<BluetoothPairingEvent> e = BluetoothPairingEvent::Create(deviceObjectPath, 0);
+    e->Dispatch(ToIDOMEventTarget(), NS_LITERAL_STRING("requestpincode"));
+  } else if (aData.name().EqualsLiteral("RequestPasskey")) {
+    nsString deviceObjectPath = aData.value().get_ArrayOfBluetoothNamedValue()[0].value().get_nsString();
+
+    // Keep msg address for later use in function SetPinCode()
+    mPairingRequestMsgAddr = aData.value().get_ArrayOfBluetoothNamedValue()[1].value().get_uint32_t();
+
+    nsRefPtr<BluetoothPairingEvent> e = BluetoothPairingEvent::Create(deviceObjectPath, 0);
+    e->Dispatch(ToIDOMEventTarget(), NS_LITERAL_STRING("requestpasskey"));
+  } else if (aData.name().EqualsLiteral("Cancel")) {
+    // TODO(Eric)
+    // Do we need to find a way to send a null pointer?
+    nsString deviceObjectPath;
+    nsRefPtr<BluetoothPairingEvent> e = BluetoothPairingEvent::Create(deviceObjectPath, 0);
+    e->Dispatch(ToIDOMEventTarget(), NS_LITERAL_STRING("cancel"));
   } else {
 #ifdef DEBUG
     nsCString warningMsg;
@@ -448,6 +505,68 @@ BluetoothAdapter::Unpair(nsIDOMBluetoothDevice* aDevice, nsIDOMDOMRequest** aReq
   return result ? NS_OK : NS_ERROR_FAILURE;
 }
 
+nsresult
+BluetoothAdapter::SetPinCode(const nsAString& aPinCode)
+{
+  if (!CheckPermission()) {
+    // Permission denied. Do nothing.
+    return NS_OK;
+  }
+
+  BluetoothService* bs = BluetoothService::Get();
+  MOZ_ASSERT(bs);
+
+  bool result = bs->SetPinCodeInternal(aPinCode, mPairingRequestMsgAddr);
+
+  return result ? NS_OK : NS_ERROR_FAILURE;
+}
+
+nsresult
+BluetoothAdapter::SetPasskey(PRUint32 aPasskey)
+{
+  if (!CheckPermission()) {
+    // Permission denied. Do nothing.
+    return NS_OK;
+  }
+
+  BluetoothService* bs = BluetoothService::Get();
+  MOZ_ASSERT(bs);
+
+  bool result = bs->SetPasskeyInternal(aPasskey, mPairingRequestMsgAddr);
+
+  return result ? NS_OK : NS_ERROR_FAILURE;
+}
+
+nsresult
+BluetoothAdapter::SetPairingConfirmation(bool confirmation)
+{
+  if (!CheckPermission()) {
+    // Permission denied. Do nothing.
+    return NS_OK;
+  }
+
+  BluetoothService* bs = BluetoothService::Get();
+  MOZ_ASSERT(bs);
+
+  bool result = bs->SetPairingConfirmationInternal(confirmation, mPairingRequestMsgAddr);
+
+  return result ? NS_OK : NS_ERROR_FAILURE;
+}
+
+bool
+BluetoothAdapter::CheckPermission()
+{
+  bool allowed;
+  nsresult rv = nsContentUtils::IsOnPrefWhitelist(GetOwner(), DOM_BLUETOOTH_URL_PREF, &allowed);
+
+  if (NS_FAILED(rv)) return false;
+
+  return allowed;
+}
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, propertychanged)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicefound)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicedisappeared)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestconfirmation)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestpincode)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestpasskey)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, cancel)

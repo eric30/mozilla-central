@@ -35,10 +35,26 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   nsIDOMDOMRequest stopDiscovery();
   nsIDOMDOMRequest pair(in nsIDOMBluetoothDevice aDevice);
   nsIDOMDOMRequest unpair(in nsIDOMBluetoothDevice aDevice);  
+  
+  // TODO(Eric)
+  // The following set* functions are for Settings/System app using, 
+  // should not be mentioned in WebAPI document. It's similar to 
+  // @hide tag in Android, however I don't know how to implement it
+  // correctly. Now I called permission-checking function inside these
+  // functions.
+  void setPinCode(in DOMString aPinCode);
+  void setPasskey(in unsigned long aPasskey);
+  void setPairingConfirmation(in bool aConfirmation);
+
   // Fired when discoverying and any device is discovered.
   attribute nsIDOMEventListener ondevicefound;
   // Fired when any device is out of discoverable range.
   attribute nsIDOMEventListener ondevicedisappeared;
   // Fired when a property of the adapter is changed
   attribute nsIDOMEventListener onpropertychanged;
+  // Pairing related event
+  attribute nsIDOMEventListener onrequestconfirmation;
+  attribute nsIDOMEventListener onrequestpincode;
+  attribute nsIDOMEventListener onrequestpasskey;
+  attribute nsIDOMEventListener oncancel;
 };
