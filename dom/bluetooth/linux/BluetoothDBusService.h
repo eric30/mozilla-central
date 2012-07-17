@@ -45,6 +45,16 @@ public:
                 const nsAString& aDeviceAddress,
                 nsAString& aDevicePath);
 
+  virtual bool
+  CreatePairedDeviceInternal(const nsAString& aAdapterPath,
+                             const nsAString& aDeviceAddress,
+                             int aTimeout,
+                             BluetoothReplyRunnable* aRunnable);
+
+  virtual bool
+  RemoveDeviceInternal(const nsAString& aAdapterPath,
+                       const nsAString& aDeviceObjectPath,
+                       BluetoothReplyRunnable* aRunnable);
 private:
   nsresult SendGetPropertyMessage(const nsAString& aPath,
                                   const char* aInterface,

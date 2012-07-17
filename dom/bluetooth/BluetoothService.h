@@ -187,6 +187,14 @@ public:
                 const nsAString& aDeviceAddress,
                 nsAString& aDevicePath) = 0;
 
+  virtual bool CreatePairedDeviceInternal(const nsAString& aAdapterPath,
+                                          const nsAString& aAddress,
+                                          int aTimeout,
+                                          BluetoothReplyRunnable* aRunnable) = 0;
+
+  virtual bool RemoveDeviceInternal(const nsAString& aAdapterPath,
+                                    const nsAString& aObjectPath,
+                                    BluetoothReplyRunnable* aRunnable) = 0;
 protected:
   BluetoothService()
   {

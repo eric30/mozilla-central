@@ -57,6 +57,8 @@ USING_BLUETOOTH_NAMESPACE
 #define LOG(args...) if (BTDEBUG) printf(args);
 #endif
 
+#define B2G_AGENT_CAPABILITIES "DisplayYesNo"
+#define B2G_REMOTE_DEVICE_AGENT "/B2G/bluetooth/remote_device_agent"
 #define DBUS_MANAGER_IFACE BLUEZ_DBUS_BASE_IFC ".Manager"
 #define DBUS_ADAPTER_IFACE BLUEZ_DBUS_BASE_IFC ".Adapter"
 #define DBUS_DEVICE_IFACE BLUEZ_DBUS_BASE_IFC ".Device"
@@ -838,3 +840,57 @@ BluetoothDBusService::GetDevicePath(const nsAString& aAdapterPath,
   aDevicePath = GetObjectPathFromAddress(aAdapterPath, aDeviceAddress);
   return true;
 }
+
+bool
+BluetoothDBusService::CreatePairedDeviceInternal(const nsAString& aAdapterPath,
+                                                 const nsAString& aDeviceAddress,
+                                                 int aTimeout,
+                                                 BluetoothReplyRunnable* aRunnable)                                                 
+{
+  const char *capabilities = B2G_AGENT_CAPABILITIES;
+  const char *deviceAgentPath = B2G_REMOTE_DEVICE_AGENT;
+  const char *adapterPath = NS_ConvertUTF16toUTF8(aAdapterPath).get();
+  const char *deviceAddress = NS_ConvertUTF16toUTF8(aDeviceAddress).get();
+  nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
+  // Then send CreatePairedDevice, it will register a temp device agent then
+  // unregister it after pairing process is over
+  bool ret = dbus_func_args_async(mConnection,
+                                  aTimeout,
+                                  GetVoidCallback,
+                                  (void*)runnable,
+                                  adapterPath,
+                                  DBUS_ADAPTER_IFACE,
+                                  "CreatePairedDevice",
+                                  DBUS_TYPE_STRING, &deviceAddress,
+                                  DBUS_TYPE_OBJECT_PATH, &deviceAgentPath,
+                                  DBUS_TYPE_STRING, &capabilities,
+                                  DBUS_TYPE_INVALID);
+
+  runnable.forget();
+
+  return ret;
+}
+
+bool
+BluetoothDBusService::RemoveDeviceInternal(const nsAString& aAdapterPath,
+                                           const nsAString& aDeviceAddress,
+                                           BluetoothReplyRunnable* aRunnable)
+{
+  const char* adapterPath = NS_ConvertUTF16toUTF8(aAdapterPath).get();
+  const char* deviceObjectPath = NS_ConvertUTF16toUTF8(GetObjectPathFromAddress(aAdapterPath,
+                                                                                aDeviceAddress)).get();
+  nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
+
+  bool ret = dbus_func_args_async(mConnection,
+                                  -1,
+                                  GetVoidCallback,
+                                  (void*)runnable,
+                                  adapterPath,
+                                  DBUS_ADAPTER_IFACE,
+                                  "RemoveDevice",
+                                  DBUS_TYPE_OBJECT_PATH, &deviceObjectPath,
+                                  DBUS_TYPE_INVALID);
+  runnable.forget();
+  return ret;
+}
+

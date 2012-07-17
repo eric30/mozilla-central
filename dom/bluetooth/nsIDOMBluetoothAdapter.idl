@@ -33,6 +33,8 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   nsIDOMDOMRequest setDiscoverableTimeout(in unsigned long timeout);
   nsIDOMDOMRequest startDiscovery();
   nsIDOMDOMRequest stopDiscovery();
+  nsIDOMDOMRequest pair(in nsIDOMBluetoothDevice aDevice);
+  nsIDOMDOMRequest unpair(in nsIDOMBluetoothDevice aDevice);  
   // Fired when discoverying and any device is discovered.
   attribute nsIDOMEventListener ondevicefound;
   // Fired when any device is out of discoverable range.
