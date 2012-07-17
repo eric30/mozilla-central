@@ -38,6 +38,8 @@ public:
   Create(nsPIDOMWindow* aWindow);
   void Notify(const BluetoothSignal& aData);
   virtual void SetPropertyByValue(const BluetoothNamedValue& aValue);
+
+  static bool InitAfterBtEnabled(const nsAString& aAdapterPath);
 private:
   BluetoothManager(nsPIDOMWindow* aWindow);
   ~BluetoothManager();

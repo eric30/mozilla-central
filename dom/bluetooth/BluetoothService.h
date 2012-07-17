@@ -195,6 +195,9 @@ public:
   virtual bool RemoveDeviceInternal(const nsAString& aAdapterPath,
                                     const nsAString& aObjectPath,
                                     BluetoothReplyRunnable* aRunnable) = 0;
+
+  virtual bool RegisterAgent(const nsAString& aAdapterPath) = 0;
+
 protected:
   BluetoothService()
   {

@@ -89,6 +89,12 @@ public:
       NS_WARNING("Cannot create native object!");
       SetError(NS_LITERAL_STRING("BluetoothNativeObjectError"));
     }
+    
+    result = BluetoothManager::InitAfterBtEnabled(path);    
+    if (!result) {
+      NS_WARNING("Initialization failed after adapter path has been created.");
+      SetError(NS_LITERAL_STRING("BluetoothInitFailedError"));
+    }
 
     return result;
   }
@@ -303,4 +309,17 @@ BluetoothManager::Notify(const BluetoothSignal& aData)
   warningMsg.Append(NS_ConvertUTF16toUTF8(aData.name()));
   NS_WARNING(warningMsg.get());
 #endif
+}
+
+//static 
+bool
+BluetoothManager::InitAfterBtEnabled(const nsAString& aAdapterPath)
+{
+  BluetoothService* bs = BluetoothService::Get();
+  if(!bs) {
+    NS_WARNING("BluetoothService not available!");
+    return false;
+  }
+
+  return bs->RegisterAgent(aAdapterPath);
 }

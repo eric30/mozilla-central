@@ -814,7 +814,7 @@ agent_event_filter(DBusConnection *conn, DBusMessage *msg, void *data)
   return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static const DBusObjectPathVTable agent_vtable = {
+static const DBusObjectPathVTable agentVtable = {
   NULL, agent_event_filter, NULL, NULL, NULL, NULL
 };
 
@@ -834,7 +834,7 @@ RegisterLocalAgent(const char* adapterPath,
   DBusError err;
 
   if (!dbus_connection_register_object_path(gThreadConnection->GetConnection(), agentPath,
-        &agent_vtable, NULL)) {
+        &agentVtable, NULL)) {
     LOG("%s: Can't register object path %s for agent!",
         __FUNCTION__, agentPath);
     return false;
@@ -878,12 +878,12 @@ RegisterLocalAgent(const char* adapterPath,
 }
 
 bool
-RegisterAgent(const char* aAdapterPath)
+BluetoothDBusService::RegisterAgent(const nsAString& aAdapterPath)
 {
-  // Register local agent
-  const char *local_agent_path = "/B2G/bluetooth/agent";
+  const char* adapterPath = NS_ConvertUTF16toUTF8(aAdapterPath).get();
+  const char *localAgentPath = "/B2G/bluetooth/agent";
   const char *capabilities = B2G_AGENT_CAPABILITIES;
-  if(!RegisterLocalAgent(aAdapterPath, local_agent_path, capabilities)) {
+  if(!RegisterLocalAgent(adapterPath, localAgentPath, capabilities)) {
     return false;
   }
 
@@ -894,7 +894,7 @@ RegisterAgent(const char* aAdapterPath)
   // (See maemo.org/api_refs/5.0/beta/bluez/adapter.html)
   if (!dbus_connection_register_object_path(gThreadConnection->GetConnection(),
                                             deviceAgentPath,
-                                            &agent_vtable,
+                                            &agentVtable,
                                             NULL)) {
     LOG("%s: Can't register object path %s for remote device agent!",
         __FUNCTION__, deviceAgentPath);

@@ -55,6 +55,9 @@ public:
   RemoveDeviceInternal(const nsAString& aAdapterPath,
                        const nsAString& aDeviceObjectPath,
                        BluetoothReplyRunnable* aRunnable);
+
+  virtual bool RegisterAgent(const nsAString& aAdapterPath);
+
 private:
   nsresult SendGetPropertyMessage(const nsAString& aPath,
                                   const char* aInterface,
