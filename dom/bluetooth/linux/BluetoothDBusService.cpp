@@ -129,6 +129,8 @@ static const char* sBluetoothDBusSignals[] =
   "type='signal',interface='org.bluez.AudioSink'"
 };
 
+nsAutoPtr<RawDBusConnection> gThreadConnection;
+
 class DistributeBluetoothSignalTask : public nsRunnable {
   BluetoothSignal mSignal;
 public:
@@ -616,7 +618,15 @@ BluetoothDBusService::StartInternal()
     StopDBus();
     return NS_ERROR_FAILURE;
   }
-	
+
+  gThreadConnection = new RawDBusConnection();
+  
+  if (NS_FAILED(gThreadConnection->EstablishDBusConnection())) {
+    NS_WARNING("Cannot start Sync Thread DBus connection!");
+    StopDBus();
+    return NS_ERROR_FAILURE;
+  }
+
   // Add a filter for all incoming messages_base
   if (!dbus_connection_add_filter(mConnection, EventFilter,
                                   NULL, NULL)) {
@@ -639,15 +649,266 @@ BluetoothDBusService::StopInternal()
   }
   dbus_connection_remove_filter(mConnection, EventFilter, NULL);
   mConnection = nsnull;
+  gThreadConnection = nsnull;
   mBluetoothSignalObserverTable.Clear();
   StopDBus();
   return NS_OK;
 }
 
+DBusHandlerResult 
+agent_event_filter(DBusConnection *conn, DBusMessage *msg, void *data)
+{
+  if (dbus_message_get_type(msg) != DBUS_MESSAGE_TYPE_METHOD_CALL) {
+    LOG("%s: agent handler not interested (not a method call).\n", __FUNCTION__);
+    return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+  }
+
+  LOG("%s: agent handler Received method %s:%s\n", __FUNCTION__,
+      dbus_message_get_interface(msg), dbus_message_get_member(msg));
+
+  DBusError err;
+  nsString signalPath;
+  nsString signalName;
+  dbus_error_init(&err);
+  signalPath = NS_ConvertUTF8toUTF16(dbus_message_get_path(msg));
+  signalName = NS_ConvertUTF8toUTF16(dbus_message_get_member(msg));
+  nsString errorStr;
+  BluetoothValue v;
+  InfallibleTArray<BluetoothNamedValue> parameters;
+
+  // The following descriptions of each signal are retrieved from:
+  //
+  // http://maemo.org/api_refs/5.0/beta/bluez/agent.html
+  //
+  if (dbus_message_is_method_call(msg, "org.bluez.Agent", "RequestConfirmation")) {
+    // This method gets called when the service daemon needs to confirm a passkey for
+    // an authentication.
+    char *object_path;
+    uint32_t passkey;
+    if (!dbus_message_get_args(msg, NULL,
+                               DBUS_TYPE_OBJECT_PATH, &object_path,
+                               DBUS_TYPE_UINT32, &passkey,
+                               DBUS_TYPE_INVALID)) {
+      LOG("%s: Invalid arguments for RequestConfirmation() method", __FUNCTION__);
+      errorStr.AssignLiteral("Invalid arguments for RequestConfirmation() method");
+    } else {
+      parameters.AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("Device"),
+                                                   NS_ConvertUTF8toUTF16(object_path)));
+      parameters.AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("MessageAddress"),
+                                                   (uint32_t)msg));
+      parameters.AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("Passkey"), passkey));
+
+      // We still need this msg, so increase its ref count.
+      dbus_message_ref(msg);
+
+      v = parameters;
+    }
+  } else if (dbus_message_is_method_call(msg, "org.bluez.Agent", "Cancel")) {
+    // This method gets called to indicate that the agent request failed before a reply
+    // was returned.
+
+    // Return directly
+    DBusMessage *reply = dbus_message_new_method_return(msg);
+    dbus_connection_send(conn, reply, NULL);
+    dbus_message_unref(reply);
+  } else if (dbus_message_is_method_call(msg, "org.bluez.Agent", "Authorize")) {
+    // This method gets called when the service daemon needs to authorize a
+    // connection/service request.
+    char *object_path;
+    const char *uuid;
+    if (!dbus_message_get_args(msg, NULL,
+                               DBUS_TYPE_OBJECT_PATH, &object_path,
+                               DBUS_TYPE_STRING, &uuid,
+                               DBUS_TYPE_INVALID)) {
+      LOG("%s: Invalid arguments for Authorize() method", __FUNCTION__);
+    } else {
+      parameters.AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("Device"),
+                               NS_ConvertUTF8toUTF16(object_path)));
+
+      v = parameters;
+    }
+    
+    // TODO(Eric)
+    // Needs to send an notification to upper layer.
+    // DBusMessage *reply = dbus_message_new_method_return(msg);
+    // dbus_connection_send(conn, reply, NULL);
+    // dbus_message_unref(reply);
+  } else if (dbus_message_is_method_call(msg, "org.bluez.Agent", "RequestPinCode")) {
+    // This method gets called when the service daemon needs to get the passkey for an
+    // authentication. The return value should be a string of 1-16 characters length.
+    // The string can be alphanumeric.
+    char *object_path;
+    if (!dbus_message_get_args(msg, NULL,
+                               DBUS_TYPE_OBJECT_PATH, &object_path,
+                               DBUS_TYPE_INVALID)) {
+      LOG("%s: Invalid arguments for RequestPinCode() method", __FUNCTION__);
+      errorStr.AssignLiteral("Invalid arguments for RequestPinCode() method");
+    } else {
+      parameters.AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("Device"),
+                                                   NS_ConvertUTF8toUTF16(object_path)));
+      parameters.AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("MessageAddress"),
+                                                   (uint32_t)msg));
+      // We still need this msg, so increase its ref count.
+      dbus_message_ref(msg);
+
+      v = parameters;
+    }
+  } else if (dbus_message_is_method_call(msg, "org.bluez.Agent", "RequestPasskey")) {
+    // This method gets called when the service daemon needs to get the passkey for an
+    // authentication. The return value should be a numeric value between 0-999999.
+    char *object_path;
+    if (!dbus_message_get_args(msg, NULL,
+                               DBUS_TYPE_OBJECT_PATH, &object_path,
+                               DBUS_TYPE_INVALID)) {
+      LOG("%s: Invalid arguments for RequestPasskey() method", __FUNCTION__);
+      errorStr.AssignLiteral("Invalid arguments for RequestPasskey() method");
+    } else {
+      parameters.AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("Device"),
+                                                   NS_ConvertUTF8toUTF16(object_path)));
+      parameters.AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("MessageAddress"),
+                                                   (uint32_t)msg));
+      // We still need this msg, so increase its ref count.
+      dbus_message_ref(msg);
+
+      v = parameters;
+    }
+  } else if (dbus_message_is_method_call(msg, "org.bluez.Agent", "DisplayPasskey")) {
+    // This method gets called when the service daemon needs to display a passkey for
+    // an authentication. The entered parameter indicates the number of already typed
+    // keys on the remote side.
+
+    // TODO(Eric)
+    // Needs to send an notification to upper layer.
+    DBusMessage *reply =dbus_message_new_method_return(msg);
+    dbus_connection_send(conn, reply, NULL);
+    dbus_message_unref(reply);
+  } else if (dbus_message_is_method_call(msg, "org.bluez.Agent", "Release")) {
+    // This method gets called when the service daemon unregisters the agent. An agent
+    // can use it to do cleanup tasks. There is no need to unregister the agent, because
+    // when this method gets called it has already been unregistered.
+
+    // Do not send an notification to upper layer, too annoying.
+    DBusMessage *reply = dbus_message_new_method_return(msg);
+    dbus_connection_send(conn, reply, NULL);
+    dbus_message_unref(reply);
+
+    return DBUS_HANDLER_RESULT_HANDLED;
+  } else {
+    LOG("agent handler %s: Unhandled event. Ignore.", __FUNCTION__);
+  }
+
+  if(!errorStr.IsEmpty()) {
+    NS_WARNING(NS_ConvertUTF16toUTF8(errorStr).get());
+    return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+  }
+
+  BluetoothSignal signal(signalName, signalPath, v);
+
+  nsRefPtr<DistributeBluetoothSignalTask>
+    t = new DistributeBluetoothSignalTask(signal);
+
+  if (NS_FAILED(NS_DispatchToMainThread(t))) {
+     NS_WARNING("Failed to dispatch to main thread!");
+  }
+
+  return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static const DBusObjectPathVTable agent_vtable = {
+  NULL, agent_event_filter, NULL, NULL, NULL, NULL
+};
+
+// Local agent means agent for Adapter, not agent for Device. Some signals
+// will be passed to local agent, some will be passed to device agent.
+// For example, if a remote device would like to pair with us, then the
+// signal will be passed to local agent. If we start pairing process with
+// calling CreatePairedDevice, we'll get signal which should be passed to
+// device agent.
+bool 
+RegisterLocalAgent(const char* adapterPath,
+                   const char* agentPath, 
+                   const char* capabilities)
+{
+  MOZ_ASSERT(!NS_IsMainThread());
+  DBusMessage *msg, *reply;
+  DBusError err;
+
+  if (!dbus_connection_register_object_path(gThreadConnection->GetConnection(), agentPath,
+        &agent_vtable, NULL)) {
+    LOG("%s: Can't register object path %s for agent!",
+        __FUNCTION__, agentPath);
+    return false;
+  }
+
+  LOG("PASS, and AdapterPath = %s", adapterPath);
+
+  msg = dbus_message_new_method_call("org.bluez", adapterPath, "org.bluez.Adapter", "RegisterAgent");
+  if (!msg) {
+    LOG("%s: Can't allocate new method call for agent!", __FUNCTION__);
+    return false;
+  }
+
+  dbus_message_append_args(msg,
+      DBUS_TYPE_OBJECT_PATH, &agentPath,
+      DBUS_TYPE_STRING, &capabilities,
+      DBUS_TYPE_INVALID);
+
+  dbus_error_init(&err);
+  reply = dbus_connection_send_with_reply_and_block(gThreadConnection->GetConnection(),
+                                                    msg, -1, &err);
+  dbus_message_unref(msg);
+
+  if (!reply) {
+    if (dbus_error_is_set(&err)) {
+      if(!strcmp(err.name, "org.bluez.Error.AlreadyExists") != 0) {
+        LOG_AND_FREE_DBUS_ERROR(&err);
+        LOG("Agent already registered, still returning true");
+      } else {
+        LOG_AND_FREE_DBUS_ERROR(&err);
+        LOG("%s: Can't register agent!", __FUNCTION__);
+        return false;
+      }
+    }
+  } else {
+    dbus_message_unref(reply);
+  }
+  
+  dbus_connection_flush(gThreadConnection->GetConnection());
+  return true;
+}
+
+bool
+RegisterAgent(const char* aAdapterPath)
+{
+  // Register local agent
+  const char *local_agent_path = "/B2G/bluetooth/agent";
+  const char *capabilities = B2G_AGENT_CAPABILITIES;
+  if(!RegisterLocalAgent(aAdapterPath, local_agent_path, capabilities)) {
+    return false;
+  }
+
+  const char *deviceAgentPath = B2G_REMOTE_DEVICE_AGENT;
+
+  // There is no "RegisterAgent" function defined in device interface.
+  // When we call "CreatePairedDevice", it will do device agent registration for us.
+  // (See maemo.org/api_refs/5.0/beta/bluez/adapter.html)
+  if (!dbus_connection_register_object_path(gThreadConnection->GetConnection(),
+                                            deviceAgentPath,
+                                            &agent_vtable,
+                                            NULL)) {
+    LOG("%s: Can't register object path %s for remote device agent!",
+        __FUNCTION__, deviceAgentPath);
+
+    return false;
+  }
+
+  return true;
+}
+
 nsresult
 BluetoothDBusService::GetDefaultAdapterPathInternal(BluetoothReplyRunnable* aRunnable)
 {
-  if (!mConnection) {
+  if (!mConnection || !gThreadConnection) {
     NS_ERROR("Bluetooth service not started yet!");
     return NS_ERROR_FAILURE;
   }
