@@ -197,6 +197,9 @@ public:
                                     BluetoothReplyRunnable* aRunnable) = 0;
 
   virtual bool RegisterAgent(const nsAString& aAdapterPath) = 0;
+  virtual bool SetPinCodeInternal(const nsAString& aPinCode, PRUint32 aMsgAddress) = 0;
+  virtual bool SetPasskeyInternal(PRUint32 aPasskey, PRUint32 aMsgAddress) = 0;
+  virtual bool SetPairingConfirmationInternal(bool aConfirm, PRUint32 aMsgAddress) = 0;
 
 protected:
   BluetoothService()

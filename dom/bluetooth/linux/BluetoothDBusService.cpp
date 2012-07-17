@@ -1155,3 +1155,57 @@ BluetoothDBusService::RemoveDeviceInternal(const nsAString& aAdapterPath,
   return ret;
 }
 
+bool
+BluetoothDBusService::SetPinCodeInternal(const nsAString& aPinCode, PRUint32 aMsgAddress)
+{
+  const char *pinCode = NS_ConvertUTF16toUTF8(aPinCode).get();
+
+  DBusMessage *msg = (DBusMessage*)aMsgAddress;
+  DBusMessage *reply = dbus_message_new_method_return(msg);
+  dbus_message_append_args(reply,
+                           DBUS_TYPE_STRING, &pinCode,
+                           DBUS_TYPE_INVALID);
+
+  bool result = dbus_connection_send(mConnection, reply, NULL);
+  dbus_message_unref(msg);
+  dbus_message_unref(reply);
+
+  return result;
+}
+
+bool
+BluetoothDBusService::SetPasskeyInternal(PRUint32 aPasskey, PRUint32 aMsgAddress)
+{
+  uint32_t passkey = aPasskey;
+
+  DBusMessage *msg = (DBusMessage*)aMsgAddress;
+  DBusMessage *reply = dbus_message_new_method_return(msg);
+  dbus_message_append_args(reply,
+                           DBUS_TYPE_UINT32, (uint32_t *)&passkey,
+                           DBUS_TYPE_INVALID);
+
+  bool result = dbus_connection_send(mConnection, reply, NULL);
+  dbus_message_unref(msg);
+  dbus_message_unref(reply);
+
+  return result;
+}
+
+bool
+BluetoothDBusService::SetPairingConfirmationInternal(bool aConfirm, PRUint32 aMsgAddress)
+{
+  DBusMessage *msg = (DBusMessage*)aMsgAddress;
+  DBusMessage *reply;
+ 
+  if (aConfirm) {
+    reply = dbus_message_new_method_return(msg);   
+  } else {
+    reply = dbus_message_new_error(msg,"org.bluez.Error.Rejected", "User rejected confirmation");
+  }
+
+  bool result = dbus_connection_send(mConnection, reply, NULL);
+  dbus_message_unref(msg);
+  dbus_message_unref(reply);
+
+  return result;
+}

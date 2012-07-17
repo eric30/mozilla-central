@@ -57,6 +57,15 @@ public:
                        BluetoothReplyRunnable* aRunnable);
 
   virtual bool RegisterAgent(const nsAString& aAdapterPath);
+  
+  virtual bool
+  SetPinCodeInternal(const nsAString& aPinCode, PRUint32 aMsgAddress);
+  
+  virtual bool
+  SetPasskeyInternal(PRUint32 aPasskey, PRUint32 aMsgAddress);
+
+  virtual bool 
+  SetPairingConfirmationInternal(bool aConfirm, PRUint32 aMsgAddress);
 
 private:
   nsresult SendGetPropertyMessage(const nsAString& aPath,
