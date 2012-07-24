@@ -72,6 +72,9 @@ public:
     adapter = BluetoothAdapter::Create(mManagerPtr->GetOwner(),
                                        path);
 
+    BluetoothService* bs = BluetoothService::Get();
+    bs->RegisterAgent(path);
+
     nsresult rv;
     nsIScriptContext* sc = mManagerPtr->GetContextForEventHandlers(&rv);
     if (!sc) {
@@ -277,6 +280,7 @@ NS_NewBluetoothManager(nsPIDOMWindow* aWindow,
   NS_ASSERTION(aWindow, "Null pointer!");
 
   bool allowed;
+  
   nsresult rv = nsContentUtils::IsOnPrefWhitelist(aWindow, DOM_BLUETOOTH_URL_PREF, &allowed);
   NS_ENSURE_SUCCESS(rv, rv);
 
