@@ -44,6 +44,8 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(BluetoothAdapter,
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE_SCRIPT_OBJECTS
   NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicefound)
   NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicedisappeared)
+  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(devicecreated)
+  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(deviceremoved)
   NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(propertychanged)
   NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(requestconfirmation)
   NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(requestpincode)
@@ -57,6 +59,8 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothAdapter,
   tmp->Unroot();
   NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicefound)
   NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicedisappeared)
+  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(devicecreated)
+  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(deviceremoved)
   NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(propertychanged)  
   NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(requestconfirmation)
   NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(requestpincode)
@@ -222,7 +226,19 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
   if (aData.name().EqualsLiteral("DeviceFound")) {
     nsRefPtr<BluetoothDevice> d = BluetoothDevice::Create(GetOwner(), mPath, aData.value());
     nsRefPtr<BluetoothDeviceEvent> e = BluetoothDeviceEvent::Create(d);
-    e->Dispatch(ToIDOMEventTarget(), NS_LITERAL_STRING("devicefound"));
+    e->Dispatch(ToIDOMEventTarget(), NS_LITERAL_STRING("devicefound"));  
+  } else if (aData.name().EqualsLiteral("DeviceDisappeared")) {
+    nsRefPtr<BluetoothDevice> d = BluetoothDevice::Create(GetOwner(), mPath, aData.value());
+    nsRefPtr<BluetoothDeviceEvent> e = BluetoothDeviceEvent::Create(d);
+    e->Dispatch(ToIDOMEventTarget(), NS_LITERAL_STRING("devicedisappeared"));
+  } else if (aData.name().EqualsLiteral("DeviceCreated")) {
+    nsRefPtr<BluetoothDevice> d = BluetoothDevice::Create(GetOwner(), mPath, aData.value());
+    nsRefPtr<BluetoothDeviceEvent> e = BluetoothDeviceEvent::Create(d);
+    e->Dispatch(ToIDOMEventTarget(), NS_LITERAL_STRING("devicecreated"));
+  } else if (aData.name().EqualsLiteral("DeviceRemoved")) {
+    nsRefPtr<BluetoothDevice> d = BluetoothDevice::Create(GetOwner(), mPath, aData.value());
+    nsRefPtr<BluetoothDeviceEvent> e = BluetoothDeviceEvent::Create(d);
+    e->Dispatch(ToIDOMEventTarget(), NS_LITERAL_STRING("deviceremoved"));
   } else if (aData.name().EqualsLiteral("PropertyChanged")) {
     // Get BluetoothNamedValue, make sure array length is 1
     arr = aData.value().get_ArrayOfBluetoothNamedValue();
@@ -581,6 +597,8 @@ BluetoothAdapter::SetAuthorization(const nsAString& aDeviceAddress, bool aAllow)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, propertychanged)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicefound)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicedisappeared)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicecreated)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, deviceremoved)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestconfirmation)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestpincode)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestpasskey)
