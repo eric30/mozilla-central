@@ -192,11 +192,15 @@ public:
                              const nsAString& aAddress,
                              int aTimeout,
                              BluetoothReplyRunnable* aRunnable) = 0;
-
+                              
   virtual nsresult 
   RemoveDeviceInternal(const nsAString& aAdapterPath,
                        const nsAString& aObjectPath,
                        BluetoothReplyRunnable* aRunnable) = 0;
+
+  virtual nsTArray<PRUint32> 
+  AddServicesInternal(const nsAString& aAdapterPath,
+                      const nsTArray<PRUint32>& aServices) = 0;
 
   virtual bool RegisterAgent(const nsAString& aAdapterPath) = 0;
   virtual bool SetPinCodeInternal(const nsAString& aDeviceAddress, const nsAString& aPinCode) = 0;

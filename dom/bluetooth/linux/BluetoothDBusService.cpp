@@ -1203,6 +1203,60 @@ BluetoothDBusService::RemoveDeviceInternal(const nsAString& aAdapterPath,
   return NS_OK;
 }
 
+static void
+ExtractHandles(DBusMessage *aReply, nsTArray<PRUint32>& aOutHandles)
+{
+  uint32_t* handles = NULL;
+  int len;
+
+  DBusError err;
+  dbus_error_init(&err);
+
+  if (dbus_message_get_args(aReply, &err,
+                            DBUS_TYPE_ARRAY, DBUS_TYPE_UINT32, &handles, &len,
+                            DBUS_TYPE_INVALID)) {
+    if (!handles) {
+      LOG("Null array in extract_handles");
+    } else {
+      for (int i = 0;i < len;++i) {
+        aOutHandles.AppendElement(handles[i]);
+      }
+    }
+  } else {
+    LOG_AND_FREE_DBUS_ERROR(&err);
+  }
+}
+
+nsTArray<PRUint32>
+BluetoothDBusService::AddServicesInternal(const nsAString& aAdapterPath,
+                                          const nsTArray<PRUint32>& aServices)
+{
+  nsTArray<PRUint32> ret;
+  const char* adapterPath = NS_ConvertUTF16toUTF8(aAdapterPath).get();
+  int length = aServices.Length();
+  if (length == 0) return ret;
+
+  // Due to aServices.Elements() returns 'const' unsigned int*, we 
+  // need another service uuid array to be passed into dbus_func_args.
+  uint32_t* servicesArray = new uint32_t[length];
+  memcpy(servicesArray, aServices.Elements(), sizeof(uint32_t) * length);
+
+  DBusMessage* reply = dbus_func_args(mConnection,
+                                      adapterPath,
+                                      DBUS_ADAPTER_IFACE, "AddReservedServiceRecords",
+                                      DBUS_TYPE_ARRAY, DBUS_TYPE_UINT32,
+                                      &servicesArray, length, DBUS_TYPE_INVALID);
+  delete [] servicesArray;
+
+  if (!reply) {
+    LOG("Null DBus message. Couldn't extract handles.");
+  } else {
+    ExtractHandles(reply, ret);
+  }
+
+  return ret;
+}
+
 bool
 BluetoothDBusService::SetPinCodeInternal(const nsAString& aDeviceAddress, const nsAString& aPinCode)
 {

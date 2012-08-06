@@ -56,6 +56,10 @@ public:
                        const nsAString& aDeviceObjectPath,
                        BluetoothReplyRunnable* aRunnable);
 
+  virtual nsTArray<PRUint32>
+  AddServicesInternal(const nsAString& aAdapterPath,
+                      const nsTArray<PRUint32>& aServices);
+
   virtual bool RegisterAgent(const nsAString& aAdapterPath);
 
   virtual bool
