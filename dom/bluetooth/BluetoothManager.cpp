@@ -274,16 +274,19 @@ nsresult
 NS_NewBluetoothManager(nsPIDOMWindow* aWindow,
                        nsIDOMBluetoothManager** aBluetoothManager)
 {
+  /*
   NS_ASSERTION(aWindow, "Null pointer!");
+  nsPIDOMWindow* innerWindow = aWindow->IsInnerWindow() ? aWindow : aWindow->GetCurrentInnerWindow();
 
   bool allowed;
-  nsresult rv = nsContentUtils::IsOnPrefWhitelist(aWindow, DOM_BLUETOOTH_URL_PREF, &allowed);
+  nsresult rv = nsContentUtils::IsOnPrefWhitelist(innerWindow, DOM_BLUETOOTH_URL_PREF, &allowed);
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (!allowed) {
     *aBluetoothManager = nullptr;
     return NS_OK;
   }
+  */
 
   nsRefPtr<BluetoothManager> bluetoothManager = BluetoothManager::Create(aWindow);
   if (!bluetoothManager) {
