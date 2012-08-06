@@ -24,6 +24,16 @@
 
 #define DOM_BLUETOOTH_URL_PREF "dom.mozBluetooth.whitelist"
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
+
 using namespace mozilla;
 using mozilla::Preferences;
 
@@ -89,6 +99,23 @@ public:
       NS_WARNING("Cannot create native object!");
       SetError(NS_LITERAL_STRING("BluetoothNativeObjectError"));
     }
+
+    // xxx ======= TEMP ======= 
+    //  for AddServices testing
+    BluetoothService* bs = BluetoothService::Get();
+
+    nsTArray<PRUint32> services;
+
+    services.AppendElement(0x111F); // HFP_AG
+    services.AppendElement(0x1105); // OPP
+    services.AppendElement(0x1112); // HSP_AG
+
+    nsTArray<PRUint32> handles = bs->AddServicesInternal(path, services);
+
+    for (int i = 0; i < handles.Length(); ++i) {
+      LOG("Service Handle: %u", handles[i]);
+    }
+    // xxx ======== END TEMP =========
 
     return result;
   }
