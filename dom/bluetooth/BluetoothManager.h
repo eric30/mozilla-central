@@ -33,12 +33,17 @@ public:
                                            nsDOMEventTargetHelper)
 
 
-  inline void SetEnabledInternal(bool aEnabled) {mEnabled = aEnabled;}
+  inline void SetEnabledInternal(bool aEnabled) {
+    mEnabled = aEnabled;
+  }
 
   static already_AddRefed<BluetoothManager>
   Create(nsPIDOMWindow* aWindow);
   void Notify(const BluetoothSignal& aData);
   virtual void SetPropertyByValue(const BluetoothNamedValue& aValue);
+
+  // xxx TEMP : Just for test
+  nsTArray<PRUint32> mServiceHandles;
 private:
   BluetoothManager(nsPIDOMWindow* aWindow);
   ~BluetoothManager();

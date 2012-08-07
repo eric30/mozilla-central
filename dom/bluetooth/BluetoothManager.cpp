@@ -110,10 +110,10 @@ public:
     services.AppendElement(0x1105); // OPP
     services.AppendElement(0x1112); // HSP_AG
 
-    nsTArray<PRUint32> handles = bs->AddServicesInternal(path, services);
+    mManagerPtr->mServiceHandles = bs->AddServicesInternal(path, services);
 
-    for (int i = 0; i < handles.Length(); ++i) {
-      LOG("Service Handle: %u", handles[i]);
+    for (int i = 0; i < mManagerPtr->mServiceHandles.Length(); ++i) {
+      LOG("Service Handle: %u", mManagerPtr->mServiceHandles[i]);
     }
     // xxx ======== END TEMP =========
 
@@ -153,6 +153,7 @@ public:
     MOZ_ASSERT(NS_IsMainThread());
     *aValue = JSVAL_VOID;
     mManagerPtr->SetEnabledInternal(mEnabled);
+
     return true;
   }
 
@@ -230,6 +231,8 @@ BluetoothManager::SetEnabled(bool aEnabled, nsIDOMDOMRequest** aDomRequest)
     }
   }
   else {
+    bs->RemoveServicesInternal(mPath, mServiceHandles);
+
     if (NS_FAILED(bs->Stop(results))) {
       return NS_ERROR_FAILURE;
     }
