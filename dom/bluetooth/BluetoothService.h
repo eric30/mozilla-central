@@ -200,7 +200,11 @@ public:
 
   virtual nsTArray<PRUint32> 
   AddServicesInternal(const nsAString& aAdapterPath,
-                      const nsTArray<PRUint32>& aServices) = 0;
+                      const nsTArray<PRUint32>& aServices) = 0;  
+                      
+  virtual bool
+  RemoveServicesInternal(const nsAString& aAdapterPath,
+                         const nsTArray<PRUint32>& aServiceHandles) = 0;
 
   virtual bool RegisterAgent(const nsAString& aAdapterPath) = 0;
   virtual bool SetPinCodeInternal(const nsAString& aDeviceAddress, const nsAString& aPinCode) = 0;

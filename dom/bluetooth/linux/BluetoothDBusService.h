@@ -60,6 +60,10 @@ public:
   AddServicesInternal(const nsAString& aAdapterPath,
                       const nsTArray<PRUint32>& aServices);
 
+  virtual bool
+  RemoveServicesInternal(const nsAString& aAdapterPath,
+                         const nsTArray<PRUint32>& aServiceHandles);
+
   virtual bool RegisterAgent(const nsAString& aAdapterPath);
 
   virtual bool

@@ -1258,6 +1258,34 @@ BluetoothDBusService::AddServicesInternal(const nsAString& aAdapterPath,
 }
 
 bool
+BluetoothDBusService::RemoveServicesInternal(const nsAString& aAdapterPath,
+                                             const nsTArray<PRUint32>& aServiceHandles)
+{
+  const char* adapterPath = NS_ConvertUTF16toUTF8(aAdapterPath).get();
+
+  DBusMessage *msg = NULL;
+  DBusMessage *reply = NULL;
+
+  int length = aServiceHandles.Length();
+  if (length == 0) return false;  
+  
+  // Due to aServiceHandles.Elements() returns 'const' unsigned int*, we 
+  // need another service uuid array to be passed into dbus_func_args.
+  uint32_t* servicesArray = new uint32_t[length];
+  memcpy(servicesArray, aServiceHandles.Elements(), sizeof(uint32_t) * length);
+
+  reply = dbus_func_args(mConnection,
+                         adapterPath,                    
+                         DBUS_ADAPTER_IFACE, "RemoveReservedServiceRecords",
+                         DBUS_TYPE_ARRAY, DBUS_TYPE_UINT32,
+                         &servicesArray, length, DBUS_TYPE_INVALID);
+
+  delete [] servicesArray;
+
+  return reply ? true : false;
+}
+
+bool
 BluetoothDBusService::SetPinCodeInternal(const nsAString& aDeviceAddress, const nsAString& aPinCode)
 {
   DBusMessage *msg;
