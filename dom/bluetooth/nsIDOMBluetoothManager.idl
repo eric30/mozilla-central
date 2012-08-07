@@ -16,4 +16,5 @@ interface nsIDOMBluetoothManager : nsIDOMEventTarget
 
   nsIDOMDOMRequest getDefaultAdapter();
   nsIDOMDOMRequest setEnabled(in boolean enabled);
+  long TempQueryServerChannel(in DOMString aDeviceAddress, in DOMString aServiceUuid);
 };

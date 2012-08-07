@@ -337,3 +337,14 @@ BluetoothManager::Notify(const BluetoothSignal& aData)
   NS_WARNING(warningMsg.get());
 #endif
 }
+
+nsresult
+BluetoothManager::TempQueryServerChannel(const nsAString& aDeviceAddress, 
+                                         const nsAString& aServiceUuid,
+                                         PRInt32* aChannel)
+{
+  BluetoothService* bs = BluetoothService::Get();
+  *aChannel = bs->GetDeviceServiceChannelInternal(aDeviceAddress, aServiceUuid, 0x0004);
+
+  return NS_OK;
+}
