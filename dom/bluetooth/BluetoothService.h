@@ -206,6 +206,11 @@ public:
   RemoveServicesInternal(const nsAString& aAdapterPath,
                          const nsTArray<PRUint32>& aServiceHandles) = 0;
 
+  virtual int 
+  GetDeviceServiceChannelInternal(const nsAString& aObjectPath,
+                                  const nsAString& aPattern,
+                                  int aAttributeId) = 0;
+
   virtual bool RegisterAgent(const nsAString& aAdapterPath) = 0;
   virtual bool SetPinCodeInternal(const nsAString& aDeviceAddress, const nsAString& aPinCode) = 0;
   virtual bool SetPasskeyInternal(const nsAString& aDeviceAddress, PRUint32 aPasskey) = 0;

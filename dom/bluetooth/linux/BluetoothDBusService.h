@@ -64,6 +64,11 @@ public:
   RemoveServicesInternal(const nsAString& aAdapterPath,
                          const nsTArray<PRUint32>& aServiceHandles);
 
+  virtual int 
+  GetDeviceServiceChannelInternal(const nsAString& aObjectPath,
+                                  const nsAString& aPattern,
+                                  int aAttributeId);
+
   virtual bool RegisterAgent(const nsAString& aAdapterPath);
 
   virtual bool

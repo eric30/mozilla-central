@@ -1285,6 +1285,28 @@ BluetoothDBusService::RemoveServicesInternal(const nsAString& aAdapterPath,
   return reply ? true : false;
 }
 
+int 
+BluetoothDBusService::GetDeviceServiceChannelInternal(const nsAString& aObjectPath,
+                                                      const nsAString& aPattern,
+                                                      int aAttributeId)
+{
+  const char* deviceObjectPath = NS_ConvertUTF16toUTF8(aObjectPath).get();
+  const char* pattern = NS_ConvertUTF16toUTF8(aPattern).get();
+
+  LOG("deviceObjectPath = %s", deviceObjectPath);
+  LOG("pattern = %s", pattern);
+  LOG("attr_id = %d", aAttributeId);
+
+  DBusMessage *reply = 
+    dbus_func_args(mConnection, deviceObjectPath,
+                   DBUS_DEVICE_IFACE, "GetServiceAttributeValue",
+                   DBUS_TYPE_STRING, &pattern,
+                   DBUS_TYPE_UINT16, &aAttributeId,
+                   DBUS_TYPE_INVALID);
+
+  return reply ? dbus_returns_int32(reply) : -1;
+}
+
 bool
 BluetoothDBusService::SetPinCodeInternal(const nsAString& aDeviceAddress, const nsAString& aPinCode)
 {
